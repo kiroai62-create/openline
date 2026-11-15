@@ -19,6 +19,7 @@ interface DeviceRow {
   last_seen_at: string;
   health: string | null;
   health_at: string | null;
+  client_id: string | null;
 }
 
 interface CallRow {
@@ -156,6 +157,7 @@ export class StateStore {
       lastSeenAt: row.last_seen_at,
       ...(row.health ? { health: { ...parseJson<DeviceHealth>(row.health)!, reportedAt: row.health_at! } } : {}),
       ...(latencyMs !== undefined ? { latencyMs } : {}),
+      ...(row.client_id ? { clientId: row.client_id } : {}),
     };
   }
 
@@ -266,7 +268,11 @@ export class StateStore {
       event.payload.direction === "incoming" || event.payload.direction === "outgoing"
         ? event.payload.direction
         : undefined;
-    const state = eventToCallState(event.event);
+    // The phone reports a failed command (hold, DTMF, answer...) as call.failed with the action
+    // in the payload. Only a failed dial ends the call; otherwise the call is still where it was.
+    const failedAction = event.event === "call.failed" ? event.payload.action : undefined;
+    const commandFailedOnLiveCall = current !== undefined && typeof failedAction === "string" && failedAction !== "dial";
+    const state = commandFailedOnLiveCall ? current.state : eventToCallState(event.event);
     const answeredAt = state === "active" ? now : null;
     const endedAt = ENDED_STATES.has(state) ? now : null;
 

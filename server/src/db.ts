@@ -119,6 +119,17 @@ const MIGRATIONS: string[] = [
   `
   ALTER TABLE calls ADD COLUMN stream TEXT;
   `,
+  // Clients: businesses the receptionist answers for, each with its own phones.
+  `
+  CREATE TABLE clients (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    settings TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+  ALTER TABLE devices ADD COLUMN client_id TEXT;
+  `,
 ];
 
 function migrate(db: Database): void {

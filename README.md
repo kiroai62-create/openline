@@ -39,6 +39,18 @@ streams the conversation both ways. Your agent hangs up by closing the socket.
 - **Self-hosted:** one Node.js process and one SQLite file. Expose it with Tailscale Funnel or
   Cloudflare Tunnel.
 
+## AI receptionist for clients
+
+Run the receptionist for many businesses from one server. In the console's **Clients** page, each
+client gets its own phone (SIM), knowledge, booking link and WhatsApp gateway. Their calls are
+answered 24/7, questions are answered from the client's information, and the booking link goes
+out on WhatsApp. The console name can be changed to your own brand (**Settings → Server**).
+
+- [DEPLOYMENT.md](DEPLOYMENT.md): server, APK, phone and client setup, step by step
+- [docs/brochure/AI-Receptionist-Overview.pdf](docs/brochure/AI-Receptionist-Overview.pdf): client presentation
+  (rebuild with your brand: `python docs/brochure/make_brochure.py --brand "..." --phone "..."`)
+- [clients/32-teeth-hospital.md](clients/32-teeth-hospital.md): example client knowledge
+
 ## How it works
 
 ```text

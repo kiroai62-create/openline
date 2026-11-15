@@ -18,6 +18,8 @@ const gateway = createGatewayServer({
   dataDir: process.env.DATA_DIR ?? "data",
   publicUrl: process.env.PUBLIC_URL,
   docsUrl: process.env.DOCS_URL,
+  whatsappGatewayUrl: process.env.WHATSAPP_GATEWAY_URL,
+  whatsappApiSecret: process.env.WHATSAPP_API_SECRET,
 });
 
 gateway.httpServer.listen(port, host, () => {

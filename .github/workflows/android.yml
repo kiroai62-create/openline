@@ -1,0 +1,45 @@
+name: Android APK
+
+# Builds the phone app. Download it from the run's "Artifacts" section.
+# Run it by hand (Actions -> Android APK -> Run workflow) to set the name shown on the phone.
+on:
+  push:
+    branches: [main]
+    paths: ["android/**", ".github/workflows/android.yml"]
+  workflow_dispatch:
+    inputs:
+      app_name:
+        description: "App name shown on the phone (letters, digits and spaces)"
+        required: false
+        default: "OpenLine"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: android-actions/setup-android@v3
+      - name: Set app name
+        if: ${{ inputs.app_name != '' && inputs.app_name != 'OpenLine' }}
+        env:
+          APP_NAME: ${{ inputs.app_name }}
+        run: |
+          case "$APP_NAME" in *[!A-Za-z0-9\ ]*) echo "Use letters, digits and spaces only"; exit 1;; esac
+          sed -i "s|<string name=\"app_name\">.*</string>|<string name=\"app_name\">$APP_NAME</string>|" app/src/main/res/values/strings.xml
+          grep app_name app/src/main/res/values/strings.xml
+      - name: Build
+        run: chmod +x gradlew && ./gradlew --no-daemon :protocol:test :app:assembleDebug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: phone-app-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk

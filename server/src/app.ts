@@ -24,12 +24,17 @@ import {
   deviceEventSchema,
   dtmfBodySchema,
   registerDeviceSchema,
+  whatsappTestSchema,
+  createClientSchema,
+  updateClientSchema,
 } from "./schemas.js";
 import type { AgentManager } from "./agent/agent-manager.js";
 import type { StreamManager } from "./stream/stream-manager.js";
 import { MEDIA_FORMAT } from "./media-relay.js";
 import { PairingService, pairUri } from "./pairing.js";
 import type { StateStore } from "./state.js";
+import { renderTemplate, sendWhatsApp, toWhatsAppNumber, whatsappFromClient, whatsappFromConfig, type WhatsAppTarget } from "./agent/whatsapp.js";
+import type { ClientStore } from "./clients.js";
 
 export interface AppDependencies {
   auth: AuthService;
@@ -41,6 +46,7 @@ export interface AppDependencies {
   agents?: AgentManager;
   streams?: StreamManager;
   pairing?: PairingService;
+  clients?: ClientStore;
 }
 
 export function createApp(deps: AppDependencies) {
@@ -109,6 +115,7 @@ export function createApp(deps: AppDependencies) {
     const setupRequired = deps.auth.setupRequired;
     const user = deps.auth.sessionUser(deps.auth.sessionToken(request));
     response.json({
+      brandName: deps.config.get("brandName") ?? null,
       setupRequired,
       // Creating the first account through a tunnel also needs the setup key from server/.env.
       setupKeyRequired: setupRequired && !deps.auth.isLocalRequest(request),
@@ -234,6 +241,7 @@ export function createApp(deps: AppDependencies) {
       publicUrl: deps.config.get("publicUrl") ?? null,
       docsUrl: deps.config.get("docsUrl") ?? null,
       requestOrigin: `${request.protocol}://${request.host}`,
+      brandName: deps.config.get("brandName") ?? null,
     });
   });
 
@@ -373,7 +381,110 @@ export function createApp(deps: AppDependencies) {
       configured: agents?.configured ?? false,
       model: agents?.model,
       settings: agents?.settings,
+      whatsapp: Boolean(whatsappFromConfig(deps.config)),
     });
+  });
+
+  // Sends the booking message to a number, to check a WhatsApp gateway setup.
+  async function whatsappTest(request: Request, response: Response, target: WhatsAppTarget | undefined, business: string, link: string) {
+    const parsed = whatsappTestSchema.safeParse(request.body);
+    if (!parsed.success) return validationError(response, parsed.error.issues);
+    if (!target) {
+      return response.status(409).json(errorBody("WHATSAPP_NOT_SET", "set the WhatsApp gateway address and secret first"));
+    }
+    const to = toWhatsAppNumber(parsed.data.to, target.countryCode);
+    if (!to) return response.status(400).json(errorBody("INVALID_NUMBER", "enter a WhatsApp number with 10 or more digits"));
+    const text = renderTemplate(target.message, { name: "", business, link });
+    try {
+      await sendWhatsApp(target, to, text);
+      return response.json({ ok: true, to, text });
+    } catch (error) {
+      return response.status(502).json(errorBody("WHATSAPP_FAILED", (error as Error).message));
+    }
+  }
+
+  app.post("/v1/whatsapp/test", (request, response) => {
+    const settings = deps.agents?.settings;
+    return whatsappTest(
+      request,
+      response,
+      whatsappFromConfig(deps.config),
+      settings?.businessName || settings?.ownerName || "OpenLine",
+      settings?.bookingUrl ?? "",
+    );
+  });
+
+  // ---- Clients: businesses the receptionist answers for, each with its own phones ----
+  const clientsOr404 = (response: Response) => {
+    if (!deps.clients) response.status(404).json(errorBody("NOT_FOUND", "clients unavailable"));
+    return deps.clients;
+  };
+
+  /** Assigns exactly these phones to the client (phones of other clients move over). */
+  function setClientDevices(clients: ClientStore, clientId: string, deviceIds: string[] | undefined): string | undefined {
+    if (!deviceIds) return undefined;
+    const unknown = deviceIds.find((id) => !deps.state.getDevice(id));
+    if (unknown) return unknown;
+    for (const id of clients.deviceIds(clientId)) if (!deviceIds.includes(id)) clients.assignDevice(id, null);
+    for (const id of deviceIds) clients.assignDevice(id, clientId);
+    return undefined;
+  }
+
+  app.get("/v1/clients", (_request, response) => {
+    const clients = clientsOr404(response);
+    if (!clients) return;
+    response.json({ clients: clients.list().map((c) => clients.view(c)) });
+  });
+
+  app.post("/v1/clients", (request, response) => {
+    const clients = clientsOr404(response);
+    if (!clients) return;
+    const parsed = createClientSchema.safeParse(request.body);
+    if (!parsed.success) return validationError(response, parsed.error.issues);
+    const { deviceIds, ...input } = parsed.data;
+    const client = clients.create(input);
+    const unknown = setClientDevices(clients, client.id, deviceIds);
+    if (unknown) {
+      clients.remove(client.id);
+      return response.status(404).json(errorBody("NOT_FOUND", `phone ${unknown} not found`));
+    }
+    return response.status(201).json({ client: clients.view(clients.get(client.id)!) });
+  });
+
+  app.get("/v1/clients/:id", (request, response) => {
+    const clients = clientsOr404(response);
+    if (!clients) return;
+    const client = clients.get(request.params.id);
+    if (!client) return response.status(404).json(errorBody("NOT_FOUND", "client not found"));
+    return response.json({ client: clients.view(client) });
+  });
+
+  app.put("/v1/clients/:id", (request, response) => {
+    const clients = clientsOr404(response);
+    if (!clients) return;
+    const parsed = updateClientSchema.safeParse(request.body);
+    if (!parsed.success) return validationError(response, parsed.error.issues);
+    if (!clients.get(request.params.id)) return response.status(404).json(errorBody("NOT_FOUND", "client not found"));
+    const { deviceIds, ...patch } = parsed.data;
+    const unknown = setClientDevices(clients, request.params.id, deviceIds);
+    if (unknown) return response.status(404).json(errorBody("NOT_FOUND", `phone ${unknown} not found`));
+    const client = clients.update(request.params.id, patch)!;
+    return response.json({ client: clients.view(client) });
+  });
+
+  app.delete("/v1/clients/:id", (request, response) => {
+    const clients = clientsOr404(response);
+    if (!clients) return;
+    if (!clients.remove(request.params.id)) return response.status(404).json(errorBody("NOT_FOUND", "client not found"));
+    return response.status(204).end();
+  });
+
+  app.post("/v1/clients/:id/whatsapp-test", (request, response) => {
+    const clients = clientsOr404(response);
+    if (!clients) return;
+    const client = clients.get(request.params.id);
+    if (!client) return response.status(404).json(errorBody("NOT_FOUND", "client not found"));
+    return whatsappTest(request, response, whatsappFromClient(client), client.name, client.bookingUrl);
   });
 
   app.put("/v1/agent", (request, response) => {
