@@ -44,19 +44,57 @@ data ya API limit ka doosre client pe koi asar nahi padta.
 
 ## 1. Free server: kaunsa platform
 
-| Platform | Kitna free | Kai clients? | Faisla |
-|---|---|---|---|
-| **Oracle Cloud Always Free** | Hamesha free. Arm VM: kul 2 CPU, 12 GB RAM (June 2026 se). Saath mein 2 chhote AMD VM | Haan, ek VM pe 15-20 client aaraam se | **Sabse achha.** Signup pe card verify hota hai, charge nahi hota |
-| Google Cloud e2-micro | Hamesha free, 1 GB RAM, sirf US regions | 2-3 client | Backup option. US server ki wajah se thoda delay |
-| Render / Koyeb free | 15 min baad so jaata hai, data disk nahi | Nahi | **Mat lein.** Soya hua server call nahi utha sakta, aur restart pe data mit jaata hai |
-| Hugging Face Spaces | 48 ghante baad so jaata hai, data disk paid | Nahi | Call server ke liye mat lein (WhatsApp gateway ke liye theek hai) |
-| Ghar ka PC + Tailscale Funnel | Free | 1 client | Sirf testing ke liye. PC band to calls band |
+**Client ko Oracle ya kisi cloud ka account banane ki zaroorat nahi hai.** Server **aapke** account
+pe chalta hai. Ek hi VM pe har client ka alag deployment hota hai: alag folder, alag database, alag
+service, alag address. API limit server se nahi, **API key** se judi hai, aur wo keys client ke
+apne Google, Groq ya Sarvam account ki hoti hain (Step 6). Isliye ek aapka Oracle VM saare clients
+ke liye kaafi hai.
 
-Upar wali jaankari November 2026 ki hai. Free plans badalte rehte hain, signup se pehle provider
-ki site pe dekh lein.
+Agar Oracle mein VM na mile ("out of capacity"), ya kisi client ko alag server chahiye, to ye
+options hain:
 
-**Server ki jagah:** Oracle mein region **India West (Mumbai)** ya **India South (Hyderabad)**
-chunein. Call ki awaaz server se aati-jaati hai, to paas wala server matlab kam delay.
+| Platform | Kitne din free | Machine | India server? | Kai clients? | Note |
+|---|---|---|---|---|---|
+| **Oracle Cloud Always Free** | Hamesha | Arm: kul 2 CPU, 12 GB RAM | Haan (Mumbai, Hyderabad) | 15-20 | **Pehli pasand.** Card verify hota hai, charge nahi |
+| **Microsoft Azure free account** | **12 mahine** | B1s / B2ats v2 / B2pts v2, 750 ghante/mahina (1 VM 24×7) | Haan (Central India, Pune) | 3-5 | **Doosri pasand, 1 saal ke liye.** 30 din baad "pay as you go" mein upgrade karna padta hai, tabhi 12 mahine ka free chalta hai. Free limit se bahar gaye to bill banta hai |
+| **Google Cloud e2-micro** | Hamesha | 2 chhote vCPU, 1 GB RAM | Nahi, sirf US (us-central1, us-west1, us-east1) | 1-2 | Hamesha free, lekin US ki wajah se har jawab mein ~0.25 s zyada delay. Sirf **1 GB/mahina** bahar jaane wala data free, uske baad kuch paise lagte hain (neeche dekhein) |
+| Clinic ka apna PC / purana laptop + Tailscale Funnel | Hamesha | Jo bhi ho | Clinic mein | 1 | Free hai, lekin PC, bijli aur internet 24 ghante chalu rehne chahiye |
+| AWS | Sirf 6 mahine ($100-200 credit) | | Haan | | 1 saal nahi chalega. July 2025 se naye accounts ka 12 mahine wala free khatam ho gaya |
+| Render / Koyeb / Hugging Face | Free, lekin so jaate hain | | | Nahi | **Mat lein.** Soya hua server call nahi uthata, aur data mit jaata hai |
+
+**Data ka hisaab:** ek minute ki call mein server se bahar lagbhag 3-4 MB data jaata hai (phone ko
+AI ki awaaz, aur AI ko caller ki awaaz). Matlab 1 GB mein lagbhag 250-300 minute.
+- Oracle mein mahine ka 10 TB free hai, isliye wahan fikr ki baat nahi.
+- Google Cloud mein 1 GB ke baad lagbhag $0.12 (₹10) per GB lagta hai. Har 1000 minute pe kuch
+  dollar.
+- Azure ka free data limit signup ke waqt unki pricing page pe dekh lein.
+
+**Budget plan (agar free na chale):** ek sasta VPS (Hostinger, Hetzner, DigitalOcean, ₹400-800
+mahina) lein aur usi pe saare clients chalayein. Scripts bilkul waise hi chalti hain.
+
+Ye jaankari November 2026 ki hai. Free plans badalte rehte hain, signup se pehle provider ki site
+pe dekh lein.
+
+**Server ki jagah:** India ka region chunein (Oracle: Mumbai ya Hyderabad, Azure: Central India).
+Call ki awaaz server se aati-jaati hai, to paas wala server matlab kam delay.
+
+### Azure ya Google Cloud pe VM
+
+`setup-vm.sh` aur `new-client.sh` kisi bhi **Ubuntu 22.04/24.04** VM pe chalti hain.
+
+- **Azure:** portal.azure.com → **Virtual machines → Create**. Region: Central India. Image: Ubuntu
+  24.04. Size: free account wala (B1s ya B2ats v2, "Free services eligible" likha hota hai). Disk:
+  Standard SSD (64 GB tak free). **Inbound ports:** SSH, HTTP, HTTPS chunein.
+- **Google Cloud:** console.cloud.google.com → **Compute Engine → Create instance**. Region:
+  us-central1. Machine: **e2-micro**. Boot disk: Ubuntu 24.04, **Standard persistent disk 30 GB**.
+  **Allow HTTP** aur **Allow HTTPS traffic** tick karein. RAM 1 GB hai, isliye install se pehle swap
+  bana lein:
+  ```bash
+  sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile
+  echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+  ```
+
+Uske baad Step 2 se aage sab waise hi karein.
 
 ### 1.1 Oracle Cloud pe VM banana
 
