@@ -10,6 +10,13 @@ export interface GatewayConfig {
   /** Every incoming call is answered and streamed to this agent WebSocket. */
   incomingStreamUrl?: string;
   incomingStreamFormat?: string;
+  /** WhatsApp gateway (POST /send with X-API-KEY) used to send the booking link after a call. */
+  whatsappGatewayUrl?: string;
+  whatsappApiSecret?: string;
+  /** Added to 10-digit local numbers before sending, e.g. "91". */
+  whatsappCountryCode?: string;
+  /** Message template with {name}, {business} and {link}. */
+  whatsappMessage?: string;
 }
 
 const KEYS = [
@@ -20,6 +27,10 @@ const KEYS = [
   "docsUrl",
   "incomingStreamUrl",
   "incomingStreamFormat",
+  "whatsappGatewayUrl",
+  "whatsappApiSecret",
+  "whatsappCountryCode",
+  "whatsappMessage",
 ] as const;
 export type ConfigKey = (typeof KEYS)[number];
 
@@ -49,6 +60,7 @@ export class ConfigStore {
   view() {
     const saved = this.saved();
     const gemini = this.get("geminiApiKey");
+    const waSecret = this.get("whatsappApiSecret");
     return {
       publicUrl: this.get("publicUrl") ?? null,
       webhookUrl: this.get("webhookUrl") ?? null,
@@ -60,6 +72,14 @@ export class ConfigStore {
         configured: Boolean(gemini),
         hint: gemini ? `…${gemini.slice(-4)}` : null,
         source: saved.geminiApiKey ? "console" : gemini ? "env" : null,
+      },
+      whatsappGatewayUrl: this.get("whatsappGatewayUrl") ?? null,
+      whatsappCountryCode: this.get("whatsappCountryCode") ?? "91",
+      whatsappMessage: this.get("whatsappMessage") ?? null,
+      whatsappApiSecret: {
+        configured: Boolean(waSecret),
+        hint: waSecret ? `…${waSecret.slice(-4)}` : null,
+        source: saved.whatsappApiSecret ? "console" : waSecret ? "env" : null,
       },
     };
   }

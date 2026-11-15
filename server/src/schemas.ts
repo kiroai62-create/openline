@@ -81,10 +81,15 @@ export const agentSettingsSchema = z
   .object({
     autoAnswer: z.boolean(),
     ownerName: z.string().trim().min(1).max(80),
-    about: z.string().max(4000),
+    about: z.string().max(20000),
     voice: z.string().trim().min(1).max(40),
+    mode: z.enum(["message", "receptionist"]),
+    businessName: z.string().trim().max(120),
+    bookingUrl: z.union([z.literal(""), z.string().trim().url().regex(/^https?:\/\//, "must be http(s)")]),
   })
   .partial();
+
+export const whatsappTestSchema = z.object({ to: z.string().trim().min(5).max(32) });
 
 export const pairSchema = z.object({
   code: z.string().trim().min(4).max(32),
@@ -135,4 +140,8 @@ export const configSchema = z.object({
   docsUrl: optionalSetting(z.string().trim().url().regex(/^https?:\/\//, "must be http(s)")),
   incomingStreamUrl: optionalSetting(z.string().trim().url().regex(/^wss?:\/\//, "must be ws:// or wss://")),
   incomingStreamFormat: z.enum(["raw", "twilio"]).optional(),
+  whatsappGatewayUrl: optionalSetting(z.string().trim().url().regex(/^https?:\/\//, "must be http(s)")),
+  whatsappApiSecret: optionalSetting(z.string().trim().min(4).max(500)),
+  whatsappCountryCode: optionalSetting(z.string().trim().regex(/^\d{1,4}$/, "digits only, e.g. 91")),
+  whatsappMessage: optionalSetting(z.string().trim().min(1).max(1000)),
 });

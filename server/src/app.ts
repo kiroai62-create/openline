@@ -24,12 +24,14 @@ import {
   deviceEventSchema,
   dtmfBodySchema,
   registerDeviceSchema,
+  whatsappTestSchema,
 } from "./schemas.js";
 import type { AgentManager } from "./agent/agent-manager.js";
 import type { StreamManager } from "./stream/stream-manager.js";
 import { MEDIA_FORMAT } from "./media-relay.js";
 import { PairingService, pairUri } from "./pairing.js";
 import type { StateStore } from "./state.js";
+import { DEFAULT_WHATSAPP_MESSAGE, renderTemplate, type WhatsAppSender } from "./agent/whatsapp.js";
 
 export interface AppDependencies {
   auth: AuthService;
@@ -41,6 +43,7 @@ export interface AppDependencies {
   agents?: AgentManager;
   streams?: StreamManager;
   pairing?: PairingService;
+  whatsapp?: WhatsAppSender;
 }
 
 export function createApp(deps: AppDependencies) {
@@ -373,7 +376,32 @@ export function createApp(deps: AppDependencies) {
       configured: agents?.configured ?? false,
       model: agents?.model,
       settings: agents?.settings,
+      whatsapp: deps.whatsapp?.configured ?? false,
     });
+  });
+
+  // Sends the receptionist's booking message to a number, to check the WhatsApp gateway setup.
+  app.post("/v1/whatsapp/test", async (request, response) => {
+    const parsed = whatsappTestSchema.safeParse(request.body);
+    if (!parsed.success) return validationError(response, parsed.error.issues);
+    const whatsapp = deps.whatsapp;
+    if (!whatsapp?.configured) {
+      return response.status(409).json(errorBody("WHATSAPP_NOT_SET", "set the WhatsApp gateway address and secret first"));
+    }
+    const to = whatsapp.normalize(parsed.data.to);
+    if (!to) return response.status(400).json(errorBody("INVALID_NUMBER", "enter a WhatsApp number with 10 or more digits"));
+    const settings = deps.agents?.settings;
+    const text = renderTemplate(deps.config.get("whatsappMessage") ?? DEFAULT_WHATSAPP_MESSAGE, {
+      name: "",
+      business: settings?.businessName || settings?.ownerName || "OpenLine",
+      link: settings?.bookingUrl ?? "",
+    });
+    try {
+      await whatsapp.send(to, text);
+      return response.json({ ok: true, to, text });
+    } catch (error) {
+      return response.status(502).json(errorBody("WHATSAPP_FAILED", (error as Error).message));
+    }
   });
 
   app.put("/v1/agent", (request, response) => {

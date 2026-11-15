@@ -3,7 +3,8 @@ import type { Database, SettingsStore } from "../db.js";
 import type { DeviceCommandChannel } from "../device-channel.js";
 import type { StateStore } from "../state.js";
 import type { CallRecord, DeviceEventName } from "../types.js";
-import { GeminiCallAgent, type AgentMessage, type TranscriptLine } from "./gemini-call-agent.js";
+import { GeminiCallAgent, type AgentMessage, type AgentMode, type TranscriptLine } from "./gemini-call-agent.js";
+import { DEFAULT_WHATSAPP_MESSAGE, renderTemplate, type WhatsAppSender } from "./whatsapp.js";
 
 export interface AgentSettings {
   /** Answer incoming calls automatically and hand them to the AI assistant. */
@@ -12,6 +13,12 @@ export interface AgentSettings {
   /** Free-form notes about the owner that the assistant may use with callers. */
   about: string;
   voice: string;
+  /** "message" (personal assistant, default) or "receptionist" (answers for a business). */
+  mode: AgentMode;
+  /** Receptionist: the business it answers for. */
+  businessName: string;
+  /** Receptionist: website booking page sent on WhatsApp. */
+  bookingUrl: string;
 }
 
 export interface AgentManagerOptions {
@@ -25,6 +32,8 @@ export interface AgentManagerOptions {
   ownerName?: string;
   /** Loopback URL of this server's client media WebSocket for a call. */
   mediaUrl(callId: string): string;
+  /** Sends the receptionist's booking link on WhatsApp. */
+  whatsapp?: WhatsAppSender;
 }
 
 const LIVE_STATES = new Set<CallRecord["state"]>(["queued", "dialing", "ringing", "active", "held"]);
@@ -41,6 +50,9 @@ export class AgentManager {
       ownerName: options.ownerName ?? "the owner",
       about: "",
       voice: "Kore",
+      mode: "message",
+      businessName: "",
+      bookingUrl: "",
       ...options.settings.get<Partial<AgentSettings>>("agent"),
     };
   }
@@ -109,6 +121,7 @@ export class AgentManager {
     const agent = this.agents.get(callId);
     agent?.stop();
     if (agent) this.saveTranscript(callId, agent.transcript);
+    this.agents.delete(callId);
   }
 
   /**
@@ -133,7 +146,11 @@ export class AgentManager {
 
   private startAgent(call: CallRecord): void {
     const geminiApiKey = this.options.config.get("geminiApiKey");
-    if (this.agents.has(call.id) || !geminiApiKey) return;
+    const current = this.agents.get(call.id);
+    // A finished or failed agent may be replaced (e.g. handed back to the assistant again).
+    if ((current && current.status !== "ended" && current.status !== "error") || !geminiApiKey) return;
+    const whatsapp = this.options.whatsapp;
+    const receptionist = this.settings.mode === "receptionist";
     const agent = new GeminiCallAgent({
       callId: call.id,
       remoteNumber: call.remoteNumber,
@@ -144,12 +161,37 @@ export class AgentManager {
       voice: this.settings.voice,
       ownerName: this.settings.ownerName,
       about: this.settings.about,
+      mode: this.settings.mode,
+      businessName: this.settings.businessName,
+      sendBookingLink:
+        receptionist && whatsapp?.configured
+          ? (args) => this.sendBookingLink(call, args)
+          : undefined,
       onMessage: (message) => this.saveMessage(message),
       onHangup: () => this.command(call, "hangup"),
       onEnded: () => this.saveTranscript(call.id, agent.transcript),
     });
     this.agents.set(call.id, agent);
     void agent.start();
+  }
+
+  /** Sends the booking link to the caller (or the number they gave) and tells the model the outcome. */
+  private async sendBookingLink(call: CallRecord, args: { phoneNumber?: string; patientName?: string }): Promise<string> {
+    const whatsapp = this.options.whatsapp!;
+    const number = whatsapp.normalize(args.phoneNumber ?? call.remoteNumber);
+    if (!number) {
+      return args.phoneNumber
+        ? "That number doesn't look valid. Ask the caller to say it again, digit by digit."
+        : "The caller's number is hidden. Ask for their WhatsApp number, then call send_booking_link with phone_number.";
+    }
+    const text = renderTemplate(this.options.config.get("whatsappMessage") ?? DEFAULT_WHATSAPP_MESSAGE, {
+      name: args.patientName ?? "",
+      business: this.settings.businessName || this.settings.ownerName,
+      link: this.settings.bookingUrl,
+    });
+    await whatsapp.send(number, text);
+    console.log(`booking link sent on WhatsApp for call ${call.id} to …${number.slice(-4)}`);
+    return `Sent on WhatsApp to the number ending in ${number.slice(-4)}.`;
   }
 
   private saveMessage(message: AgentMessage): void {

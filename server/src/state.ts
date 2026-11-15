@@ -266,7 +266,11 @@ export class StateStore {
       event.payload.direction === "incoming" || event.payload.direction === "outgoing"
         ? event.payload.direction
         : undefined;
-    const state = eventToCallState(event.event);
+    // The phone reports a failed command (hold, DTMF, answer...) as call.failed with the action
+    // in the payload. Only a failed dial ends the call; otherwise the call is still where it was.
+    const failedAction = event.event === "call.failed" ? event.payload.action : undefined;
+    const commandFailedOnLiveCall = current !== undefined && typeof failedAction === "string" && failedAction !== "dial";
+    const state = commandFailedOnLiveCall ? current.state : eventToCallState(event.event);
     const answeredAt = state === "active" ? now : null;
     const endedAt = ENDED_STATES.has(state) ? now : null;
 

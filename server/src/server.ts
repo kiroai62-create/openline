@@ -10,6 +10,7 @@ import { DeviceEventService } from "./events.js";
 import { MediaRelay } from "./media-relay.js";
 import { StateStore } from "./state.js";
 import { StreamManager } from "./stream/stream-manager.js";
+import { WhatsAppSender } from "./agent/whatsapp.js";
 import { HttpWebhookDispatcher, type WebhookDispatcher } from "./webhooks.js";
 
 export interface GatewayServerOptions {
@@ -24,6 +25,8 @@ export interface GatewayServerOptions {
   agentOwnerName?: string;
   publicUrl?: string;
   docsUrl?: string;
+  whatsappGatewayUrl?: string;
+  whatsappApiSecret?: string;
   /** Directory of the SQLite database. Without it everything is kept in memory (tests). */
   dataDir?: string;
 }
@@ -50,6 +53,8 @@ export function createGatewayServer(options: GatewayServerOptions): GatewayServe
     publicUrl: options.publicUrl,
     webhookUrl: options.defaultWebhookUrl,
     docsUrl: options.docsUrl,
+    whatsappGatewayUrl: options.whatsappGatewayUrl,
+    whatsappApiSecret: options.whatsappApiSecret,
   });
   const auth = new AuthService(db, options.apiKey);
   const state = new StateStore(db);
@@ -64,6 +69,7 @@ export function createGatewayServer(options: GatewayServerOptions): GatewayServe
     return `ws://127.0.0.1:${port}/v1/calls/${encodeURIComponent(callId)}/media`;
   };
   const streams = new StreamManager({ state, deviceChannel: deviceHub, config, apiKey: options.apiKey, mediaUrl });
+  const whatsapp = new WhatsAppSender(config);
   const agents = new AgentManager({
     state,
     deviceChannel: deviceHub,
@@ -73,12 +79,13 @@ export function createGatewayServer(options: GatewayServerOptions): GatewayServe
     config,
     ownerName: options.agentOwnerName,
     mediaUrl,
+    whatsapp,
   });
   events.onCallEvent = (call, event) => {
     const streamed = streams.onCallEvent(call, event);
     agents.onCallEvent(state.getCall(call.id) ?? call, event, streamed);
   };
-  const app = createApp({ auth, config, state, deviceChannel: deviceHub, events, media, agents, streams });
+  const app = createApp({ auth, config, state, deviceChannel: deviceHub, events, media, agents, streams, whatsapp });
   httpServer = createServer(app);
   deviceHub.attach(httpServer);
   media.attach(httpServer);

@@ -367,17 +367,29 @@
         <div class="panel-body">
           <p class="muted small" id="agentInfo" style="margin:0 0 12px">Checking…</p>
           <label class="switch"><span>Answer incoming calls for me</span><input type="checkbox" id="autoAnswer"></label>
-          <label class="lbl" for="ownerName">Answers on behalf of</label>
+          <label class="lbl" for="agentMode">Role</label>
+          <select class="field" id="agentMode">
+            <option value="message">Personal assistant: takes a message for you</option>
+            <option value="receptionist">Receptionist: answers for your business, sends the booking link</option>
+          </select>
+          <div id="receptionistFields" hidden>
+            <label class="lbl" for="businessName">Business name</label>
+            <input class="field" id="businessName" maxlength="120" placeholder="32 Teeth Hospital">
+            <label class="lbl" for="bookingUrl">Booking link</label>
+            <input class="field" id="bookingUrl" placeholder="https://example.com/book">
+            <p class="hint" id="bookingHint">Sent to the caller on WhatsApp when they want an appointment. Set up WhatsApp in <a href="#/settings">Settings</a>.</p>
+          </div>
+          <label class="lbl" for="ownerName" id="ownerNameLabel">Answers on behalf of</label>
           <input class="field" id="ownerName" placeholder="Your name">
           <label class="lbl" for="voice">Voice</label>
           <select class="field" id="voice">
             <option>Kore</option><option>Puck</option><option>Charon</option><option>Fenrir</option>
             <option>Aoede</option><option>Leda</option><option>Orus</option><option>Zephyr</option>
           </select>
-          <label class="lbl" for="about">About you</label>
-          <textarea class="field" id="about" rows="6" maxlength="4000"
+          <label class="lbl" for="about" id="aboutLabel">About you</label>
+          <textarea class="field" id="about" rows="6" maxlength="20000"
             placeholder="Alex is a software developer. If someone calls about the bike service, he'll pick it up on Saturday. Family can text him if it's urgent. Don't book meetings for him."></textarea>
-          <p class="hint">The assistant uses this on calls and shares only what's written here. Applies from the next call.</p>
+          <p class="hint" id="aboutHint">The assistant uses this on calls and shares only what's written here. Applies from the next call.</p>
           <div class="row" style="margin-top:12px; justify-content:space-between">
             <span class="muted small" id="aboutCount"></span>
             <button class="btn" id="saveOwner">Save</button>
@@ -477,6 +489,26 @@
           <p class="hint">When set, every incoming call is answered and connected to this WebSocket. Your agent ends the call by closing the socket. Leave empty to handle calls yourself or with the built-in assistant.</p>
           <div class="row" style="margin-top:14px; justify-content:flex-end">
             <button class="btn solid" id="saveIncoming">Save</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2>WhatsApp</h2></div>
+        <div class="panel-body">
+          <label class="lbl" for="setWaUrl" style="margin-top:0">WhatsApp gateway address</label>
+          <input class="field" id="setWaUrl" placeholder="https://your-whatsapp-gateway.hf.space">
+          <label class="lbl" for="setWaSecret">Gateway API secret</label>
+          <input class="field" id="setWaSecret" type="password" autocomplete="off">
+          <p class="hint" id="waSecretState"></p>
+          <label class="lbl" for="setWaCountry">Country code for local numbers</label>
+          <input class="field" id="setWaCountry" placeholder="91" maxlength="4">
+          <label class="lbl" for="setWaMessage">Message</label>
+          <textarea class="field" id="setWaMessage" rows="5" maxlength="1000"></textarea>
+          <p class="hint">The receptionist sends this after the caller agrees. <code>{name}</code>, <code>{business}</code> and <code>{link}</code> are filled in. Your gateway needs <code>POST /send</code> with <code>X-API-KEY</code>.</p>
+          <div class="row" style="margin-top:14px; justify-content:flex-end">
+            <button class="btn link" id="testWa">Send test</button>
+            <button class="btn solid" id="saveWa">Save</button>
           </div>
         </div>
       </section>
@@ -953,18 +985,38 @@ $("keypadToggle").onclick = () => {
 function renderAgentConfig(config) {
   const first = !agentConfig;
   agentConfig = config;
-  $("agentInfo").innerHTML = config.configured
-    ? "Answers calls, asks who is calling and why, and leaves you a message."
-    : `Off until you add a Gemini API key in <a href="#/settings">Settings</a>.`;
   $("autoAnswer").disabled = !config.configured;
   if (first && config.settings) {
     $("autoAnswer").checked = config.settings.autoAnswer;
     $("ownerName").value = config.settings.ownerName;
     $("voice").value = config.settings.voice || "Kore";
     $("about").value = config.settings.about || "";
+    $("agentMode").value = config.settings.mode || "message";
+    $("businessName").value = config.settings.businessName || "";
+    $("bookingUrl").value = config.settings.bookingUrl || "";
     countAbout();
   }
+  renderAgentMode();
 }
+
+function renderAgentMode() {
+  const receptionist = $("agentMode").value === "receptionist";
+  $("receptionistFields").hidden = !receptionist;
+  $("ownerName").hidden = $("ownerNameLabel").hidden = receptionist;
+  $("aboutLabel").textContent = receptionist ? "Everything the receptionist should know" : "About you";
+  $("about").placeholder = receptionist
+    ? "Services and fees, timings, address and landmark, doctors and their days, emergency number, offers, what to bring, parking, languages spoken. Paste the text of your website here."
+    : "Alex is a software developer. If someone calls about the bike service, he'll pick it up on Saturday. Family can text him if it's urgent. Don't book meetings for him.";
+  $("bookingHint").innerHTML = agentConfig?.whatsapp
+    ? "Sent to the caller on WhatsApp when they want an appointment."
+    : `Sent to the caller on WhatsApp when they want an appointment. WhatsApp isn't set up yet: add it in <a href="#/settings">Settings</a>.`;
+  $("agentInfo").innerHTML = !agentConfig?.configured
+    ? `Off until you add a Gemini API key in <a href="#/settings">Settings</a>.`
+    : receptionist
+      ? "Answers calls for your business, answers questions from your notes and sends the booking link on WhatsApp."
+      : "Answers calls, asks who is calling and why, and leaves you a message.";
+}
+$("agentMode").onchange = renderAgentMode;
 
 async function saveAgent() {
   try {
@@ -975,9 +1027,13 @@ async function saveAgent() {
         ownerName: $("ownerName").value.trim() || "the owner",
         voice: $("voice").value,
         about: $("about").value.trim(),
+        mode: $("agentMode").value,
+        businessName: $("businessName").value.trim(),
+        bookingUrl: $("bookingUrl").value.trim(),
       }),
     });
-    toast(settings.autoAnswer ? `Saved. The assistant answers calls for ${settings.ownerName}.` : "Saved. The assistant won't answer calls.");
+    const who = settings.mode === "receptionist" ? (settings.businessName || "your business") : settings.ownerName;
+    toast(settings.autoAnswer ? `Saved. The assistant answers calls for ${who}.` : "Saved. The assistant won't answer calls.");
   } catch (error) {
     toast(error.message);
   }
@@ -985,7 +1041,7 @@ async function saveAgent() {
 $("autoAnswer").onchange = saveAgent;
 function countAbout() {
   const n = $("about").value.length;
-  $("aboutCount").textContent = n ? `${n} / 4000` : "";
+  $("aboutCount").textContent = n ? `${n} / 20000` : "";
 }
 $("about").oninput = countAbout;
 $("saveOwner").onclick = saveAgent;
@@ -1166,6 +1222,10 @@ async function loadSettings() {
     $("setDocsUrl").value = s.docsUrl || "";
     $("setIncomingUrl").value = s.incomingStreamUrl || "";
     $("setIncomingFormat").value = s.incomingStreamFormat || "raw";
+    $("setWaUrl").value = s.whatsappGatewayUrl || "";
+    $("setWaCountry").value = s.whatsappCountryCode || "91";
+    $("setWaMessage").value = s.whatsappMessage || DEFAULT_WA_MESSAGE;
+    renderWaState();
     renderApiKeys(apiKeys);
     $("accountEmail").textContent = me ? me.email : "";
     renderUsers((await api("/v1/users")).users);
@@ -1215,6 +1275,7 @@ async function saveSettings(patch, done) {
     settings = s;
     server = { ...server, publicUrl: s.publicUrl, docsUrl: s.docsUrl };
     renderGeminiState();
+    renderWaState();
     renderDocsLink();
     checklistData.keys = null;
     toast(done);
@@ -1236,6 +1297,36 @@ $("saveIncoming").onclick = () => saveSettings({
   incomingStreamUrl: $("setIncomingUrl").value.trim(),
   incomingStreamFormat: $("setIncomingFormat").value,
 }, $("setIncomingUrl").value.trim() ? "Saved. Incoming calls go to your agent." : "Saved. Incoming calls aren't streamed.");
+const DEFAULT_WA_MESSAGE = "Namaste {name}! {business} ko call karne ke liye dhanyavaad.\n\nAppointment book karne ke liye ye link kholein: {link}\n\nYa isi WhatsApp par reply karke apna naam aur aane ka din bata dijiye, hum appointment confirm kar denge.";
+function renderWaState() {
+  const w = settings.whatsappApiSecret;
+  $("setWaSecret").value = "";
+  $("setWaSecret").placeholder = w.configured ? `Saved secret ${w.hint}. Paste a new one to replace it.` : "API_SECRET of your gateway";
+  $("waSecretState").textContent = w.configured && settings.whatsappGatewayUrl
+    ? `Set${w.source === "env" ? " in server\\.env" : ""}. The receptionist can send the booking link.`
+    : "Not set up. The receptionist will take a message instead of sending the link.";
+}
+$("saveWa").onclick = () => {
+  const message = $("setWaMessage").value.trim();
+  const patch = {
+    whatsappGatewayUrl: $("setWaUrl").value.trim().replace(/\/+$/, ""),
+    whatsappCountryCode: $("setWaCountry").value.trim(),
+    whatsappMessage: message === DEFAULT_WA_MESSAGE ? "" : message,
+  };
+  const secret = $("setWaSecret").value.trim();
+  if (secret) patch.whatsappApiSecret = secret;
+  saveSettings(patch, "Saved. New calls use these settings.");
+};
+$("testWa").onclick = async () => {
+  const to = prompt("Send a test message to which WhatsApp number?");
+  if (!to) return;
+  try {
+    const r = await api("/v1/whatsapp/test", { method: "POST", body: JSON.stringify({ to }) });
+    toast(`Test sent to …${r.to.slice(-4)}. Check WhatsApp.`);
+  } catch (error) {
+    toast(error.message);
+  }
+};
 $("saveServer").onclick = () => saveSettings({
   publicUrl: $("setPublicUrl").value.trim().replace(/\/+$/, ""),
   webhookUrl: $("setWebhookUrl").value.trim(),
