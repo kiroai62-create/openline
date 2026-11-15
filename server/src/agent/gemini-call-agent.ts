@@ -97,7 +97,15 @@ export class GeminiCallAgent {
 
   async start(): Promise<void> {
     try {
-      this.session = await this.connectGemini();
+      // A Live connection that hangs must not leave the caller in silence: fail over after 10 s.
+      this.session = await Promise.race([
+        this.connectGemini(),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Gemini Live did not connect in 10 s")), 10_000)),
+      ]);
+      if (this.closed) {
+        try { this.session.close(); } catch { /* closed */ }
+        return;
+      }
       this.connectMedia();
     } catch (error) {
       this.fail(error);

@@ -220,11 +220,14 @@ export class PipelineCallAgent {
     if (this.media?.readyState === WebSocket.OPEN) this.media.send(JSON.stringify({ type: "clear" }));
   }
 
+  /**
+   * The router already tried every provider of that step, so the pipeline can't go on: fail and
+   * let the manager hand the call to the next engine (or play "please call later").
+   */
   private onProviderError(error: unknown): void {
     this.failures++;
     console.error(`pipeline ${this.options.callId}: ${error instanceof Error ? error.message : error}`);
-    // Every provider of a kind failed several times in a row: give up so the call is handed on.
-    if (this.failures >= 3) this.fail(error);
+    this.fail(error);
   }
 
   // ---- tools ----

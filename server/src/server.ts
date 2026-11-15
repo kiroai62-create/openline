@@ -13,6 +13,7 @@ import { StreamManager } from "./stream/stream-manager.js";
 import { ClientStore } from "./clients.js";
 import { Analytics } from "./analytics.js";
 import { AiRouter } from "./ai/router.js";
+import { FallbackAudio } from "./ai/fallback-audio.js";
 import { HttpWebhookDispatcher, type WebhookDispatcher } from "./webhooks.js";
 
 export interface GatewayServerOptions {
@@ -29,6 +30,11 @@ export interface GatewayServerOptions {
   docsUrl?: string;
   whatsappGatewayUrl?: string;
   whatsappApiSecret?: string;
+  /** One deployment serves several businesses (Clients page). Default: one deployment per client. */
+  multiClient?: boolean;
+  /** This deployment's client: seeds the receptionist on first start. */
+  clientName?: string;
+  bookingUrl?: string;
   /** Directory of the SQLite database. Without it everything is kept in memory (tests). */
   dataDir?: string;
 }
@@ -46,6 +52,7 @@ export interface GatewayServer {
   streams: StreamManager;
   clients: ClientStore;
   router: AiRouter;
+  fallback: FallbackAudio;
 }
 
 export function createGatewayServer(options: GatewayServerOptions): GatewayServer {
@@ -75,6 +82,23 @@ export function createGatewayServer(options: GatewayServerOptions): GatewayServe
   const streams = new StreamManager({ state, deviceChannel: deviceHub, config, apiKey: options.apiKey, mediaUrl });
   const clients = new ClientStore(db);
   const router = new AiRouter(settings, config);
+  // First start of a per-client deployment: the receptionist answers for CLIENT_NAME.
+  if (options.clientName && !settings.get("agent")) {
+    settings.set("agent", {
+      mode: "receptionist",
+      autoAnswer: true,
+      businessName: options.clientName,
+      ownerName: options.clientName,
+      bookingUrl: options.bookingUrl ?? "",
+    });
+    if (!config.get("brandName")) config.update({ brandName: options.clientName });
+  }
+  const fallback = new FallbackAudio(settings, router);
+  // Record the "please hold" / "call later" phrases while providers work, and keep them fresh.
+  if (options.dataDir) {
+    setTimeout(() => void fallback.refresh(), 3_000).unref();
+    setInterval(() => void fallback.refresh(), 6 * 60 * 60_000).unref();
+  }
   const agents = new AgentManager({
     state,
     deviceChannel: deviceHub,
@@ -86,14 +110,15 @@ export function createGatewayServer(options: GatewayServerOptions): GatewayServe
     mediaUrl,
     clients,
     router,
+    fallback,
   });
   events.onCallEvent = (call, event) => {
     const streamed = streams.onCallEvent(call, event);
     agents.onCallEvent(state.getCall(call.id) ?? call, event, streamed);
   };
-  const app = createApp({ auth, config, state, deviceChannel: deviceHub, events, media, agents, streams, clients, analytics: new Analytics(db), router });
+  const app = createApp({ auth, config, state, deviceChannel: deviceHub, events, media, agents, streams, clients, analytics: new Analytics(db), router, fallback, multiClient: options.multiClient || clients.list().length > 0 });
   httpServer = createServer(app);
   deviceHub.attach(httpServer);
   media.attach(httpServer);
-  return { httpServer, db, state, config, auth, deviceHub, events, media, agents, streams, clients, router };
+  return { httpServer, db, state, config, auth, deviceHub, events, media, agents, streams, clients, router, fallback };
 }

@@ -28,6 +28,7 @@ import {
   createClientSchema,
   analyticsQuerySchema,
   routingSchema,
+  fallbackTextSchema,
   updateClientSchema,
 } from "./schemas.js";
 import type { AgentManager } from "./agent/agent-manager.js";
@@ -39,6 +40,7 @@ import { renderTemplate, sendWhatsApp, toWhatsAppNumber, whatsappFromClient, wha
 import type { ClientStore } from "./clients.js";
 import { Analytics } from "./analytics.js";
 import { PRESETS, type AiRouter } from "./ai/router.js";
+import type { FallbackAudio } from "./ai/fallback-audio.js";
 
 export interface AppDependencies {
   auth: AuthService;
@@ -53,6 +55,9 @@ export interface AppDependencies {
   clients?: ClientStore;
   analytics?: Analytics;
   router?: AiRouter;
+  fallback?: FallbackAudio;
+  /** Show the Clients page (several businesses on one server). Off for one deployment per client. */
+  multiClient?: boolean;
 }
 
 export function createApp(deps: AppDependencies) {
@@ -204,6 +209,7 @@ export function createApp(deps: AppDependencies) {
     const parsed = configSchema.safeParse(request.body);
     if (!parsed.success) return validationError(response, parsed.error.issues);
     deps.config.update(parsed.data);
+    if (parsed.data.geminiApiKey !== undefined) void deps.fallback?.refresh();
     return response.json({ settings: deps.config.view() });
   });
 
@@ -248,6 +254,7 @@ export function createApp(deps: AppDependencies) {
       docsUrl: deps.config.get("docsUrl") ?? null,
       requestOrigin: `${request.protocol}://${request.host}`,
       brandName: deps.config.get("brandName") ?? null,
+      multiClient: deps.multiClient ?? false,
     });
   });
 
@@ -468,7 +475,23 @@ export function createApp(deps: AppDependencies) {
       })),
     });
     router.resetCooldowns();
+    void deps.fallback?.refresh();
     return response.json({ ok: true, status: router.status(), pipelineReady: router.pipelineReady() });
+  });
+
+  // "Please hold" / "please call later" phrases played when the AI can't speak.
+  app.get("/v1/ai/fallback", (_request, response) => {
+    if (!deps.fallback) return response.status(404).json(errorBody("NOT_FOUND", "unavailable"));
+    return response.json({ phrases: deps.fallback.info() });
+  });
+
+  app.put("/v1/ai/fallback", async (request, response) => {
+    if (!deps.fallback) return response.status(404).json(errorBody("NOT_FOUND", "unavailable"));
+    const parsed = fallbackTextSchema.safeParse(request.body ?? {});
+    if (!parsed.success) return validationError(response, parsed.error.issues);
+    deps.fallback.setText(parsed.data);
+    await deps.fallback.refresh(true);
+    return response.json({ phrases: deps.fallback.info() });
   });
 
   // ---- Dashboard analytics ----

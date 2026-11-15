@@ -7,6 +7,7 @@ import { GeminiCallAgent, type AgentMessage, type AgentMode, type TranscriptLine
 import type { ClientStore } from "../clients.js";
 import type { AiRouter, ProviderConfig } from "../ai/router.js";
 import { PipelineCallAgent } from "../ai/pipeline-agent.js";
+import type { FallbackAudio } from "../ai/fallback-audio.js";
 import {
   renderTemplate,
   sendWhatsApp,
@@ -46,11 +47,16 @@ export interface AgentManagerOptions {
   clients?: ClientStore;
   /** Provider list and failover. Without it only the Gemini key in Settings is used. */
   router?: AiRouter;
+  /** "Please hold" / "please call later" audio for switches and total failure. */
+  fallback?: FallbackAudio;
 }
 
 type CallAgent = GeminiCallAgent | PipelineCallAgent;
-/** Agents tried on one call before giving up (each failover starts the next provider). */
-const MAX_AGENTS_PER_CALL = 5;
+/**
+ * Engines tried on one call before giving up. A failing engine hands over to the next one; the
+ * call is only ended, after the "please call later" message, when all of these failed.
+ */
+const MAX_AGENTS_PER_CALL = 8;
 
 /** What the assistant does on one call: the client's receptionist, or the global settings. */
 export interface CallProfile {
@@ -73,6 +79,8 @@ export class AgentManager {
   private readonly agents = new Map<string, CallAgent>();
   private readonly engines = new Map<string, string>();
   private readonly attempts = new Map<string, number>();
+  private readonly heldOnce = new Set<string>();
+  private readonly givingUp = new Set<string>();
   private readonly requested = new Set<string>();
 
   constructor(private readonly options: AgentManagerOptions) {
@@ -156,6 +164,8 @@ export class AgentManager {
     this.agents.delete(callId);
     this.engines.delete(callId);
     this.attempts.delete(callId);
+    this.heldOnce.delete(callId);
+    this.givingUp.delete(callId);
   }
 
   /**
@@ -187,9 +197,11 @@ export class AgentManager {
     const current = this.agents.get(call.id);
     // A finished or failed agent may be replaced (e.g. handed back to the assistant again).
     if (current && current.status !== "ended" && current.status !== "error") return;
+    if (this.givingUp.has(call.id)) return;
     const engine = this.pickEngine();
     if (!engine) {
       console.error(`no AI provider available for call ${call.id}`);
+      void this.giveUp(call);
       return;
     }
     const attempts = (this.attempts.get(call.id) ?? 0) + 1;
@@ -233,10 +245,9 @@ export class AgentManager {
       const live = router.available("live")[0];
       if (live) return { live };
     }
-    if (mode !== "live" && router.pipelineReady()) return {};
-    // Live-only and every key cooling down: try the first anyway.
-    const fallback = router.list("live")[0];
-    return fallback ? { live: fallback } : undefined;
+    if (mode !== "live" && router.pipelineAvailable()) return {};
+    // Everything is on cooldown: the caller hears "please call later" instead of waiting in silence.
+    return undefined;
   }
 
   private onAgentEnded(call: CallRecord, agent: CallAgent, live?: ProviderConfig): void {
@@ -245,14 +256,39 @@ export class AgentManager {
     if (live) this.options.router?.fail(live, new Error(agent.error ?? "Gemini Live failed"));
     const latest = this.options.state.getCall(call.id);
     if (!latest || latest.state !== "active" || !this.requested.has(call.id)) return;
+    if (agent.message) this.saveMessage(agent.message);
     if ((this.attempts.get(call.id) ?? 0) >= MAX_AGENTS_PER_CALL) {
-      console.error(`call ${call.id}: every AI engine failed; hanging up`);
-      this.command(latest, "hangup");
+      console.error(`call ${call.id}: every AI engine failed`);
+      void this.giveUp(latest);
       return;
     }
     console.warn(`call ${call.id}: ${this.engines.get(call.id)} failed (${agent.error}); switching`);
-    if (agent.message) this.saveMessage(agent.message);
-    this.startAgent(latest, agent.transcript);
+    void this.switchEngine(latest, agent.transcript);
+  }
+
+  /** Says "one moment" (once per call, only if the caller has already been talking) and starts the next engine. */
+  private async switchEngine(call: CallRecord, transcript: TranscriptLine[]): Promise<void> {
+    const fallback = this.options.fallback;
+    if (fallback && transcript.length && !this.heldOnce.has(call.id)) {
+      this.heldOnce.add(call.id);
+      await fallback.play(this.options.mediaUrl(call.id), this.options.apiKey, "hold");
+    }
+    const latest = this.options.state.getCall(call.id);
+    if (latest?.state === "active" && this.requested.has(call.id)) this.startAgent(latest, transcript);
+  }
+
+  /** Nothing can answer: tell the caller to call later, then hang up, instead of a silent line. */
+  private async giveUp(call: CallRecord): Promise<void> {
+    if (this.givingUp.has(call.id)) return;
+    this.givingUp.add(call.id);
+    this.agents.get(call.id)?.stop();
+    const played = this.options.fallback
+      ? await this.options.fallback.play(this.options.mediaUrl(call.id), this.options.apiKey, "sorry")
+      : 0;
+    setTimeout(() => {
+      const latest = this.options.state.getCall(call.id);
+      if (latest && LIVE_STATES.has(latest.state)) this.command(latest, "hangup");
+    }, played + 800);
   }
 
   /** Sends the booking link to the caller (or the number they gave) and tells the model the outcome. */

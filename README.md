@@ -41,12 +41,18 @@ streams the conversation both ways. Your agent hangs up by closing the socket.
 
 ## AI receptionist for clients
 
-Run the receptionist for many businesses from one server. In the console's **Clients** page, each
-client gets its own phone (SIM), knowledge, booking link and WhatsApp gateway. Their calls are
-answered 24/7, questions are answered from the client's information, and the booking link goes
-out on WhatsApp. The console name can be changed to your own brand (**Settings → Server**).
+Each client gets its own deployment: its own copy of the server, database, AI keys, WhatsApp
+gateway, web address, console and phone app. Their calls are answered 24/7, questions are answered
+from the client's information, and the booking link goes out on WhatsApp. Calls use Gemini Live
+with automatic failover to other providers (Groq, Cloudflare, Sarvam and more); if no AI can
+answer, the caller hears a recorded "please call later" message instead of a dead line.
 
-- [DEPLOYMENT.md](DEPLOYMENT.md): server, APK, phone and client setup, step by step
+```bash
+sudo bash deploy/setup-vm.sh                                   # once per server (Oracle Cloud Always Free)
+sudo bash deploy/new-client.sh 32teeth "32 Teeth Hospital" 32teeth.duckdns.org
+```
+
+- [DEPLOYMENT.md](DEPLOYMENT.md): free server, per-client deployment, AI keys, app and phone setup, step by step
 - [docs/brochure/AI-Receptionist-Overview.pdf](docs/brochure/AI-Receptionist-Overview.pdf): client presentation
   (rebuild with your brand: `python docs/brochure/make_brochure.py --brand "..." --phone "..."`)
 - [clients/32-teeth-hospital.md](clients/32-teeth-hospital.md): example client knowledge

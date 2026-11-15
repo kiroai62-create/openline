@@ -150,6 +150,11 @@ export class AiRouter {
     return (["llm", "stt", "tts"] as const).every((k) => this.list(k).length > 0);
   }
 
+  /** Every pipeline step has a provider that is not on cooldown. */
+  pipelineAvailable(): boolean {
+    return (["llm", "stt", "tts"] as const).every((k) => this.available(k).length > 0);
+  }
+
   anyConfigured(): boolean {
     return this.list("live").length > 0 || this.pipelineReady();
   }
@@ -246,10 +251,26 @@ export class AiRouter {
     });
   }
 
+  /**
+   * For phrases recorded in advance: the text-to-speech list, or else Gemini TTS with the Gemini key
+   * from Settings (so a setup with only a Gemini key still gets its "please call later" audio).
+   */
+  async speakAny(text: string): Promise<Buffer> {
+    if (this.list("tts").length) return this.speak(text);
+    const key = this.config.get("geminiApiKey");
+    if (!key) throw new Error("no text-to-speech provider and no Gemini key");
+    const p: ProviderConfig = { id: "settings-gemini-tts", kind: "tts", type: "gemini", label: "Gemini TTS (Settings key)", enabled: true, apiKey: key, model: PRESETS.gemini!.models.tts!, voice: "Kore" };
+    return this.synthesize(p, text);
+  }
+
   /** Text -> 16 kHz PCM. */
   async speak(text: string): Promise<Buffer> {
+    return this.each("tts", (p) => this.synthesize(p, text));
+  }
+
+  private async synthesize(p: ProviderConfig, text: string): Promise<Buffer> {
     const devanagari = /[\u0900-\u097F]/.test(text);
-    return this.each("tts", async (p) => {
+    {
       if (p.type === "sarvam") {
         const json = (await this.json("https://api.sarvam.ai/text-to-speech", p, {
           text: text.slice(0, 2400),
@@ -285,7 +306,7 @@ export class AiRouter {
         response_format: "wav",
       });
       return toPhonePcm(audio);
-    });
+    }
   }
 
   // ---- internals ----

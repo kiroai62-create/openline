@@ -659,6 +659,19 @@
       </section>
 
       <section class="panel">
+        <div class="panel-head"><h2>If the AI can't speak</h2></div>
+        <div class="panel-body">
+          <p class="hint" style="margin-top:0">A call is never dropped in silence. While the call switches to another AI provider the caller hears the first message; if no provider works, the second one plays and the call ends. Both are recorded in advance, so they play even when every AI is down.</p>
+          <label class="lbl" for="fbHold">While switching</label>
+          <input class="field" id="fbHold" maxlength="300">
+          <label class="lbl" for="fbSorry">When nothing works</label>
+          <textarea class="field" id="fbSorry" rows="3" maxlength="500"></textarea>
+          <p class="hint" id="fbState"></p>
+          <div class="row" style="margin-top:12px; justify-content:flex-end"><button class="btn solid" id="fbSave">Save and record</button></div>
+        </div>
+      </section>
+
+      <section class="panel">
         <div class="panel-head"><h2>Incoming calls</h2></div>
         <div class="panel-body">
           <label class="lbl" for="setIncomingUrl" style="margin-top:0">Stream to your agent</label>
@@ -863,6 +876,8 @@ async function showApp() {
   $("appView").hidden = false;
   server = await api("/v1/server").catch(() => ({}));
   applyBrand(server.brandName);
+  // One deployment per client: the Clients page is only for multi-client servers.
+  document.querySelector('.nav a[data-route="clients"]').hidden = !server.multiClient;
   renderDocsLink();
   onRoute();
 }
@@ -1418,6 +1433,7 @@ async function loadSettings() {
     renderWaState();
     renderApiKeys(apiKeys);
     loadAiProviders();
+    loadFallback();
     $("accountEmail").textContent = me ? me.email : "";
     renderUsers((await api("/v1/users")).users);
   } catch (error) {
@@ -1828,6 +1844,28 @@ $("aiSave").onclick = async () => {
     await api("/v1/ai/providers", { method: "PUT", body: JSON.stringify({ mode: $("aiMode").value, providers }) });
     toast("Saved. New calls use this order.");
     loadAiProviders();
+  } catch (error) {
+    toast(error.message);
+  }
+};
+
+function renderFallback(phrases) {
+  const by = Object.fromEntries(phrases.map((p) => [p.kind, p]));
+  $("fbHold").value = by.hold.text;
+  $("fbSorry").value = by.sorry.text;
+  $("fbState").textContent = phrases.every((p) => p.ready)
+    ? `Recorded (${by.hold.seconds} s and ${by.sorry.seconds} s).`
+    : "Not recorded yet: add a Gemini key or a text-to-speech provider, then press Save. Until then a short beep plays instead.";
+}
+async function loadFallback() {
+  try { renderFallback((await api("/v1/ai/fallback")).phrases); } catch (error) { toast(error.message); }
+}
+$("fbSave").onclick = async () => {
+  $("fbState").textContent = "Recording…";
+  try {
+    const { phrases } = await api("/v1/ai/fallback", { method: "PUT", body: JSON.stringify({ hold: $("fbHold").value.trim() || undefined, sorry: $("fbSorry").value.trim() || undefined }) });
+    renderFallback(phrases);
+    toast(phrases.every((p) => p.ready) ? "Saved and recorded." : "Saved, but recording failed. Check your AI providers.");
   } catch (error) {
     toast(error.message);
   }

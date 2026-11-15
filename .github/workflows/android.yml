@@ -12,6 +12,10 @@ on:
         description: "App name shown on the phone (letters, digits and spaces)"
         required: false
         default: "OpenLine"
+      client:
+        description: "Client short name, used in the download name (e.g. 32teeth)"
+        required: false
+        default: "app"
 
 permissions:
   contents: read
@@ -41,5 +45,5 @@ jobs:
         run: chmod +x gradlew && ./gradlew --no-daemon :protocol:test :app:assembleDebug
       - uses: actions/upload-artifact@v4
         with:
-          name: phone-app-apk
+          name: ${{ format('phone-app-{0}', (inputs.client != '' && inputs.client) || 'app') }}
           path: android/app/build/outputs/apk/debug/app-debug.apk

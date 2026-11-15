@@ -127,6 +127,11 @@ export const routingSchema = z.object({
   providers: z.array(provider).max(40),
 });
 
+export const fallbackTextSchema = z.object({
+  hold: z.string().trim().min(1).max(300).optional(),
+  sorry: z.string().trim().min(1).max(500).optional(),
+});
+
 export const analyticsQuerySchema = z.object({
   days: z.coerce.number().int().min(1).max(365).default(7),
   clientId: z.string().min(1).max(64).default("all"),

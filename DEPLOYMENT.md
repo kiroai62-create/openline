@@ -1,383 +1,354 @@
-# Deployment guide: AI receptionist for clients
+# Deployment guide: ek client, ek alag deployment
 
-Is guide mein shuru se aakhir tak ye sab hai: server lagana, phone app banana, har client ka
-phone set karna, WhatsApp jodna, aur roz ka kaam. Commands jaise likhe hain waise hi chalayein.
+Har client ka **apna alag deployment** hota hai: apna code, apna database, apni settings, apni AI
+keys, apna WhatsApp, apna web address, apna console login aur apna phone app. Ek client ki calls,
+data ya API limit ka doosre client pe koi asar nahi padta.
 
-**Ek baar ka kaam (aapke liye):** Step 1 se 5.
-**Har naye client ke liye:** Step 6 se 9.
+```
+            Ek free server (Oracle Cloud)              ya har client ka alag server
+ ┌────────────────────────────────────────────┐
+ │ receptionist-32teeth   → 32teeth.duckdns.org │   32teeth  → apna server, apna address
+ │ receptionist-cityeye   → cityeye.duckdns.org │   cityeye  → apna server, apna address
+ │ receptionist-...                             │
+ └────────────────────────────────────────────┘
+ Har ek: alag folder, alag database, alag .env (alag Gemini/Groq/Sarvam keys), alag service
+```
+
+> **API limit ka asli hisaab:** AI ki limit **API key aur uske account** pe lagti hai, server pe
+> nahi. Isliye har client ke deployment mein **usi client ke apne account** (client ka apna Google
+> account) ki keys daalein. Tab ek client ki zyada calls se doosre client ki limit kabhi khatam
+> nahi hogi. Ek hi aadmi ke dher saare nakli account banakar free limit badhana providers ki terms
+> ke khilaaf ho sakta hai aur account band ho sakta hai, isliye har client ka apna asli account
+> rakhein.
+
+**Ek baar ka kaam (aapke liye):** Step 1 aur 2.
+**Har naye client ke liye:** Step 3 se 10.
 
 ---
 
 ## 0. Kya kya chahiye
 
-**Aapke liye (ek baar):**
-
-| Cheez | Kyun | Note |
-|---|---|---|
-| Ek Linux VPS (Ubuntu 24.04, 1 vCPU, 2 GB RAM) | Server 24 ghante chalega | Hostinger, DigitalOcean, AWS Lightsail, koi bhi |
-| Ek domain ya subdomain, jaise `voice.aapkibrand.com` | Phone aur console isi address se server tak pahunchte hain | HTTPS zaroori hai |
-| Gemini API key | AI ki awaaz aur dimaag | aistudio.google.com se. Backup ke liye Groq, Cloudflare, Sarvam jaise free providers bhi jod sakte hain (step 2.1) |
-| GitHub account | APK banane ke liye | Ye repo isi mein hai |
-
-**Har client ke liye:**
-
 | Cheez | Note |
 |---|---|
-| Ek Android phone, Android 11 ya naya | Abhi tak sirf **Vivo V40 (Android 16)** pe poori tarah test hua hai. Doosre phone pe pehle test call zaroor karein |
-| Ek SIM jisme calling ho | Isi number pe AI call uthayega |
-| Charger aur 24 ghante bijli | Phone hamesha charging pe rahe |
-| Internet: Wi-Fi ya mobile data | Pehli baar setup aur har reboot ke baad Wi-Fi zaroori hai, baad mein mobile data bhi chalega |
-| Client ka WhatsApp gateway | Jaise 32 Teeth wala Hugging Face Space. Har client ka apna WhatsApp number aur apna Space |
+| Ek server | Free option neeche hai (Step 1) |
+| Har client ka address | Free: DuckDNS se `clientname.duckdns.org`. Ya apna domain: `32teeth.aapkibrand.com` |
+| Har client ki AI keys | Client ke apne Google account se Gemini key, aur backup ke liye Groq / Sarvam / Cloudflare (Step 6) |
+| Har client ka Android phone | Android 11 ya naya, SIM ke saath, 24 ghante charging pe. Abhi tak poori tarah sirf **Vivo V40 (Android 16)** pe test hua hai, isliye doosre phone pe pehle test call zaroor karein |
+| Har client ka WhatsApp gateway | Jaise 32 Teeth wala Hugging Face Space (Step 7) |
+| GitHub account | App (APK) banane ke liye |
 
-> **Ek SIM pe ek waqt mein ek hi call.** Agar client ke yahan ek saath kai calls aati hain, to
-> utne phone aur SIM lagayein. Ek client ko kai phone assign kar sakte hain.
-
----
-
-## 1. Server lagana (VPS pe)
-
-VPS mein SSH se login karein, phir ye commands chalayein.
-
-### 1.1 Node.js 22 aur git
-
-```bash
-sudo apt update && sudo apt install -y git curl
-curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
-sudo apt install -y nodejs
-node -v        # v22.13 ya usse naya hona chahiye
-```
-
-### 1.2 Code download aur build
-
-```bash
-sudo mkdir -p /opt/receptionist && sudo chown $USER /opt/receptionist
-git clone https://github.com/kiroai62-create/openline.git /opt/receptionist
-cd /opt/receptionist/server
-npm ci
-npm run build
-```
-
-### 1.3 `.env` file
-
-```bash
-cp .env.example .env
-openssl rand -base64 36      # ye ek lamba random key banata hai, copy karein
-nano .env
-```
-
-`.env` mein ye badlein:
-
-```ini
-PORT=8787
-HOST=127.0.0.1                                   # server sirf Caddy ke peeche rahe
-HTTP_GATEWAY_API_KEY=<upar wala random key>      # kisi ko mat dena
-PUBLIC_URL=https://voice.aapkibrand.com
-DATA_DIR=/opt/receptionist/server/data
-GEMINI_API_KEY=<aapki Gemini key>                # ya baad mein console Settings mein daalein
-```
-
-Save karne ke liye `Ctrl+O`, `Enter`, phir `Ctrl+X`.
-
-### 1.4 Server ko hamesha chalta rakhna (systemd)
-
-```bash
-sudo tee /etc/systemd/system/receptionist.service > /dev/null <<EOF
-[Unit]
-Description=AI receptionist server
-After=network-online.target
-
-[Service]
-WorkingDirectory=/opt/receptionist/server
-ExecStart=/usr/bin/npm start
-Restart=always
-RestartSec=3
-User=$USER
-
-[Install]
-WantedBy=multi-user.target
-EOF
-sudo systemctl daemon-reload
-sudo systemctl enable --now receptionist
-sudo systemctl status receptionist     # "active (running)" dikhna chahiye
-```
-
-### 1.5 HTTPS (Caddy)
-
-Pehle domain ke DNS mein ek **A record** banayein: `voice.aapkibrand.com` → VPS ka IP.
-Phir:
-
-```bash
-sudo apt install -y caddy
-sudo tee /etc/caddy/Caddyfile > /dev/null <<'EOF'
-voice.aapkibrand.com {
-    reverse_proxy 127.0.0.1:8787
-}
-EOF
-sudo systemctl reload caddy
-```
-
-Caddy khud SSL certificate le leta hai, aur WebSocket bhi isi se chalta hai. VPS ke firewall mein
-port 80 aur 443 khule hone chahiye (`sudo ufw allow 80,443/tcp`). Port 8787 bahar mat kholein.
-
-> **VPS nahi hai?** Ghar ke PC pe bhi chala sakte hain. Tab HTTPS ke liye Tailscale Funnel
-> (`tailscale funnel --bg 8787`) ya Cloudflare Tunnel use karein. Windows pe `run-server.bat`
-> double-click karein. Lekin PC 24 ghante on rehna chahiye.
+> **Ek SIM pe ek waqt mein ek hi call.** Kisi client ke yahan ek saath kai calls aati hain to
+> utne phone aur SIM uske deployment se jodein (sab ek hi console mein aate hain).
 
 ---
 
-## 2. Console mein pehla login
+## 1. Free server: kaunsa platform
 
-1. Browser mein `https://voice.aapkibrand.com/` kholein.
-2. Email aur password se account banayein. Kyunki aap internet ke through khol rahe hain, ye
-   **setup key** maangega: `.env` wala `HTTP_GATEWAY_API_KEY` paste karein.
-3. **Settings → Server**:
-   - **Public address**: `https://voice.aapkibrand.com`
-   - **Product name**: aapki brand ka naam. Ye console ke upar dikhega.
-4. **Settings → AI assistant**: Gemini key daalein (agar `.env` mein nahi daali) aur Save karein.
+| Platform | Kitna free | Kai clients? | Faisla |
+|---|---|---|---|
+| **Oracle Cloud Always Free** | Hamesha free. Arm VM: kul 2 CPU, 12 GB RAM (June 2026 se). Saath mein 2 chhote AMD VM | Haan, ek VM pe 15-20 client aaraam se | **Sabse achha.** Signup pe card verify hota hai, charge nahi hota |
+| Google Cloud e2-micro | Hamesha free, 1 GB RAM, sirf US regions | 2-3 client | Backup option. US server ki wajah se thoda delay |
+| Render / Koyeb free | 15 min baad so jaata hai, data disk nahi | Nahi | **Mat lein.** Soya hua server call nahi utha sakta, aur restart pe data mit jaata hai |
+| Hugging Face Spaces | 48 ghante baad so jaata hai, data disk paid | Nahi | Call server ke liye mat lein (WhatsApp gateway ke liye theek hai) |
+| Ghar ka PC + Tailscale Funnel | Free | 1 client | Sirf testing ke liye. PC band to calls band |
+
+Upar wali jaankari November 2026 ki hai. Free plans badalte rehte hain, signup se pehle provider
+ki site pe dekh lein.
+
+**Server ki jagah:** Oracle mein region **India West (Mumbai)** ya **India South (Hyderabad)**
+chunein. Call ki awaaz server se aati-jaati hai, to paas wala server matlab kam delay.
+
+### 1.1 Oracle Cloud pe VM banana
+
+1. cloud.oracle.com pe Free Tier account banayein. Home region Mumbai ya Hyderabad rakhein, kyunki
+   baad mein badal nahi sakte.
+2. **Compute → Instances → Create instance**:
+   - Image: **Canonical Ubuntu 24.04**
+   - Shape: **Ampere VM.Standard.A1.Flex**, 2 OCPU, 12 GB (Always Free eligible)
+   - **Add SSH keys**: "Generate a key pair" chunein aur private key download kar lein
+   - Create dabayein
+3. **Ports kholna:** Instance page → **Subnet** → **Security List** (Default) → **Add Ingress
+   Rules**. Source `0.0.0.0/0`, TCP, destination port **80** ka ek rule aur **443** ka ek rule.
+4. Instance ka **Public IP** note kar lein.
+5. SSH se login karein:
+   ```bash
+   ssh -i ssh-key.key ubuntu@<PUBLIC_IP>
+   ```
+
+> "Out of capacity" error aaye to kuch ghante baad dobara try karein, ya doosra Availability
+> Domain chunein.
 
 ---
 
-## 2.1 Backup AI providers (limit khatam ho to apne aap switch)
+## 2. Server ki ek baar ki setup
 
-Gemini ki free limit khatam ho sakti hai. Isliye **Settings → AI providers & failover** mein aur
-providers jod dein. Jab ek provider limit hit kare ya fail ho, agla apne aap chal padta hai, call
-ke beech mein bhi. Caller ko bas ek-do second ka ruka hua lagta hai, aur AI wahin se baat aage
-badhata hai.
+VM mein ye ek command chalayein. Ye Node.js 22, Caddy (HTTPS), sqlite3 install karti hai, ports
+80/443 kholti hai, aur saare clients ka roz raat 3 baje backup set karti hai:
 
-**Kaise switch hota hai:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/kiroai62-create/openline/main/deploy/setup-vm.sh | sudo bash
+```
 
-1. Pehle **Gemini Live** (sabse achhi aur tez awaaz). Settings wali Gemini key, phir jo backup
-   Gemini keys aapne jodi hain (doosre Google accounts ki), list ke order mein.
-2. Saari Live keys limit pe hon, to **speech pipeline** chalti hai:
-   caller ki awaaz → text (speech to text) → jawab (chat model) → awaaz (text to speech).
-   Har step ki apni list hai, aur har request pe pehla chalu provider use hota hai.
-3. Jo provider 429 (limit), quota, galat key ya server error de, wo kuch der ke liye bahar ho
-   jaata hai: limit pe 90 second (din ki limit ho to 1 ghanta), galat key pe 10 minute, baaki
-   error pe 20 second. Dashboard ke **AI providers** box mein dikhta hai kaun chalu hai aur kaun
-   ruka hua hai, aur kyun.
+Uske baad scripts ke liye code ek baar download kar lein:
 
-**Free keys kahan se:**
+```bash
+git clone https://github.com/kiroai62-create/openline.git ~/openline
+```
+
+---
+
+## 3. Client ka web address
+
+**Free (DuckDNS):**
+1. duckdns.org pe Google se login karein.
+2. Subdomain mein client ka naam daalein, jaise `32teeth`, aur **add domain** dabayein.
+3. **current ip** mein VM ka Public IP daalein aur **update ip** dabayein.
+4. Address taiyaar hai: `32teeth.duckdns.org`. Ek DuckDNS account mein 5 subdomain bante hain.
+
+**Apna domain ho to:** DNS mein **A record** banayein: `32teeth.aapkibrand.com` → VM ka IP.
+
+---
+
+## 4. Client ka deployment banana
+
+```bash
+cd ~/openline
+sudo bash deploy/new-client.sh 32teeth "32 Teeth Hospital" 32teeth.duckdns.org https://wa.me/918789354445
+```
+
+| Hissa | Matlab |
+|---|---|
+| `32teeth` | Chhota naam: chhote akshar, ank aur `-` |
+| `"32 Teeth Hospital"` | Business ka naam. AI isi naam se call uthayega |
+| `32teeth.duckdns.org` | Step 3 wala address |
+| `https://wa.me/...` | Booking link (chahein to baad mein badal sakte hain) |
+
+Script ye sab karti hai:
+- `/opt/receptionist/clients/32teeth/` mein code ki **alag copy** banati hai
+- Us client ki alag `.env` banati hai, ek naye random setup key ke saath
+- Alag database: `/opt/receptionist/clients/32teeth/server/data/gateway.db`
+- Alag service `receptionist-32teeth` chalati hai, jo crash ya reboot ke baad khud chalu ho jaati hai
+- HTTPS address set karti hai
+- Receptionist ko pehle se is client ke naam, booking link aur auto-answer ke saath set kar deti hai
+
+Aakhir mein script **Setup key** dikhati hai. Use sambhal kar rakhein.
+
+Saare clients dekhne ke liye:
+```bash
+bash deploy/list-clients.sh
+```
+
+---
+
+## 5. Client ke console mein pehla login
+
+1. `https://32teeth.duckdns.org/` kholein. Pehli baar HTTPS certificate banne mein ek minute lag
+   sakta hai.
+2. Email aur password se account banayein, aur **Setup key** (Step 4 wali) paste karein.
+3. Upar sirf isi client ka naam dikhega. Ye console aur iska data sirf is client ka hai.
+4. Chahein to client ko bhi uska apna login de sakte hain: **Settings → People with access**.
+
+---
+
+## 6. Client ki AI keys aur failover
+
+**Settings → AI assistant:** client ke apne Google account ki **Gemini API key**
+(aistudio.google.com/apikey).
+
+**Settings → AI providers & failover:** backup providers jodein. Jab ek provider ki limit khatam ho
+ya wo fail ho, agla apne aap chal padta hai, call ke beech mein bhi.
+
+1. Pehle **Gemini Live** chalta hai: Settings wali key, phir backup Gemini keys, order se.
+2. Saari Live keys limit pe hon, to **speech pipeline** chalti hai: awaaz → text → jawab → awaaz.
+   Har step ki apni list hai.
+3. Jo provider limit, quota, galat key ya server error de, wo kuch der ke liye bahar ho jaata hai:
+   limit pe 90 second (din ki limit ho to 1 ghanta), galat key pe 10 minute, baaki error pe 20
+   second.
 
 | Provider | Kis kaam aata hai | Key |
 |---|---|---|
-| Google Gemini | Live voice (backup keys), chat model, text to speech | aistudio.google.com/apikey |
-| Groq | Chat model (bahut tez), speech to text (Whisper), English text to speech | console.groq.com/keys |
-| Cloudflare Workers AI | Chat model, speech to text. **Account ID** bhi chahiye | dash.cloudflare.com → API Tokens (Workers AI permission) |
+| Google Gemini | Live voice, chat model, text to speech | aistudio.google.com/apikey |
+| Groq | Chat model (bahut tez), speech to text, English text to speech | console.groq.com/keys |
+| Cloudflare Workers AI | Chat model, speech to text (**Account ID** bhi chahiye) | dash.cloudflare.com → API Tokens |
 | OpenRouter | Chat model (`:free` wale models) | openrouter.ai/keys |
 | Cerebras | Chat model | cloud.cerebras.ai |
 | Mistral | Chat model, speech to text | console.mistral.ai |
-| Sarvam AI | **Hindi** speech to text aur text to speech (Indian awaaz) | dashboard.sarvam.ai |
-| OpenAI-compatible | Koi bhi aur service jo OpenAI jaisa API deti hai (base URL daalein) | |
+| Sarvam AI | **Hindi** speech to text aur text to speech | dashboard.sarvam.ai |
+| OpenAI-compatible | Koi bhi aur OpenAI jaisi API (base URL daalein) | |
 
-**Hindi callers ke liye sujhaav:** speech to text aur text to speech, dono mein **Sarvam AI** sabse
-upar rakhein. Groq ka text to speech sirf English bolta hai. Chat model ke liye Groq ya Cerebras
-sabse tez hain. Ek suggested order:
-
-- Gemini Live: Settings wali key, phir 1-2 backup Gemini keys
-- Chat model: Groq → Cerebras → Cloudflare → OpenRouter → Gemini
-- Speech to text: Sarvam → Groq → Cloudflare
+**Hindi ke liye suggested order:**
+- Gemini Live: client ki key, phir ek backup Gemini key
+- Chat model: Groq → Cerebras → Cloudflare → OpenRouter
+- Speech to text: Sarvam → Groq
 - Text to speech: Sarvam → Gemini
 
-> Free tiers ki limits aur model ke naam badalte rehte hain. Model ka naam har provider mein
-> badal sakte hain. Kuch provider free plan pe aapka data training mein use kar sakte hain, unki
-> terms padh lein. Speech pipeline mein har jawab 1.5 se 3 second leta hai, jo Gemini Live se
-> dheema hai, isliye ise backup ki tarah rakhein.
+Speech pipeline har jawab mein 1.5-3 second leti hai, jo Gemini Live se dheema hai, isliye ise
+backup ki tarah rakhein. Model ke naam badalte rehte hain, har provider mein model ka naam badal
+sakte hain.
+
+### Call kabhi chup-chaap nahi kategi
+
+**Settings → If the AI can't speak** mein do message hain. Dono pehle se record karke database mein
+rakhe jaate hain, isliye saare AI band hon tab bhi bajte hain:
+
+- **While switching** ("एक पल, कृपया लाइन पर बने रहिए।"): jab call ke beech AI badalta hai.
+  Ek call mein ek hi baar bajta hai.
+- **When nothing works** ("माफ़ कीजिए... कृपया थोड़ी देर बाद कॉल करें"): jab koi bhi AI kaam na kare.
+  Ye message bajne ke baad hi call katti hai.
+
+Ye message Gemini key ya kisi text-to-speech provider se record hote hain. **Save and record**
+dabane ke baad "Recorded" dikhna chahiye. Record na hue hon to unki jagah beep bajti hai.
 
 ---
 
-## 3. Phone app (APK) banana
+## 7. Client ka WhatsApp
 
-Android Studio ki zaroorat nahi hai. GitHub khud APK bana deta hai.
-
-1. GitHub pe repo kholein → **Actions** tab → **Android APK** → **Run workflow**.
-2. **App name** mein wo naam likhein jo client ke phone pe dikhna chahiye (jaise aapki brand),
-   phir **Run workflow** dabayein.
-3. 5-10 minute baad run hara (✓) ho jaayega. Use kholein, neeche **Artifacts** mein
-   `phone-app-apk` download karein. Zip ke andar `app-debug.apk` hai.
-
-Ek hi APK saare clients ke phone mein chalega.
-
----
-
-## 4. Server update karna (jab bhi naya code aaye)
-
-```bash
-cd /opt/receptionist && git pull
-cd server && npm ci && npm run build
-sudo systemctl restart receptionist
-```
-
-Restart ke dauran chal rahi call kat jaayegi, isliye update raat mein karein.
-
-## 5. Backup
-
-Saara data ek file mein hai: `/opt/receptionist/server/data/gateway.db`. Isme clients, calls,
-transcripts aur settings sab hain. Roz backup lene ke liye:
-
-```bash
-sudo apt install -y sqlite3
-mkdir -p ~/backups
-( crontab -l 2>/dev/null; echo '0 3 * * * sqlite3 /opt/receptionist/server/data/gateway.db ".backup '"$HOME"'/backups/gateway-$(date +\%F).db"' ) | crontab -
-crontab -l     # roz raat 3 baje wali line dikhni chahiye
-```
-
----
-
-## 6. Naye client ka phone set karna
-
-Ye kaam client ke yahan, phone haath mein lekar karein. Phone Wi-Fi se juda ho.
-
-### 6.1 App install
-
-1. APK phone mein bhejein (WhatsApp, USB ya Google Drive se) aur kholein.
-2. "Unknown apps install karne ki ijazat" maange to allow karein.
-
-### 6.2 Default phone app
-
-1. App kholein → step 1 **Default phone app** → **Set** → app chunein.
-2. **Vivo, Oppo, Xiaomi:** agar "Restricted setting" ka message aaye, to
-   **Settings → Apps → (app) → ⋮ (upar right) → Allow restricted settings** karein, phir dobara
-   try karein.
-
-### 6.3 Server se jodna (QR)
-
-1. Laptop pe console mein **Connection** page kholein. Wahan QR code dikhega.
-2. Phone mein step 2 → **Scan QR** → QR scan karein.
-3. Console mein phone **Online** dikhne lagega.
-4. Phone ka naam pehchaan ke liye yaad rakhein (jaise "Vivo V2348"). Client banate waqt yahi
-   chunna hai.
-
-### 6.4 Call audio (ek baar ki pairing)
-
-1. **Developer options** chalu karein: **Settings → About phone → Software version / Build
-   number** pe 7 baar tap karein.
-2. App mein step 3 **Call audio → Set up** dabayein. Notification ki ijazat maange to dein.
-3. App aapko **Wireless debugging** screen pe le jaayega. Use **on** karein.
-4. **Pair device with pairing code** dabayein. Ek 6-digit code dikhega. Is screen ko band mat
-   karein.
-5. Upar se notification panel kheenchein. Wahan app ki notification mein **Enter code** dabayein,
-   code type karke bhejein.
-6. "Call audio ready" aaye to ho gaya. App mein step 3 hara ho jaayega.
-
-### 6.5 Background mein chalta rehna
-
-1. App mein step 4 → **Allow** (battery optimisation band).
-2. **Vivo:** **Settings → Battery → Background power consumption → (app) → Allow**.
-   Doosre brands mein "Autostart" aur "No restrictions" chalu karein.
-3. Phone ko charger pe lagakar ek jagah rakh dein. Screen lock rakh sakte hain.
-
----
-
-## 7. Client ka WhatsApp gateway
-
-Har client ka apna WhatsApp number hona chahiye, taaki booking link usi clinic ke number se jaaye
-aur patient wahin reply kare.
+Har client ka apna WhatsApp number aur apna gateway hona chahiye, taaki booking link usi clinic ke
+number se jaaye aur patient wahin reply kare.
 
 1. 32 Teeth wale gateway (Hugging Face Space + PHP dashboard) ki ek copy client ke liye banayein.
-2. Space ke secrets mein `PHP_URL` aur `API_SECRET` set karein, aur client ke WhatsApp se QR scan
+2. Space ke secrets mein `PHP_URL` aur `API_SECRET` set karein, phir client ke WhatsApp se QR scan
    karein.
-3. Space ka address (jaise `https://client-name.hf.space`) aur `API_SECRET` note kar lein.
+3. Client ke console mein **Settings → WhatsApp**: Space ka address aur `API_SECRET` daalein, phir
+   **Send test** dabayein.
 
-> Ye gateway WhatsApp Web (Baileys) pe chalta hai, jo WhatsApp ki official API nahi hai.
-> Bahut zyada ya bina maange messages bhejne pe WhatsApp number block kar sakta hai. Yahan message
-> sirf usi ko jaata hai jisne khud call karke booking maangi, phir bhi client ko ye baat bata dein.
-
----
-
-## 8. Console mein client banana
-
-1. **Clients → New client**.
-2. Bharein:
-   - **Business name**: jaise "32 Teeth Hospital". AI isi naam se call uthayega.
-   - **Phones**: step 6.3 wala phone tick karein.
-   - **Voice**: Kore (female) ya Puck (male).
-   - **Booking link**: client ki website ka booking page, ya `https://wa.me/91XXXXXXXXXX`.
-   - **Everything the receptionist should know**: client ki saari jaankari. Website ka text,
-     timings, doctors kab baithte hain, fees policy, emergency number, FAQs. Example:
-     [`clients/32-teeth-hospital.md`](clients/32-teeth-hospital.md).
-   - **WhatsApp**: step 7 ka gateway address, API secret, country code `91`.
-3. **Save** dabayein, phir **Send test** se apne number pe test message mangwayein.
-4. Upar switch **Answer this client's calls** on rahe.
-
-Bas. Ab us phone pe aane wali har call AI uthayega.
-
-> Jaankari jitni poori hogi, AI utna achha jawab dega. Jo baat text mein nahi hai, us pe AI andaza
-> nahi lagata. Wo bolta hai "staff confirm karega" aur message le leta hai.
+> Ye gateway WhatsApp Web (Baileys) pe chalta hai, jo WhatsApp ki official API nahi hai. Bahut
+> zyada ya bina maange messages bhejne pe number block ho sakta hai. Yahan message sirf usi ko
+> jaata hai jisne khud booking maangi, phir bhi client ko ye baat bata dein.
 
 ---
 
-## 9. Test aur handover
+## 8. Client ki jaankari
 
-Kisi doosre phone se client ke SIM number pe call karein aur ye check karein:
+Console mein **Playground → Assistant**:
+- **Role:** Receptionist (pehle se set hai)
+- **Business name** aur **Booking link** (pehle se set hain, badal sakte hain)
+- **Everything the receptionist should know:** client ki saari jaankari, jaise website ka text,
+  timings, doctors kab baithte hain, fees policy, emergency number, FAQs. Example:
+  [`clients/32-teeth-hospital.md`](clients/32-teeth-hospital.md)
+- **Voice:** Kore (female) ya Puck (male)
+- **Answer incoming calls for me:** on rahe
 
-- [ ] AI 1-2 second mein uthata hai aur business ka naam leke greeting deta hai
-- [ ] Gateway phone pe koi awaaz nahi aati (wo chup rehta hai)
+Jo baat text mein nahi hai, us pe AI andaza nahi lagata. Wo bolta hai "staff confirm karega" aur
+message le leta hai.
+
+---
+
+## 9. Client ka apna app
+
+1. GitHub pe repo → **Actions** → **Android APK** → **Run workflow**.
+2. **App name:** client ka naam (jaise `32 Teeth Reception`), aur **Client:** `32teeth`.
+3. 5-10 minute baad run kholein. **Artifacts** mein `phone-app-32teeth` download karein, zip mein
+   `app-debug.apk` hai.
+
+App QR se **sirf usi client ke server** se judta hai, isliye har client ka app uske apne deployment
+pe chalta hai.
+
+### Phone setup (client ke yahan, phone Wi-Fi pe)
+
+1. **Install:** APK phone mein bhejein aur kholein. "Unknown apps" ki ijazat dein.
+2. **Default phone app:** app mein step 1 → **Set**. Vivo, Oppo ya Xiaomi pe "Restricted setting"
+   aaye to **Settings → Apps → (app) → ⋮ → Allow restricted settings** karein, phir dobara try
+   karein.
+3. **Server se jodna:** client ke console mein **Connection** page pe QR khulega. App mein step 2 →
+   **Scan QR**. Console mein phone **Online** dikhega.
+4. **Call audio:**
+   1. Developer options chalu karein (**Settings → About phone → Build number** pe 7 baar tap).
+   2. App mein step 3 → **Set up**. **Wireless debugging** on karein → **Pair device with pairing
+      code**.
+   3. Notification mein **Enter code** dabakar 6-digit code bhejein. "Call audio ready" aana
+      chahiye.
+5. **Background:** app mein step 4 → **Allow**. Vivo pe **Settings → Battery → Background power
+   consumption → (app) → Allow** bhi karein.
+6. Phone ko charger pe lagakar ek jagah rakh dein.
+
+---
+
+## 10. Test aur handover
+
+Doosre phone se client ke SIM number pe call karein:
+
+- [ ] AI 1-2 second mein uthata hai, business ka naam leke greeting deta hai
+- [ ] Gateway phone pe koi awaaz nahi aati
 - [ ] Timings, address, doctor ke baare mein sahi jawab aata hai
-- [ ] "Appointment chahiye" bolne pe AI number confirm karke WhatsApp pe link bhejta hai
-- [ ] WhatsApp pe message aata hai, aur reply karne pe client ka WhatsApp AI jawab deta hai
-- [ ] Console **Playground** mein call, transcript aur message dikhte hain
+- [ ] "Appointment chahiye" bolne pe WhatsApp pe link aata hai
+- [ ] Dashboard mein call, transcript aur booking link dikhte hain
+- [ ] **Failover test:** Settings mein Gemini key thodi der ke liye galat kar dein aur call karein.
+      Backup provider se baat honi chahiye. Saare providers band karke call karein to "कृपया थोड़ी
+      देर बाद कॉल करें" sunna chahiye, phir call kategi. Test ke baad sahi key wapas daal dein.
 
-### Client ka purana number
-
-Client chahe to apna purana clinic number na badle. Purane number se is SIM pe **call forwarding**
-laga dein: purane phone mein **Settings → Calls → Call forwarding**. Jab clinic ka staff busy ho ya
-call na uthaye, tab forward karein, ya hamesha. Forwarding ka charge SIM ke plan pe depend karta
-hai.
+**Client ka purana number:** purane phone mein **Settings → Calls → Call forwarding** se is SIM pe
+forward lagayein: hamesha, ya sirf busy aur no-answer pe.
 
 ---
 
-## Dashboard: sab kuch ek jagah
+## Dashboard
 
-Login karte hi **Dashboard** khulta hai. Ye har 15 second mein khud refresh hota hai. Upar se
-client (ya "All clients") aur period (aaj, 7, 30, 90 din, 12 mahine) chun sakte hain.
+Login karte hi Dashboard khulta hai aur har 15 second mein refresh hota hai. Period: aaj, 7, 30, 90
+din ya 12 mahine.
 
 | Hissa | Kya dikhta hai |
 |---|---|
-| Alerts (laal patti) | Kaunsa phone offline hai, kiska call audio band hai, kiski battery 20% se kam hai, kitne WhatsApp link fail hue. Sab theek ho to hari patti |
-| Total calls | Is period ki saari calls, aur pichhle utne hi dino se kitna kam ya zyada |
-| Answered / Missed | Kitni calls judi, kitni incoming calls bina jude kat gayi |
-| Handled by AI | Kitni calls pe AI ne baat ki |
-| Booking links sent | WhatsApp pe kitne booking link gaye, kitne fail hue |
-| Messages taken | Staff ke liye kitne call-back ya sawaal note hue |
-| Unique callers | Kitne alag-alag numbers se call aayi |
-| Talk time | Kul baat-cheet ka time aur ek call ka average |
-| Calls per day | Har din ki calls ka chart (hari = answered, laal = missed) |
-| Busiest hours | Din ke kis ghante mein sabse zyada calls aati hain |
-| Phones | Har phone: online ya offline, kis client ka hai, audio, battery, network, aaj ki calls |
-| By client | Har client ki calls, missed, booking links aur minutes |
-| Calls | Saari calls: time, number, client, result, length, AI, link sent, message. Kisi call pe click karo to uska poora transcript khulta hai |
-| Export CSV | Saari calls ki Excel file. Client ko mahine ki report dene ke kaam aati hai |
-
-Client ko report dikhani ho to client chunkar "Last 30 days" select karein aur screenshot ya CSV
-bhej dein.
+| Alerts | Phone offline, call audio band, battery 20% se kam, WhatsApp link fail |
+| Numbers | Total, answered, missed, AI ne sambhali, booking links, messages, alag callers, talk time. Saath mein pichhle period se badlav |
+| Charts | Har din ki calls, aur din ke kis ghante mein sabse zyada calls aati hain |
+| Phones | Online ya offline, audio, battery, network, aaj ki calls |
+| AI providers | Kaun chalu hai, kaun limit pe ruka hai, aur kyun |
+| Calls | Har call: time, number, result, length, AI, link, message. Click karne pe transcript khulta hai |
+| Export CSV | Mahine ki report client ko bhejne ke liye |
 
 ---
 
-## Roz ka kaam aur problem aaye to
+## Update, backup, logs
+
+| Kaam | Command |
+|---|---|
+| Ek client update | `sudo bash ~/openline/deploy/update-client.sh 32teeth` |
+| Saare clients update | `sudo bash ~/openline/deploy/update-client.sh all` |
+| Saare clients ki halat | `bash ~/openline/deploy/list-clients.sh` |
+| Logs | `sudo journalctl -u receptionist-32teeth -f` |
+| Restart | `sudo systemctl restart receptionist-32teeth` |
+| Backup | Roz raat 3 baje `/opt/receptionist/backups/` mein, 14 din tak. Update se pehle bhi ek backup banta hai |
+
+Update se us client ki chal rahi call kat jaati hai, isliye update raat mein karein. Pehle ek client
+pe update karke test karein, phir `all` chalayein.
+
+**Client ki settings file:** `/opt/receptionist/clients/32teeth/server/.env`. Isme `GEMINI_API_KEY`,
+`WHATSAPP_GATEWAY_URL` aur `WHATSAPP_API_SECRET` bhi daal sakte hain. Console mein daali settings
+`.env` se upar maani jaati hain. `.env` badalne ke baad restart karein.
+
+> **Ek server pe kai businesses (purana tareeka):** `.env` mein `MULTI_CLIENT=true` daalne se
+> console mein **Clients** page aa jaata hai, aur ek deployment kai businesses sambhal leta hai.
+> Usme AI keys sab businesses ke beech share hoti hain, isliye ye tareeka tabhi lein jab calls kam
+> hon.
+
+---
+
+## Problem aaye to
 
 | Dikkat | Kya karein |
 |---|---|
-| Console mein phone **Offline** | Phone ka internet check karein. App ek baar kholein |
-| **Call audio: Stopped** (phone reboot ke baad hota hai) | Phone ko Wi-Fi se jodkar app kholein, helper khud start ho jaata hai. Uske baad mobile data bhi chalega |
-| AI uthata hai par awaaz nahi aati | App mein step 3 dekhein. Ye phone model support na karta ho, aisa bhi ho sakta hai |
-| WhatsApp link nahi gaya | Clients page pe **Send test** karein. Error dikhega (secret galat, gateway band, ya WhatsApp disconnect) |
-| AI galat jaankari deta hai | Client ka "Everything the receptionist should know" text theek karein. Agli call se lagu hoga |
-| Server ke logs dekhne hain | `sudo journalctl -u receptionist -n 200 -f` |
+| Address nahi khulta | DuckDNS mein sahi IP hai? Oracle Security List mein 80/443 khule hain? `sudo systemctl status caddy` |
+| Console khulta hai, phone **Offline** | Phone ka internet check karein, app ek baar kholein |
+| **Call audio: Stopped** (phone reboot ke baad) | Phone Wi-Fi pe karke app kholein. Uske baad mobile data bhi chalega |
+| Caller ko "baad mein call karein" sunaai deta hai | Dashboard → **AI providers** mein dekhein kaun ruka hai aur kyun. Key ya limit theek karein, ya aur providers jodein |
+| WhatsApp link nahi gaya | Settings → WhatsApp → **Send test**. Error se pata chalega |
+| AI galat jaankari deta hai | Playground → Assistant ka text theek karein. Agli call se lagu hoga |
+| Service band hai | `sudo journalctl -u receptionist-32teeth -n 100` |
 
 ## Kharcha
 
-- **AI:** Gemini Live har call ke minute ke hisaab se charge karta hai (free tier ki limit hai).
-  Limit khatam ho to backup providers (step 2.1) ke free tiers kaam aate hain. Rate
-  [Gemini API pricing](https://ai.google.dev/pricing) pe dekhein, aur client ka plan usi hisaab se
-  rakhein.
-- **VPS:** ek hi server pe kai clients chal jaate hain.
+- **Server:** Oracle Always Free pe ₹0, ek VM pe kai clients.
+- **Address:** DuckDNS pe ₹0. Apna domain lena chahein to saal ka kuch sau rupaye.
+- **AI:** client ke apne accounts ke free tier. Zyada calls hon to Gemini ka paid plan (har minute ka
+  charge) client ke account pe. Rate [Gemini API pricing](https://ai.google.dev/pricing) pe dekhein.
 - **SIM:** client ka normal plan. Incoming calls aam taur pe free hoti hain.
 
 ## Kanoon aur bharosa
 
 - AI hamesha khud ko virtual assistant batata hai.
-- Call ki recording save nahi hoti. Sirf text transcript aapke server pe save hota hai.
-- AI na bimari batata hai na dawai. Emergency mein patient ko turant aane ya emergency number pe
-  call karne ko kehta hai.
-- Ye software MIT license ka hai. Apni brand se bech sakte hain, bas `LICENSE` file code ke saath
-  rehni chahiye.
+- Call ki recording save nahi hoti, sirf text transcript client ke apne server pe save hota hai.
+- AI na bimari batata hai na dawai. Emergency mein turant aane ya emergency number pe call karne ko
+  kehta hai.
+- Software MIT license ka hai. Apni brand se bech sakte hain, bas `LICENSE` file code ke saath rehni
+  chahiye.

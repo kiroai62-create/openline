@@ -6,6 +6,23 @@ description: Install, configure and run the OpenLine server, and where its data 
 The server is a Node.js app in `server/`. It needs **Node.js 22.13+** (it uses the built-in
 `node:sqlite`) and nothing else: no database server, no Redis.
 
+## One deployment per client
+
+To run the AI receptionist for several businesses, give each one its own deployment: its own copy
+of the code, database, `.env` (AI keys, WhatsApp gateway), service and address. On a fresh Ubuntu
+server (Oracle Cloud Always Free works well):
+
+```bash
+sudo bash deploy/setup-vm.sh                 # Node.js 22, Caddy (HTTPS), firewall, nightly backups
+sudo bash deploy/new-client.sh 32teeth "32 Teeth Hospital" 32teeth.duckdns.org https://wa.me/918789354445
+bash deploy/list-clients.sh                  # every client, its address and whether it runs
+sudo bash deploy/update-client.sh all        # update and restart (one client or all)
+```
+
+`CLIENT_NAME` and `BOOKING_URL` in `.env` set up the receptionist on the first start. AI limits are
+per API key, so put each client's own keys in its deployment. `MULTI_CLIENT=true` instead shows the
+Clients page for several businesses on one deployment, sharing its AI keys.
+
 ## Install and start
 
 ```bash
