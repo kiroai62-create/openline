@@ -490,6 +490,9 @@ def build(args):
         Spacer(1, 14),
         p("Your dashboard", "h2"),
         *bullets([
+            "Call analytics: total, answered and missed calls, calls handled by the AI, booking links sent, talk time, compared with the previous period.",
+            "Charts of calls per day and the busiest hours of the day, so you know when patients call.",
+            "Alerts when the clinic phone goes offline, its battery is low or a WhatsApp message fails.",
             "See which phones are online, their battery, signal and network.",
             "Read every call's transcript and the messages taken for your staff.",
             "Change what the receptionist knows at any time. It applies from the next call.",
@@ -612,7 +615,7 @@ def build(args):
             ("Languages", "Hindi, Hinglish and English"),
             ("Booking", "Booking link on WhatsApp, from your clinic's number"),
             ("Your number", "Works on your SIM; forward your existing number if you like"),
-            ("What you see", "Every call, its transcript and messages, in your dashboard"),
+            ("What you see", "Live call analytics, every call's transcript and messages, CSV export"),
             ("Privacy", "No call recordings; AI introduces itself; no medical advice"),
             ("You provide", "An Android phone with the SIM, a charger, Wi-Fi and your clinic details"),
         ], first=40 * mm),

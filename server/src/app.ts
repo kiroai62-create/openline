@@ -26,6 +26,7 @@ import {
   registerDeviceSchema,
   whatsappTestSchema,
   createClientSchema,
+  analyticsQuerySchema,
   updateClientSchema,
 } from "./schemas.js";
 import type { AgentManager } from "./agent/agent-manager.js";
@@ -35,6 +36,7 @@ import { PairingService, pairUri } from "./pairing.js";
 import type { StateStore } from "./state.js";
 import { renderTemplate, sendWhatsApp, toWhatsAppNumber, whatsappFromClient, whatsappFromConfig, type WhatsAppTarget } from "./agent/whatsapp.js";
 import type { ClientStore } from "./clients.js";
+import { Analytics } from "./analytics.js";
 
 export interface AppDependencies {
   auth: AuthService;
@@ -47,6 +49,7 @@ export interface AppDependencies {
   streams?: StreamManager;
   pairing?: PairingService;
   clients?: ClientStore;
+  analytics?: Analytics;
 }
 
 export function createApp(deps: AppDependencies) {
@@ -429,6 +432,14 @@ export function createApp(deps: AppDependencies) {
     for (const id of deviceIds) clients.assignDevice(id, clientId);
     return undefined;
   }
+
+  // ---- Dashboard analytics ----
+  app.get("/v1/analytics", (request, response) => {
+    if (!deps.analytics) return response.status(404).json(errorBody("NOT_FOUND", "analytics unavailable"));
+    const parsed = analyticsQuerySchema.safeParse(request.query);
+    if (!parsed.success) return validationError(response, parsed.error.issues);
+    return response.json(deps.analytics.report(parsed.data));
+  });
 
   app.get("/v1/clients", (_request, response) => {
     const clients = clientsOr404(response);

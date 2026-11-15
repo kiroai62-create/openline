@@ -210,9 +210,21 @@ export class AgentManager {
       business: profile.businessName || profile.ownerName,
       link: profile.bookingUrl,
     });
-    await sendWhatsApp(whatsapp, number, text);
+    try {
+      await sendWhatsApp(whatsapp, number, text);
+    } catch (error) {
+      this.logSend(call, profile, number, error instanceof Error ? error.message : String(error));
+      throw error;
+    }
+    this.logSend(call, profile, number);
     console.log(`booking link sent on WhatsApp for call ${call.id} to …${number.slice(-4)}`);
     return `Sent on WhatsApp to the number ending in ${number.slice(-4)}.`;
+  }
+
+  private logSend(call: CallRecord, profile: CallProfile, number: string, error?: string): void {
+    this.options.db
+      .prepare("INSERT INTO whatsapp_sends (call_id, client_id, to_suffix, ok, error, at) VALUES (?, ?, ?, ?, ?, ?)")
+      .run(call.id, profile.clientId ?? null, number.slice(-4), error ? 0 : 1, error?.slice(0, 300) ?? null, new Date().toISOString());
   }
 
   /** The phone's client wins; phones without a client use the global assistant settings. */

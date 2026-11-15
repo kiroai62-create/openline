@@ -174,10 +174,10 @@ export class StateStore {
     const id = randomUUID();
     this.db
       .prepare(
-        `INSERT INTO calls (id, device_id, remote_number, direction, state, webhook_url, metadata, stream, created_at, updated_at)
-         VALUES (?, ?, ?, 'outgoing', 'queued', ?, ?, ?, ?, ?)`,
+        `INSERT INTO calls (id, device_id, client_id, remote_number, direction, state, webhook_url, metadata, stream, created_at, updated_at)
+         VALUES (?, ?, (SELECT client_id FROM devices WHERE id = ?), ?, 'outgoing', 'queued', ?, ?, ?, ?, ?)`,
       )
-      .run(id, input.deviceId, input.to, input.webhookUrl ?? null, json(input.metadata), json(input.stream), now, now);
+      .run(id, input.deviceId, input.deviceId, input.to, input.webhookUrl ?? null, json(input.metadata), json(input.stream), now, now);
     return this.getCall(id)!;
   }
 
@@ -290,11 +290,12 @@ export class StateStore {
 
     this.db
       .prepare(
-        `INSERT INTO calls (id, device_id, remote_number, direction, state, native_call_id, created_at, updated_at, answered_at, ended_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO calls (id, device_id, client_id, remote_number, direction, state, native_call_id, created_at, updated_at, answered_at, ended_at)
+         VALUES (?, ?, (SELECT client_id FROM devices WHERE id = ?), ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         event.callId,
+        deviceId,
         deviceId,
         number ?? "unknown",
         direction ?? "incoming",

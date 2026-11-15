@@ -11,6 +11,7 @@ import { MediaRelay } from "./media-relay.js";
 import { StateStore } from "./state.js";
 import { StreamManager } from "./stream/stream-manager.js";
 import { ClientStore } from "./clients.js";
+import { Analytics } from "./analytics.js";
 import { HttpWebhookDispatcher, type WebhookDispatcher } from "./webhooks.js";
 
 export interface GatewayServerOptions {
@@ -86,7 +87,7 @@ export function createGatewayServer(options: GatewayServerOptions): GatewayServe
     const streamed = streams.onCallEvent(call, event);
     agents.onCallEvent(state.getCall(call.id) ?? call, event, streamed);
   };
-  const app = createApp({ auth, config, state, deviceChannel: deviceHub, events, media, agents, streams, clients });
+  const app = createApp({ auth, config, state, deviceChannel: deviceHub, events, media, agents, streams, clients, analytics: new Analytics(db) });
   httpServer = createServer(app);
   deviceHub.attach(httpServer);
   media.attach(httpServer);

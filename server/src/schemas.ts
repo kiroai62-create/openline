@@ -109,6 +109,12 @@ export const clientSchema = z.object({
 export const createClientSchema = clientSchema.partial().required({ name: true });
 export const updateClientSchema = clientSchema.partial();
 
+export const analyticsQuerySchema = z.object({
+  days: z.coerce.number().int().min(1).max(365).default(7),
+  clientId: z.string().min(1).max(64).default("all"),
+  tzOffset: z.coerce.number().int().min(-840).max(840).default(0),
+});
+
 export const whatsappTestSchema = z.object({ to: z.string().trim().min(5).max(32) });
 
 export const pairSchema = z.object({

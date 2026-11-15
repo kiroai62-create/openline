@@ -278,6 +278,33 @@ hai.
 
 ---
 
+## Dashboard: sab kuch ek jagah
+
+Login karte hi **Dashboard** khulta hai. Ye har 15 second mein khud refresh hota hai. Upar se
+client (ya "All clients") aur period (aaj, 7, 30, 90 din, 12 mahine) chun sakte hain.
+
+| Hissa | Kya dikhta hai |
+|---|---|
+| Alerts (laal patti) | Kaunsa phone offline hai, kiska call audio band hai, kiski battery 20% se kam hai, kitne WhatsApp link fail hue. Sab theek ho to hari patti |
+| Total calls | Is period ki saari calls, aur pichhle utne hi dino se kitna kam ya zyada |
+| Answered / Missed | Kitni calls judi, kitni incoming calls bina jude kat gayi |
+| Handled by AI | Kitni calls pe AI ne baat ki |
+| Booking links sent | WhatsApp pe kitne booking link gaye, kitne fail hue |
+| Messages taken | Staff ke liye kitne call-back ya sawaal note hue |
+| Unique callers | Kitne alag-alag numbers se call aayi |
+| Talk time | Kul baat-cheet ka time aur ek call ka average |
+| Calls per day | Har din ki calls ka chart (hari = answered, laal = missed) |
+| Busiest hours | Din ke kis ghante mein sabse zyada calls aati hain |
+| Phones | Har phone: online ya offline, kis client ka hai, audio, battery, network, aaj ki calls |
+| By client | Har client ki calls, missed, booking links aur minutes |
+| Calls | Saari calls: time, number, client, result, length, AI, link sent, message. Kisi call pe click karo to uska poora transcript khulta hai |
+| Export CSV | Saari calls ki Excel file. Client ko mahine ki report dene ke kaam aati hai |
+
+Client ko report dikhani ho to client chunkar "Last 30 days" select karein aur screenshot ya CSV
+bhej dein.
+
+---
+
 ## Roz ka kaam aur problem aaye to
 
 | Dikkat | Kya karein |

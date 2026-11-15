@@ -160,6 +160,39 @@
   .call-row .when { color: var(--muted); font-size: 13px; }
   .call-row .st { grid-column: 2 / -1; font-size: 13px; color: var(--muted); }
   .empty { padding: 18px; color: var(--muted); font-size: 14px; }
+  /* Dashboard */
+  .dash-head { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; justify-content: space-between; margin-bottom: 14px; }
+  .dash-head .row { gap: 8px; }
+  .dash-head select { width: auto; min-width: 150px; }
+  .alerts { margin: 0 0 14px; padding: 0; list-style: none; display: grid; gap: 8px; }
+  .alerts li { padding: 10px 14px; border-radius: var(--radius); background: color-mix(in srgb, var(--bad) 10%, var(--surface)); border: 1px solid color-mix(in srgb, var(--bad) 30%, var(--line)); font-size: 14px; }
+  .alerts li.ok { background: color-mix(in srgb, var(--live) 10%, var(--surface)); border-color: color-mix(in srgb, var(--live) 30%, var(--line)); }
+  .kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+  @media (max-width: 900px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .kpi { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; }
+  .kpi .k { font-size: 12.5px; color: var(--muted); }
+  .kpi .v { font-size: 26px; font-weight: 600; line-height: 1.2; margin-top: 4px; }
+  .kpi .d { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+  .kpi .d .up { color: var(--live); } .kpi .d .down { color: var(--bad); }
+  .chart { display: flex; align-items: flex-end; gap: 3px; height: 170px; padding: 14px 18px 0; }
+  .chart .col { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; align-items: stretch; height: 100%; min-width: 0; }
+  .chart .seg { border-radius: 2px 2px 0 0; }
+  .chart .seg.answered { background: var(--live); }
+  .chart .seg.missed { background: var(--bad); border-radius: 0; }
+  .chart .seg.other { background: var(--line); border-radius: 0; }
+  .chart-axis { display: flex; gap: 3px; padding: 4px 18px 14px; font-size: 11px; color: var(--muted); }
+  .chart-axis span { flex: 1; text-align: center; min-width: 0; overflow: hidden; white-space: nowrap; }
+  .legend { display: flex; gap: 14px; font-size: 12.5px; color: var(--muted); padding: 0 18px 12px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+  table.data { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  table.data th { text-align: left; font-weight: 500; color: var(--muted); font-size: 12.5px; padding: 8px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  table.data td { padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  table.data tr.click { cursor: pointer; } table.data tr.click:hover td { background: var(--soft); }
+  table.data .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .tag { display: inline-block; font-size: 11.5px; padding: 1px 7px; border-radius: 10px; background: var(--soft); color: var(--muted); margin: 1px 3px 1px 0; white-space: nowrap; }
+  .tag.live { background: color-mix(in srgb, var(--live) 15%, var(--surface)); color: var(--live); }
+  .tag.bad { background: color-mix(in srgb, var(--bad) 13%, var(--surface)); color: var(--bad); }
+  .scroll-x { overflow-x: auto; }
 
   .msg { padding: 14px 18px; }
   .msg .name { font-weight: 600; }
@@ -243,9 +276,10 @@
 
 <div id="appView" hidden>
 <header class="top"><div class="top-inner">
-  <a class="brand" href="#/" id="brandName">OpenLine</a>
+  <a class="brand" href="#/dashboard" id="brandName">OpenLine</a>
   <nav class="nav" aria-label="Main">
-    <a href="#/" data-route="home">Home</a>
+    <a href="#/dashboard" data-route="dashboard">Dashboard</a>
+    <a href="#/home" data-route="home">Get started</a>
     <a href="#/playground" data-route="playground">Playground</a>
     <a href="#/clients" data-route="clients">Clients</a>
     <a href="#/connection" data-route="connection">Connection</a>
@@ -254,6 +288,63 @@
   </nav>
   <a class="phone-status" id="phoneStatus" href="#/connection" style="text-decoration:none"><span class="dot"></span><span>Checking phone…</span></a>
 </div></header>
+
+<!-- Dashboard -------------------------------------------------------------------------------->
+<main class="page" data-page="dashboard" hidden>
+  <div class="dash-head">
+    <div>
+      <h1 class="title" style="margin-bottom:2px">Dashboard</h1>
+      <p class="muted small" style="margin:0" id="dashUpdated">Loading…</p>
+    </div>
+    <div class="row">
+      <select class="field" id="dashClient" aria-label="Client"><option value="all">All clients</option></select>
+      <select class="field" id="dashDays" aria-label="Period">
+        <option value="1">Today</option>
+        <option value="7" selected>Last 7 days</option>
+        <option value="30">Last 30 days</option>
+        <option value="90">Last 90 days</option>
+        <option value="365">Last 12 months</option>
+      </select>
+      <button class="btn" id="dashCsv">Export CSV</button>
+    </div>
+  </div>
+  <ul class="alerts" id="dashAlerts"></ul>
+  <div class="kpis" id="dashKpis"></div>
+  <div class="grid">
+    <div>
+      <section class="panel">
+        <div class="panel-head"><h2>Calls per day</h2><span class="muted small" id="dashDailyNote"></span></div>
+        <div class="chart" id="dashDaily"></div>
+        <div class="chart-axis" id="dashDailyAxis"></div>
+        <div class="legend"><span><i style="background:var(--live)"></i>Answered</span><span><i style="background:var(--bad)"></i>Missed</span><span><i style="background:var(--line)"></i>Other</span></div>
+      </section>
+      <section class="panel">
+        <div class="panel-head"><h2>Calls</h2><span class="muted small" id="dashCallCount"></span></div>
+        <div class="scroll-x"><table class="data"><thead><tr>
+          <th>Time</th><th>Caller</th><th>Client</th><th>Result</th><th class="num">Length</th><th>AI</th>
+        </tr></thead><tbody id="dashCalls"></tbody></table></div>
+        <p class="hint" style="padding:0 18px 14px">Click a call to open it with its transcript.</p>
+      </section>
+    </div>
+    <aside>
+      <section class="panel">
+        <div class="panel-head"><h2>Phones</h2><span class="muted small" id="dashPhoneCount"></span></div>
+        <div id="dashPhones"></div>
+      </section>
+      <section class="panel">
+        <div class="panel-head"><h2>Busiest hours</h2></div>
+        <div class="chart" id="dashHourly" style="height:110px"></div>
+        <div class="chart-axis" id="dashHourlyAxis"></div>
+      </section>
+      <section class="panel" id="dashClientsPanel">
+        <div class="panel-head"><h2>By client</h2></div>
+        <div class="scroll-x"><table class="data"><thead><tr>
+          <th>Client</th><th class="num">Calls</th><th class="num">Missed</th><th class="num">Links</th><th class="num">Min</th>
+        </tr></thead><tbody id="dashByClient"></tbody></table></div>
+      </section>
+    </aside>
+  </div>
+</main>
 
 <!-- Home ------------------------------------------------------------------------------------->
 <main class="page" data-page="home" hidden>
@@ -761,12 +852,12 @@ function toast(text) {
 
 // ---- Routing -------------------------------------------------------------------------------
 
-const ROUTES = ["home", "playground", "clients", "connection", "docs", "settings"];
+const ROUTES = ["dashboard", "home", "playground", "clients", "connection", "docs", "settings"];
 window.addEventListener("hashchange", onRoute);
 
 function onRoute() {
-  const name = location.hash.replace(/^#\/?/, "").split("?")[0] || "home";
-  route = ROUTES.includes(name) ? name : "home";
+  const name = location.hash.replace(/^#\/?/, "").split("?")[0] || "dashboard";
+  route = ROUTES.includes(name) ? name : "dashboard";
   if (route === "docs" && server.docsUrl) {
     window.open(server.docsUrl, "_blank", "noopener");
     history.replaceState(null, "", "#/");
@@ -777,6 +868,7 @@ function onRoute() {
   if (route === "connection") ensurePairingCode();
   if (route === "settings") loadSettings();
   if (route === "clients") loadClients();
+  if (route === "dashboard") loadDashboard();
   if (route === "home") renderHome();
   refresh();
 }
@@ -1401,6 +1493,201 @@ $("saveServer").onclick = () => saveSettings({
   docsUrl: $("setDocsUrl").value.trim(),
   brandName: $("setBrandName").value.trim(),
 }, "Saved.");
+
+// ---- Dashboard -----------------------------------------------------------------------------
+
+let dash = null;
+let dashLoading = false;
+let dashLoadedAt = 0;
+
+async function loadDashboard() {
+  if (dashLoading) return;
+  dashLoading = true;
+  try {
+    const clientId = $("dashClient").value || "all";
+    const days = $("dashDays").value;
+    const tzOffset = -new Date().getTimezoneOffset();
+    const [report, clientList, deviceList] = await Promise.all([
+      api(`/v1/analytics?days=${days}&clientId=${encodeURIComponent(clientId)}&tzOffset=${tzOffset}`),
+      api("/v1/clients").then((r) => r.clients).catch(() => []),
+      api("/v1/devices").then((r) => r.devices),
+    ]);
+    clients = clientList;
+    devices = deviceList;
+    dash = report;
+    dashLoadedAt = Date.now();
+    renderDashboard();
+  } catch (error) {
+    $("dashUpdated").textContent = error.message;
+  } finally {
+    dashLoading = false;
+  }
+}
+setInterval(() => { if (route === "dashboard" && signedIn && !document.hidden && Date.now() - dashLoadedAt > 15_000) loadDashboard(); }, 2_000);
+$("dashClient").onchange = loadDashboard;
+$("dashDays").onchange = loadDashboard;
+
+function fmtDuration(sec) {
+  if (!sec) return "0:00";
+  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+  return h ? `${h}h ${m}m` : `${m}:${String(s).padStart(2, "0")}`;
+}
+const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0);
+
+function renderDashboard() {
+  const { totals: t, previous: prev, range } = dash;
+  // client filter options
+  const sel = $("dashClient");
+  const current = sel.value || "all";
+  const opts = [["all", "All clients"], ...clients.map((c) => [c.id, c.name]), ["none", "Phones without a client"]];
+  const optHtml = opts.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join("");
+  if (sel.dataset.html !== optHtml) { sel.innerHTML = optHtml; sel.dataset.html = optHtml; sel.value = opts.some(([v]) => v === current) ? current : "all"; }
+  $("dashClientsPanel").hidden = sel.value !== "all";
+  $("dashUpdated").textContent = `Updated ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} · refreshes every 15 seconds`;
+
+  // phones of the selected client
+  const clientOf = (deviceId) => clients.find((c) => c.deviceIds.includes(deviceId));
+  const shown = devices.filter((d) => sel.value === "all" || (sel.value === "none" ? !clientOf(d.id) : clientOf(d.id)?.id === sel.value));
+  const phoneStats = new Map(dash.phones.map((p) => [p.id, p]));
+
+  // alerts
+  const alerts = [];
+  for (const d of shown) {
+    const c = clientOf(d.id);
+    const who = esc(d.name || d.id) + (c ? ` (${esc(c.name)})` : "");
+    const h = d.health || {};
+    if (!d.connected) alerts.push(`<b>${who} is offline</b> since ${timeAgo(d.lastSeenAt)}. Calls to it are not answered by the AI. Check its internet and open the app.`);
+    else if (h.audio && h.audio !== "running") alerts.push(`<b>${who}: call audio is ${esc((AUDIO_TEXT[h.audio] || [h.audio])[0]).toLowerCase()}</b>. Connect the phone to Wi-Fi and open the app.`);
+    else if (h.battery !== undefined && h.battery < 20 && !h.charging) alerts.push(`<b>${who}: battery ${h.battery}%</b> and not charging.`);
+  }
+  if (t.bookingFailed) alerts.push(`<b>${t.bookingFailed} booking link${t.bookingFailed > 1 ? "s" : ""} could not be sent</b> in this period. Check the WhatsApp gateway with <b>Send test</b> on the Clients page.`);
+  if (!shown.length) alerts.push(`No phone ${sel.value === "all" ? "is paired yet" : "is assigned here"}. Pair one under <a href="#/connection">Connection</a>.`);
+  $("dashAlerts").innerHTML = alerts.length
+    ? alerts.map((a) => `<li>${a}</li>`).join("")
+    : `<li class="ok">All ${shown.length} phone${shown.length > 1 ? "s are" : " is"} online and ready to answer calls.</li>`;
+
+  // KPIs
+  const period = range.days === 1 ? "yesterday" : `previous ${range.days} days`;
+  const delta = (now, before, goodUp = true) => {
+    if (!before && !now) return `same as ${period}`;
+    if (!before) return `new vs ${period}`;
+    const d = Math.round(((now - before) / before) * 100);
+    if (!d) return `same as ${period}`;
+    const good = d > 0 === goodUp;
+    return `<span class="${good ? "up" : "down"}">${d > 0 ? "▲" : "▼"} ${Math.abs(d)}%</span> vs ${period}`;
+  };
+  const kpi = (k, v, d) => `<div class="kpi"><div class="k">${k}</div><div class="v">${v}</div><div class="d">${d}</div></div>`;
+  $("dashKpis").innerHTML = [
+    kpi("Total calls", t.calls, delta(t.calls, prev.calls)),
+    kpi("Answered", t.answered, `${pct(t.answered, t.calls)}% of calls · ${delta(t.answered, prev.answered)}`),
+    kpi("Missed", t.missed, `${pct(t.missed, t.incoming)}% of incoming · ${delta(t.missed, prev.missed, false)}`),
+    kpi("Handled by AI", t.aiHandled, `${pct(t.aiHandled, t.answered)}% of answered calls`),
+    kpi("Booking links sent", t.bookingLinks, t.bookingFailed ? `<span class="down">${t.bookingFailed} failed</span>` : `${pct(t.bookingLinks, t.aiHandled)}% of AI calls · ${delta(t.bookingLinks, prev.bookingLinks)}`),
+    kpi("Messages taken", t.messages, "Call-backs and questions for staff"),
+    kpi("Unique callers", t.uniqueCallers, `${t.incoming} incoming · ${t.outgoing} outgoing`),
+    kpi("Talk time", fmtDuration(t.talkSeconds), `Average call ${fmtDuration(t.avgSeconds)}`),
+  ].join("");
+
+  // daily chart
+  const daily = range.days > 90 ? weekly(dash.daily) : dash.daily;
+  const max = Math.max(1, ...daily.map((d) => d.calls));
+  $("dashDaily").innerHTML = daily.map((d) => {
+    const other = d.calls - d.answered - d.missed;
+    const h = (n) => `${(n / max) * 100}%`;
+    return `<div class="col" title="${esc(d.label || d.day)}: ${d.calls} calls, ${d.answered} answered, ${d.missed} missed, ${d.bookingLinks} booking links">
+      <div class="seg other" style="height:${h(other)}"></div><div class="seg missed" style="height:${h(d.missed)}"></div><div class="seg answered" style="height:${h(d.answered)}"></div></div>`;
+  }).join("");
+  const step = Math.ceil(daily.length / 10);
+  $("dashDailyAxis").innerHTML = daily.map((d, i) => `<span>${i % step === 0 ? esc(d.label || shortDay(d.day, range.days)) : ""}</span>`).join("");
+  $("dashDailyNote").textContent = `${t.calls} calls${range.days > 90 ? ", by week" : ""}`;
+
+  // hourly
+  const hmax = Math.max(1, ...dash.hourly);
+  $("dashHourly").innerHTML = dash.hourly.map((n, hr) => `<div class="col" title="${hr}:00 to ${hr + 1}:00: ${n} calls"><div class="seg answered" style="height:${(n / hmax) * 100}%; opacity:${n ? 1 : 0.2}"></div></div>`).join("");
+  $("dashHourlyAxis").innerHTML = dash.hourly.map((_, hr) => `<span>${hr % 6 === 0 ? `${hr}h` : ""}</span>`).join("");
+
+  // phones
+  $("dashPhoneCount").textContent = shown.length ? `${shown.filter((d) => d.connected).length} of ${shown.length} online` : "";
+  $("dashPhones").innerHTML = shown.length ? shown.map((d) => {
+    const h = d.health || {};
+    const c = clientOf(d.id);
+    const st = phoneStats.get(d.id) || {};
+    const audio = AUDIO_TEXT[h.audio] || [h.audio || "Unknown", ""];
+    return `<div class="device" style="padding:12px 18px">
+      <div class="device-head"><span class="dot ${d.connected ? "live" : "bad"}"></span>
+        <span class="grow"><span class="device-name">${esc(d.name || d.id)}</span><br>
+        <span class="muted small">${c ? esc(c.name) : "No client"} · ${d.connected ? "Online" : `Offline, seen ${timeAgo(d.lastSeenAt)}`}</span></span></div>
+      <div style="margin-top:6px">
+        <span class="tag ${audio[1] === "bad" ? "bad" : h.audio === "running" ? "live" : ""}">Audio: ${esc(audio[0])}</span>
+        ${h.battery !== undefined ? `<span class="tag ${h.battery < 20 && !h.charging ? "bad" : ""}">Battery ${h.battery}%${h.charging ? " ⚡" : ""}</span>` : ""}
+        ${h.network ? `<span class="tag">${esc(NETWORK_TEXT[h.network] || h.network)}${h.carrier ? ` · ${esc(h.carrier)}` : ""}</span>` : ""}
+        <span class="tag">Today: ${st.callsToday ?? 0} call${(st.callsToday ?? 0) === 1 ? "" : "s"}</span>
+        ${st.missed ? `<span class="tag bad">${st.missed} missed in this period</span>` : ""}
+      </div></div>`;
+  }).join("") : `<div class="empty">No phones here.</div>`;
+
+  // by client
+  $("dashByClient").innerHTML = dash.byClient.length ? dash.byClient.map((b) => `<tr>
+    <td>${esc(b.name || "No client")}</td><td class="num">${b.calls}</td><td class="num">${b.missed || 0}</td>
+    <td class="num">${b.bookingLinks || 0}</td><td class="num">${Math.round((b.talkSeconds || 0) / 60)}</td></tr>`).join("")
+    : `<tr><td colspan="5" class="muted">No calls in this period.</td></tr>`;
+
+  // calls
+  $("dashCallCount").textContent = dash.calls.length >= 500 ? "latest 500" : `${dash.calls.length}`;
+  $("dashCalls").innerHTML = dash.calls.length ? dash.calls.slice(0, 200).map((c) => {
+    const result = c.missed ? `<span class="tag bad">Missed</span>`
+      : c.answeredAt ? `<span class="tag live">${c.endedAt ? "Answered" : "On call"}</span>`
+      : `<span class="tag">${esc(STATE_TEXT[c.state] || c.state)}</span>`;
+    return `<tr class="click" data-call="${esc(c.id)}">
+      <td style="white-space:nowrap">${esc(new Date(c.createdAt).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }))}</td>
+      <td>${c.direction === "incoming" ? "↙" : "↗"} ${esc(c.remoteNumber)}</td>
+      <td>${esc(c.clientName || "—")}</td>
+      <td>${result}</td>
+      <td class="num">${c.seconds ? fmtDuration(c.seconds) : "—"}</td>
+      <td>${c.ai ? `<span class="tag live">AI</span>` : ""}${c.booking ? `<span class="tag live">Link sent</span>` : ""}${c.message ? `<span class="tag">Message</span>` : ""}</td></tr>`;
+  }).join("") : `<tr><td colspan="6" class="muted">No calls in this period.</td></tr>`;
+  $("dashCalls").querySelectorAll("[data-call]").forEach((tr) => tr.onclick = () => {
+    selectedId = tr.dataset.call;
+    location.hash = "#/playground";
+  });
+}
+
+function shortDay(day, days) {
+  const d = new Date(`${day}T12:00:00`);
+  return days <= 7 ? d.toLocaleDateString([], { weekday: "short" }) : d.toLocaleDateString([], { day: "numeric", month: "short" });
+}
+
+/** Groups daily rows into weeks for long periods. */
+function weekly(days) {
+  const out = [];
+  for (let i = 0; i < days.length; i += 7) {
+    const chunk = days.slice(i, i + 7);
+    out.push({
+      day: chunk[0].day,
+      label: shortDay(chunk[0].day, 30),
+      calls: chunk.reduce((n, d) => n + d.calls, 0),
+      answered: chunk.reduce((n, d) => n + d.answered, 0),
+      missed: chunk.reduce((n, d) => n + d.missed, 0),
+      bookingLinks: chunk.reduce((n, d) => n + d.bookingLinks, 0),
+    });
+  }
+  return out;
+}
+
+$("dashCsv").onclick = () => {
+  if (!dash) return;
+  const cell = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const rows = [["Time", "Direction", "Number", "Client", "Phone", "State", "Answered", "Missed", "Seconds", "AI", "Booking link sent", "Message taken"]];
+  for (const c of dash.calls) {
+    rows.push([c.createdAt, c.direction, c.remoteNumber, c.clientName || "", c.deviceId, c.state, c.answeredAt ? "yes" : "no", c.missed ? "yes" : "no", c.seconds ?? "", c.ai ? "yes" : "no", c.booking ? "yes" : "no", c.message ? "yes" : "no"]);
+  }
+  const blob = new Blob([rows.map((r) => r.map(cell).join(",")).join("\n")], { type: "text/csv" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `calls-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+};
 
 // ---- Brand (white label) -------------------------------------------------------------------
 

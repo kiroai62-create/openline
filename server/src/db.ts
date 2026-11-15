@@ -130,6 +130,22 @@ const MIGRATIONS: string[] = [
   );
   ALTER TABLE devices ADD COLUMN client_id TEXT;
   `,
+  // Analytics: which client a call belonged to when it happened, and booking links sent.
+  `
+  ALTER TABLE calls ADD COLUMN client_id TEXT;
+  UPDATE calls SET client_id = (SELECT client_id FROM devices WHERE devices.id = calls.device_id);
+  CREATE INDEX calls_client ON calls (client_id, created_at DESC);
+  CREATE TABLE whatsapp_sends (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    call_id TEXT,
+    client_id TEXT,
+    to_suffix TEXT NOT NULL,
+    ok INTEGER NOT NULL,
+    error TEXT,
+    at TEXT NOT NULL
+  );
+  CREATE INDEX whatsapp_sends_at ON whatsapp_sends (at DESC);
+  `,
 ];
 
 function migrate(db: Database): void {
