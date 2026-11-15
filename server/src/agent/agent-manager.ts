@@ -5,6 +5,8 @@ import type { StateStore } from "../state.js";
 import type { CallRecord, DeviceEventName } from "../types.js";
 import { GeminiCallAgent, type AgentMessage, type AgentMode, type TranscriptLine } from "./gemini-call-agent.js";
 import type { ClientStore } from "../clients.js";
+import type { AiRouter, ProviderConfig } from "../ai/router.js";
+import { PipelineCallAgent } from "../ai/pipeline-agent.js";
 import {
   renderTemplate,
   sendWhatsApp,
@@ -42,7 +44,13 @@ export interface AgentManagerOptions {
   mediaUrl(callId: string): string;
   /** Businesses with their own phones; their calls use the client's receptionist settings. */
   clients?: ClientStore;
+  /** Provider list and failover. Without it only the Gemini key in Settings is used. */
+  router?: AiRouter;
 }
+
+type CallAgent = GeminiCallAgent | PipelineCallAgent;
+/** Agents tried on one call before giving up (each failover starts the next provider). */
+const MAX_AGENTS_PER_CALL = 5;
 
 /** What the assistant does on one call: the client's receptionist, or the global settings. */
 export interface CallProfile {
@@ -62,7 +70,9 @@ const LIVE_STATES = new Set<CallRecord["state"]>(["queued", "dialing", "ringing"
 /** Runs the Gemini personal assistant on calls: auto-answer, transcripts and taken messages. */
 export class AgentManager {
   readonly settings: AgentSettings;
-  private readonly agents = new Map<string, GeminiCallAgent>();
+  private readonly agents = new Map<string, CallAgent>();
+  private readonly engines = new Map<string, string>();
+  private readonly attempts = new Map<string, number>();
   private readonly requested = new Set<string>();
 
   constructor(private readonly options: AgentManagerOptions) {
@@ -79,7 +89,7 @@ export class AgentManager {
   }
 
   get configured(): boolean {
-    return Boolean(this.options.config.get("geminiApiKey"));
+    return this.options.router?.anyConfigured() ?? Boolean(this.options.config.get("geminiApiKey"));
   }
 
   get model(): string {
@@ -122,6 +132,7 @@ export class AgentManager {
       requested: this.requested.has(callId),
       status: agent?.status ?? (this.requested.has(callId) ? "waiting" : "off"),
       error: agent?.error,
+      engine: this.engines.get(callId),
       transcript: this.transcript(callId),
       message: agent?.message ?? this.getMessage(callId),
     };
@@ -129,7 +140,7 @@ export class AgentManager {
 
   /** Hand a call to the assistant; answers it first if it is ringing. */
   takeOver(callId: string): void {
-    if (!this.configured) throw new Error("Gemini API key is not set (console Settings)");
+    if (!this.configured) throw new Error("No AI provider is set up (console Settings)");
     const call = this.options.state.getCall(callId);
     if (!call || !LIVE_STATES.has(call.state)) throw new Error("call is not live");
     this.requested.add(callId);
@@ -143,6 +154,8 @@ export class AgentManager {
     agent?.stop();
     if (agent) this.saveTranscript(callId, agent.transcript);
     this.agents.delete(callId);
+    this.engines.delete(callId);
+    this.attempts.delete(callId);
   }
 
   /**
@@ -165,33 +178,81 @@ export class AgentManager {
     if (!LIVE_STATES.has(call.state)) this.release(call.id);
   }
 
-  private startAgent(call: CallRecord): void {
-    const geminiApiKey = this.options.config.get("geminiApiKey");
+  /**
+   * Starts the best available engine: a Gemini Live key not on cooldown, else the speech pipeline.
+   * When an agent fails mid-call (limit hit, provider down), the next engine takes over with the
+   * conversation so far.
+   */
+  private startAgent(call: CallRecord, history?: TranscriptLine[]): void {
     const current = this.agents.get(call.id);
     // A finished or failed agent may be replaced (e.g. handed back to the assistant again).
-    if ((current && current.status !== "ended" && current.status !== "error") || !geminiApiKey) return;
+    if (current && current.status !== "ended" && current.status !== "error") return;
+    const engine = this.pickEngine();
+    if (!engine) {
+      console.error(`no AI provider available for call ${call.id}`);
+      return;
+    }
+    const attempts = (this.attempts.get(call.id) ?? 0) + 1;
+    this.attempts.set(call.id, attempts);
     const profile = this.profileFor(call);
     const whatsapp = profile.whatsapp;
     const receptionist = profile.mode === "receptionist";
-    const agent = new GeminiCallAgent({
+    const common = {
       callId: call.id,
       remoteNumber: call.remoteNumber,
       mediaUrl: this.options.mediaUrl(call.id),
       apiKey: this.options.apiKey,
-      geminiApiKey,
-      model: this.model,
       voice: profile.voice,
       ownerName: profile.ownerName,
       about: profile.about,
       mode: profile.mode,
       businessName: profile.businessName,
-      sendBookingLink: receptionist && whatsapp ? (args) => this.sendBookingLink(call, args) : undefined,
-      onMessage: (message) => this.saveMessage(message),
+      history,
+      sendBookingLink: receptionist && whatsapp ? (args: { phoneNumber?: string; patientName?: string }) => this.sendBookingLink(call, args) : undefined,
+      onMessage: (message: AgentMessage) => this.saveMessage(message),
       onHangup: () => this.command(call, "hangup"),
-      onEnded: () => this.saveTranscript(call.id, agent.transcript),
-    });
+      onEnded: () => this.onAgentEnded(call, agent, engine.live),
+    };
+    const agent: CallAgent = engine.live
+      ? new GeminiCallAgent({ ...common, geminiApiKey: engine.live.apiKey, model: engine.live.model })
+      : new PipelineCallAgent({ ...common, geminiApiKey: "", model: "", router: this.options.router! });
     this.agents.set(call.id, agent);
+    this.engines.set(call.id, engine.live ? `Gemini Live · ${engine.live.label}` : "Speech pipeline");
+    console.log(`call ${call.id}: AI engine ${this.engines.get(call.id)} (attempt ${attempts})`);
     void agent.start();
+  }
+
+  private pickEngine(): { live?: ProviderConfig } | undefined {
+    const router = this.options.router;
+    if (!router) {
+      const key = this.options.config.get("geminiApiKey");
+      return key ? { live: { id: "settings-gemini", kind: "live", type: "gemini", label: "Gemini", enabled: true, apiKey: key, model: this.model } } : undefined;
+    }
+    const mode = router.routing().mode;
+    if (mode !== "pipeline") {
+      const live = router.available("live")[0];
+      if (live) return { live };
+    }
+    if (mode !== "live" && router.pipelineReady()) return {};
+    // Live-only and every key cooling down: try the first anyway.
+    const fallback = router.list("live")[0];
+    return fallback ? { live: fallback } : undefined;
+  }
+
+  private onAgentEnded(call: CallRecord, agent: CallAgent, live?: ProviderConfig): void {
+    this.saveTranscript(call.id, agent.transcript);
+    if (agent.status !== "error" || this.agents.get(call.id) !== agent) return;
+    if (live) this.options.router?.fail(live, new Error(agent.error ?? "Gemini Live failed"));
+    const latest = this.options.state.getCall(call.id);
+    if (!latest || latest.state !== "active" || !this.requested.has(call.id)) return;
+    if ((this.attempts.get(call.id) ?? 0) >= MAX_AGENTS_PER_CALL) {
+      console.error(`call ${call.id}: every AI engine failed; hanging up`);
+      this.command(latest, "hangup");
+      return;
+    }
+    console.warn(`call ${call.id}: ${this.engines.get(call.id)} failed (${agent.error}); switching`);
+    if (agent.message) this.saveMessage(agent.message);
+    this.startAgent(latest, agent.transcript);
   }
 
   /** Sends the booking link to the caller (or the number they gave) and tells the model the outcome. */

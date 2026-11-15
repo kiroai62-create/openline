@@ -12,6 +12,7 @@ import { StateStore } from "./state.js";
 import { StreamManager } from "./stream/stream-manager.js";
 import { ClientStore } from "./clients.js";
 import { Analytics } from "./analytics.js";
+import { AiRouter } from "./ai/router.js";
 import { HttpWebhookDispatcher, type WebhookDispatcher } from "./webhooks.js";
 
 export interface GatewayServerOptions {
@@ -44,6 +45,7 @@ export interface GatewayServer {
   agents: AgentManager;
   streams: StreamManager;
   clients: ClientStore;
+  router: AiRouter;
 }
 
 export function createGatewayServer(options: GatewayServerOptions): GatewayServer {
@@ -72,6 +74,7 @@ export function createGatewayServer(options: GatewayServerOptions): GatewayServe
   };
   const streams = new StreamManager({ state, deviceChannel: deviceHub, config, apiKey: options.apiKey, mediaUrl });
   const clients = new ClientStore(db);
+  const router = new AiRouter(settings, config);
   const agents = new AgentManager({
     state,
     deviceChannel: deviceHub,
@@ -82,14 +85,15 @@ export function createGatewayServer(options: GatewayServerOptions): GatewayServe
     ownerName: options.agentOwnerName,
     mediaUrl,
     clients,
+    router,
   });
   events.onCallEvent = (call, event) => {
     const streamed = streams.onCallEvent(call, event);
     agents.onCallEvent(state.getCall(call.id) ?? call, event, streamed);
   };
-  const app = createApp({ auth, config, state, deviceChannel: deviceHub, events, media, agents, streams, clients, analytics: new Analytics(db) });
+  const app = createApp({ auth, config, state, deviceChannel: deviceHub, events, media, agents, streams, clients, analytics: new Analytics(db), router });
   httpServer = createServer(app);
   deviceHub.attach(httpServer);
   media.attach(httpServer);
-  return { httpServer, db, state, config, auth, deviceHub, events, media, agents, streams, clients };
+  return { httpServer, db, state, config, auth, deviceHub, events, media, agents, streams, clients, router };
 }

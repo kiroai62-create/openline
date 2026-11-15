@@ -53,6 +53,8 @@ export interface CallAgentOptions {
    * back (sent / why not). Absent when no WhatsApp gateway is set up.
    */
   sendBookingLink?(args: { phoneNumber?: string; patientName?: string }): Promise<string>;
+  /** Conversation so far, when the call is handed over from another agent mid-call. */
+  history?: TranscriptLine[];
   onMessage(message: AgentMessage): void;
   onHangup(): void;
   onEnded(): void;
@@ -64,7 +66,7 @@ const FRAME_BYTES = 640; // 20 ms at 16 kHz mono s16le
 export class GeminiCallAgent {
   status: AgentStatus = "connecting";
   error?: string;
-  readonly transcript: TranscriptLine[] = [];
+  readonly transcript: TranscriptLine[];
   message?: AgentMessage;
 
   private media?: WebSocket;
@@ -77,7 +79,9 @@ export class GeminiCallAgent {
   private readonly resampler = new Resampler(24000, PHONE_RATE);
   private outgoing = Buffer.alloc(0);
 
-  constructor(private readonly options: CallAgentOptions) {}
+  constructor(private readonly options: CallAgentOptions) {
+    this.transcript = [...(options.history ?? [])];
+  }
 
   private get receptionist(): boolean {
     return this.options.mode === "receptionist";
@@ -115,9 +119,7 @@ export class GeminiCallAgent {
       model: this.options.model,
       config: {
         responseModalities: [Modality.AUDIO],
-        systemInstruction: this.receptionist
-          ? receptionistPrompt(this.businessName, this.options.about, Boolean(this.options.sendBookingLink))
-          : systemPrompt(this.options.ownerName, this.options.about),
+        systemInstruction: buildInstructions(this.options),
         speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: this.options.voice } } },
         inputAudioTranscription: {},
         outputAudioTranscription: {},
@@ -126,8 +128,12 @@ export class GeminiCallAgent {
       callbacks: {
         onmessage: (message) => this.onGemini(message),
         onerror: (event) => this.fail(new Error(String((event as { message?: string }).message ?? "gemini error"))),
-        onclose: () => {
-          if (!this.closed) this.stop();
+        onclose: (event) => {
+          if (this.closed) return;
+          const { code, reason } = (event ?? {}) as { code?: number; reason?: string };
+          // Closed by Gemini during the call (quota, overload, bad key): fail so the call is handed on.
+          if (!this.hangupRequested && code !== 1000) this.fail(new Error(`Gemini Live closed (${code ?? "?"}) ${reason ?? ""}`.trim()));
+          else this.stop();
         },
       },
     });
@@ -157,10 +163,13 @@ export class GeminiCallAgent {
   private greet(): void {
     if (this.greeted || !this.session) return;
     this.greeted = true;
-    this.session.sendClientContent({
-      turns: [{ role: "user", parts: [{ text: `[The call has just been answered. Greet the caller now.${this.callerHint()}]` }] }],
-      turnComplete: true,
-    });
+    const history = this.options.history ?? [];
+    const text = history.length
+      ? `[The line was switched to you during the call. Conversation so far:\n${history
+          .map((l) => `${l.role === "caller" ? "Caller" : "You"}: ${l.text}`)
+          .join("\n")}\nContinue from here without greeting again; if the caller was waiting, say sorry for the pause in a few words.${this.callerHint()}]`
+      : `[The call has just been answered. Greet the caller now.${this.callerHint()}]`;
+    this.session.sendClientContent({ turns: [{ role: "user", parts: [{ text }] }], turnComplete: true });
   }
 
   /** Lets the receptionist confirm the WhatsApp number without reading the whole number out. */
@@ -285,6 +294,13 @@ export class GeminiCallAgent {
     console.error(`agent ${this.options.callId}: ${this.error}`);
     this.stop();
   }
+}
+
+/** System instructions for an agent, shared by Gemini Live and the speech pipeline. */
+export function buildInstructions(o: Pick<CallAgentOptions, "mode" | "businessName" | "ownerName" | "about" | "sendBookingLink">): string {
+  return o.mode === "receptionist"
+    ? receptionistPrompt(o.businessName?.trim() || o.ownerName, o.about, Boolean(o.sendBookingLink))
+    : systemPrompt(o.ownerName, o.about);
 }
 
 function systemPrompt(ownerName: string, about?: string): string {

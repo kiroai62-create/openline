@@ -485,7 +485,9 @@ def build(args):
             ("Takes messages", "If a caller wants a call back or asks something it doesn't know, it notes their name, reason, number and urgency for your staff."),
             ("Call log and transcripts", "Every call is listed with its full text transcript, so you can see what was asked and how it was answered."),
             ("Safe with health questions", "It never diagnoses or suggests medicines. For emergencies it tells the caller to come in at once or call emergency services."),
+            ("Never goes down with one provider", "Several AI providers stand by. If one is busy or reaches its limit, the next takes over within seconds, even during a call."),
             ("Silent clinic phone", "The phone that receives the calls stays silent. The conversation happens entirely between the caller and the AI."),
+            ("Live analytics", "See calls per day, answered and missed calls, booking links sent and the busiest hours, for any period, with CSV export."),
         ]),
         Spacer(1, 14),
         p("Your dashboard", "h2"),
@@ -513,7 +515,7 @@ def build(args):
         key_values([
             ("Clinic phone", "An Android phone (Android 11 or newer) with the SIM, kept on charge with Wi-Fi or mobile data. It picks up the call and routes the audio. It is not used for anything else."),
             ("Server", "Runs the receptionist for your clinic, keeps the call log and transcripts, and sends the WhatsApp message. All connections are encrypted (HTTPS / secure WebSockets)."),
-            ("AI voice", "Google Gemini Live, a real-time voice model that understands and speaks Indian languages."),
+            ("AI voice", "Google Gemini Live, a real-time voice model that understands and speaks Indian languages. Backed up by other AI providers (Groq, Cloudflare, Sarvam and more): if one reaches its limit or fails, the next takes over automatically, even mid-call."),
             ("WhatsApp", "Connected to your clinic's own WhatsApp number, so patients reply to you directly."),
             ("Your existing number", "Keep it. Forward calls from it to the receptionist's SIM, always or only when the line is busy or unanswered."),
         ]),

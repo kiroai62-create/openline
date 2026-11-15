@@ -27,6 +27,7 @@ import {
   whatsappTestSchema,
   createClientSchema,
   analyticsQuerySchema,
+  routingSchema,
   updateClientSchema,
 } from "./schemas.js";
 import type { AgentManager } from "./agent/agent-manager.js";
@@ -37,6 +38,7 @@ import type { StateStore } from "./state.js";
 import { renderTemplate, sendWhatsApp, toWhatsAppNumber, whatsappFromClient, whatsappFromConfig, type WhatsAppTarget } from "./agent/whatsapp.js";
 import type { ClientStore } from "./clients.js";
 import { Analytics } from "./analytics.js";
+import { PRESETS, type AiRouter } from "./ai/router.js";
 
 export interface AppDependencies {
   auth: AuthService;
@@ -50,6 +52,7 @@ export interface AppDependencies {
   pairing?: PairingService;
   clients?: ClientStore;
   analytics?: Analytics;
+  router?: AiRouter;
 }
 
 export function createApp(deps: AppDependencies) {
@@ -432,6 +435,41 @@ export function createApp(deps: AppDependencies) {
     for (const id of deviceIds) clients.assignDevice(id, clientId);
     return undefined;
   }
+
+  // ---- AI providers and automatic failover ----
+  app.get("/v1/ai/providers", (_request, response) => {
+    const router = deps.router;
+    if (!router) return response.status(404).json(errorBody("NOT_FOUND", "routing unavailable"));
+    const routing = router.routing();
+    return response.json({
+      mode: routing.mode,
+      // Keys never leave the server: only whether one is saved and its last 4 characters.
+      providers: routing.providers.map(({ apiKey, ...p }) => ({ ...p, keySet: Boolean(apiKey), keyHint: apiKey ? `…${apiKey.slice(-4)}` : null })),
+      status: router.status(),
+      pipelineReady: router.pipelineReady(),
+      presets: PRESETS,
+    });
+  });
+
+  app.put("/v1/ai/providers", (request, response) => {
+    const router = deps.router;
+    if (!router) return response.status(404).json(errorBody("NOT_FOUND", "routing unavailable"));
+    const parsed = routingSchema.safeParse(request.body);
+    if (!parsed.success) return validationError(response, parsed.error.issues);
+    const saved = new Map(router.routing().providers.map((p) => [p.id, p]));
+    router.save({
+      mode: parsed.data.mode,
+      providers: parsed.data.providers.map((p) => ({
+        ...p,
+        apiKey: p.apiKey === undefined ? saved.get(p.id)?.apiKey ?? "" : p.apiKey,
+        baseUrl: p.baseUrl || undefined,
+        accountId: p.accountId || undefined,
+        voice: p.voice || undefined,
+      })),
+    });
+    router.resetCooldowns();
+    return response.json({ ok: true, status: router.status(), pipelineReady: router.pipelineReady() });
+  });
 
   // ---- Dashboard analytics ----
   app.get("/v1/analytics", (request, response) => {

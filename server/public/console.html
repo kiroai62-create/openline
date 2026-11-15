@@ -193,6 +193,13 @@
   .tag.live { background: color-mix(in srgb, var(--live) 15%, var(--surface)); color: var(--live); }
   .tag.bad { background: color-mix(in srgb, var(--bad) 13%, var(--surface)); color: var(--bad); }
   .scroll-x { overflow-x: auto; }
+  .prov { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; margin: 8px 0; }
+  .prov-head { display: flex; gap: 8px; align-items: center; }
+  .prov-head .grow { flex: 1; min-width: 0; }
+  .prov-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; margin-top: 8px; }
+  .prov-grid .field { margin: 0; }
+  .prov .mini { padding: 2px 8px; font-size: 12.5px; }
+  .kind-title { font-size: 13.5px; font-weight: 600; margin: 16px 0 2px; }
 
   .msg { padding: 14px 18px; }
   .msg .name { font-weight: 600; }
@@ -335,6 +342,10 @@
         <div class="panel-head"><h2>Busiest hours</h2></div>
         <div class="chart" id="dashHourly" style="height:110px"></div>
         <div class="chart-axis" id="dashHourlyAxis"></div>
+      </section>
+      <section class="panel">
+        <div class="panel-head"><h2>AI providers</h2><a class="btn link" href="#/settings">Manage</a></div>
+        <div id="dashAi"></div>
       </section>
       <section class="panel" id="dashClientsPanel">
         <div class="panel-head"><h2>By client</h2></div>
@@ -624,6 +635,26 @@
             <button class="btn link" id="clearGemini">Remove key</button>
             <button class="btn solid" id="saveGemini">Save</button>
           </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2>AI providers &amp; failover</h2></div>
+        <div class="panel-body">
+          <p class="hint" style="margin-top:0">Calls use Gemini Live first. When a provider hits its limit or fails, the next one in the list takes over automatically, even in the middle of a call. Without any Live key, calls run on the speech pipeline: speech-to-text, then a chat model, then text-to-speech.</p>
+          <label class="lbl" for="aiMode">Routing</label>
+          <select class="field" id="aiMode">
+            <option value="auto">Automatic: Gemini Live, then the speech pipeline</option>
+            <option value="live">Gemini Live keys only</option>
+            <option value="pipeline">Speech pipeline only</option>
+          </select>
+          <div id="aiProviders"></div>
+          <div class="row" style="margin-top:12px; flex-wrap:nowrap">
+            <select class="field" id="aiAddType"></select>
+            <button class="btn" id="aiAdd">Add</button>
+          </div>
+          <p class="hint" id="aiReady"></p>
+          <div class="row" style="margin-top:12px; justify-content:flex-end"><button class="btn solid" id="aiSave">Save</button></div>
         </div>
       </section>
 
@@ -1386,6 +1417,7 @@ async function loadSettings() {
     $("setWaMessage").value = s.whatsappMessage || DEFAULT_WA_MESSAGE;
     renderWaState();
     renderApiKeys(apiKeys);
+    loadAiProviders();
     $("accountEmail").textContent = me ? me.email : "";
     renderUsers((await api("/v1/users")).users);
   } catch (error) {
@@ -1507,11 +1539,13 @@ async function loadDashboard() {
     const clientId = $("dashClient").value || "all";
     const days = $("dashDays").value;
     const tzOffset = -new Date().getTimezoneOffset();
-    const [report, clientList, deviceList] = await Promise.all([
+    const [report, clientList, deviceList, ai] = await Promise.all([
       api(`/v1/analytics?days=${days}&clientId=${encodeURIComponent(clientId)}&tzOffset=${tzOffset}`),
       api("/v1/clients").then((r) => r.clients).catch(() => []),
       api("/v1/devices").then((r) => r.devices),
+      api("/v1/ai/providers").catch(() => null),
     ]);
+    renderDashAi(ai);
     clients = clientList;
     devices = deviceList;
     dash = report;
@@ -1687,6 +1721,116 @@ $("dashCsv").onclick = () => {
   a.download = `calls-${new Date().toISOString().slice(0, 10)}.csv`;
   a.click();
   URL.revokeObjectURL(a.href);
+};
+
+// ---- AI providers --------------------------------------------------------------------------
+
+const KIND_TEXT = { live: "Gemini Live (voice)", llm: "Chat model", stt: "Speech to text", tts: "Text to speech" };
+const TYPE_TEXT = { gemini: "Google Gemini", groq: "Groq", cloudflare: "Cloudflare Workers AI", openrouter: "OpenRouter", cerebras: "Cerebras", mistral: "Mistral", sarvam: "Sarvam AI", openai: "OpenAI-compatible" };
+let aiState = null;
+
+function renderDashAi(ai) {
+  if (!ai) { $("dashAi").innerHTML = `<div class="empty">Unavailable.</div>`; return; }
+  const rows = ai.status.filter((x) => x.state !== "off");
+  $("dashAi").innerHTML = rows.length ? rows.map((x) => `<div class="key-row">
+    <span class="dot ${x.state === "ready" ? "live" : "bad"}"></span>
+    <span class="grow"><b>${esc(x.label)}</b> <span class="muted small">${esc(KIND_TEXT[x.kind])}</span><br>
+    <span class="muted small">${x.state === "cooldown" ? `Limit hit or failing, back ${timeAgo(x.cooldownUntil).replace(" ago", "")}` : "Ready"} · ${x.ok} ok · ${x.failed} failed</span>
+    ${x.lastError && x.state === "cooldown" ? `<br><span class="muted small">${esc(x.lastError.slice(0, 110))}</span>` : ""}</span></div>`).join("")
+    : `<div class="empty">No AI provider. Add a Gemini key in <a href="#/settings">Settings</a>.</div>`;
+}
+
+async function loadAiProviders() {
+  try {
+    aiState = await api("/v1/ai/providers");
+    aiState.providers.forEach((p) => (p.apiKey = undefined));
+    $("aiMode").value = aiState.mode;
+    $("aiAddType").innerHTML = Object.entries(aiState.presets).flatMap(([type, preset]) =>
+      preset.kinds.map((kind) => `<option value="${type}:${kind}">${esc(TYPE_TEXT[type])}: ${esc(KIND_TEXT[kind])}</option>`)).join("");
+    renderAiProviders();
+  } catch (error) {
+    toast(error.message);
+  }
+}
+
+function renderAiProviders() {
+  const status = new Map(aiState.status.map((x) => [x.id, x]));
+  const blocks = ["live", "llm", "stt", "tts"].map((kind) => {
+    const list = aiState.providers.filter((p) => p.kind === kind);
+    const extra = kind === "live" ? `<p class="hint" style="margin:2px 0">The Gemini key above is always tried first. Add more Gemini keys (other Google accounts) as backups.</p>` : "";
+    const rows = list.map((p) => {
+      const st = status.get(p.id);
+      const preset = aiState.presets[p.type] || {};
+      const dot = !p.enabled ? "" : st?.state === "cooldown" ? "bad" : "live";
+      return `<div class="prov" data-id="${esc(p.id)}">
+        <div class="prov-head"><span class="dot ${dot}"></span>
+          <input class="field grow" data-f="label" value="${esc(p.label)}" maxlength="60" style="margin:0">
+          <label class="small"><input type="checkbox" data-f="enabled" ${p.enabled ? "checked" : ""}> On</label>
+          <button class="btn mini" data-move="-1" title="Try earlier">↑</button><button class="btn mini" data-move="1" title="Try later">↓</button>
+          <button class="btn link mini" data-remove>Remove</button></div>
+        <div class="prov-grid">
+          <input class="field" data-f="apiKey" type="password" autocomplete="off" placeholder="${p.keySet ? `Saved key ${esc(p.keyHint)}` : "API key"}">
+          <input class="field" data-f="model" value="${esc(p.model)}" placeholder="Model">
+          ${p.type === "cloudflare" ? `<input class="field" data-f="accountId" value="${esc(p.accountId || "")}" placeholder="Cloudflare account ID">` : ""}
+          ${p.type === "openai" ? `<input class="field" data-f="baseUrl" value="${esc(p.baseUrl || "")}" placeholder="https://…/v1">` : ""}
+          ${kind === "tts" ? `<input class="field" data-f="voice" value="${esc(p.voice || "")}" placeholder="Voice">` : ""}
+        </div>
+        <p class="hint" style="margin:6px 0 0">${esc(TYPE_TEXT[p.type])}${preset.signup ? ` · <a href="${esc(preset.signup)}" target="_blank" rel="noopener">get a key</a>` : ""}${st ? ` · ${st.ok} ok, ${st.failed} failed${st.state === "cooldown" ? `, cooling down` : ""}` : ""}${st?.lastError ? `<br>Last error: ${esc(st.lastError.slice(0, 140))}` : ""}</p>
+      </div>`;
+    }).join("");
+    return `<div class="kind-title">${KIND_TEXT[kind]}</div>${extra}${rows || `<p class="muted small" style="margin:4px 0">None added.</p>`}`;
+  }).join("");
+  $("aiProviders").innerHTML = blocks;
+  const has = (k) => aiState.providers.some((p) => p.kind === k && p.enabled && (p.keySet || p.apiKey));
+  const missing = ["llm", "stt", "tts"].filter((k) => !has(k)).map((k) => KIND_TEXT[k].toLowerCase());
+  $("aiReady").innerHTML = missing.length
+    ? `Speech pipeline (backup when Gemini Live is unavailable) needs at least one: ${missing.join(", ")}.`
+    : "Speech pipeline is ready as a backup. For Hindi callers use Sarvam AI for both speech steps.";
+  $("aiProviders").querySelectorAll(".prov").forEach((el) => {
+    const p = aiState.providers.find((x) => x.id === el.dataset.id);
+    el.querySelectorAll("[data-f]").forEach((input) => input.oninput = input.onchange = () => {
+      const f = input.dataset.f;
+      p[f] = input.type === "checkbox" ? input.checked : input.value;
+    });
+    el.querySelector("[data-remove]").onclick = () => { aiState.providers.splice(aiState.providers.indexOf(p), 1); renderAiProviders(); };
+    el.querySelectorAll("[data-move]").forEach((b) => b.onclick = () => {
+      const same = aiState.providers.filter((x) => x.kind === p.kind);
+      const swap = same[same.indexOf(p) + Number(b.dataset.move)];
+      if (!swap) return;
+      const i = aiState.providers.indexOf(p), j = aiState.providers.indexOf(swap);
+      [aiState.providers[i], aiState.providers[j]] = [swap, p];
+      renderAiProviders();
+    });
+  });
+}
+
+$("aiAdd").onclick = () => {
+  const [type, kind] = $("aiAddType").value.split(":");
+  const preset = aiState.presets[type];
+  aiState.providers.push({
+    id: `${type}-${kind}-${Math.random().toString(36).slice(2, 8)}`,
+    kind, type, label: `${TYPE_TEXT[type]}${kind === "live" ? " backup" : ""}`, enabled: true,
+    model: preset.models[kind] || "", voice: kind === "tts" ? preset.voice : undefined, keySet: false,
+  });
+  renderAiProviders();
+};
+
+$("aiSave").onclick = async () => {
+  const providers = aiState.providers.map((p) => {
+    const out = { id: p.id, kind: p.kind, type: p.type, label: (p.label || "").trim() || TYPE_TEXT[p.type], enabled: p.enabled, model: (p.model || "").trim() };
+    if (p.apiKey?.trim()) out.apiKey = p.apiKey.trim();
+    if (p.baseUrl) out.baseUrl = p.baseUrl.trim();
+    if (p.accountId) out.accountId = p.accountId.trim();
+    if (p.voice) out.voice = p.voice.trim();
+    return out;
+  });
+  try {
+    await api("/v1/ai/providers", { method: "PUT", body: JSON.stringify({ mode: $("aiMode").value, providers }) });
+    toast("Saved. New calls use this order.");
+    loadAiProviders();
+  } catch (error) {
+    toast(error.message);
+  }
 };
 
 // ---- Brand (white label) -------------------------------------------------------------------

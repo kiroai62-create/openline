@@ -16,7 +16,7 @@ phone set karna, WhatsApp jodna, aur roz ka kaam. Commands jaise likhe hain wais
 |---|---|---|
 | Ek Linux VPS (Ubuntu 24.04, 1 vCPU, 2 GB RAM) | Server 24 ghante chalega | Hostinger, DigitalOcean, AWS Lightsail, koi bhi |
 | Ek domain ya subdomain, jaise `voice.aapkibrand.com` | Phone aur console isi address se server tak pahunchte hain | HTTPS zaroori hai |
-| Gemini API key | AI ki awaaz aur dimaag | aistudio.google.com se. Billing on karna padega |
+| Gemini API key | AI ki awaaz aur dimaag | aistudio.google.com se. Backup ke liye Groq, Cloudflare, Sarvam jaise free providers bhi jod sakte hain (step 2.1) |
 | GitHub account | APK banane ke liye | Ye repo isi mein hai |
 
 **Har client ke liye:**
@@ -134,6 +134,54 @@ port 80 aur 443 khule hone chahiye (`sudo ufw allow 80,443/tcp`). Port 8787 baha
    - **Public address**: `https://voice.aapkibrand.com`
    - **Product name**: aapki brand ka naam. Ye console ke upar dikhega.
 4. **Settings → AI assistant**: Gemini key daalein (agar `.env` mein nahi daali) aur Save karein.
+
+---
+
+## 2.1 Backup AI providers (limit khatam ho to apne aap switch)
+
+Gemini ki free limit khatam ho sakti hai. Isliye **Settings → AI providers & failover** mein aur
+providers jod dein. Jab ek provider limit hit kare ya fail ho, agla apne aap chal padta hai, call
+ke beech mein bhi. Caller ko bas ek-do second ka ruka hua lagta hai, aur AI wahin se baat aage
+badhata hai.
+
+**Kaise switch hota hai:**
+
+1. Pehle **Gemini Live** (sabse achhi aur tez awaaz). Settings wali Gemini key, phir jo backup
+   Gemini keys aapne jodi hain (doosre Google accounts ki), list ke order mein.
+2. Saari Live keys limit pe hon, to **speech pipeline** chalti hai:
+   caller ki awaaz → text (speech to text) → jawab (chat model) → awaaz (text to speech).
+   Har step ki apni list hai, aur har request pe pehla chalu provider use hota hai.
+3. Jo provider 429 (limit), quota, galat key ya server error de, wo kuch der ke liye bahar ho
+   jaata hai: limit pe 90 second (din ki limit ho to 1 ghanta), galat key pe 10 minute, baaki
+   error pe 20 second. Dashboard ke **AI providers** box mein dikhta hai kaun chalu hai aur kaun
+   ruka hua hai, aur kyun.
+
+**Free keys kahan se:**
+
+| Provider | Kis kaam aata hai | Key |
+|---|---|---|
+| Google Gemini | Live voice (backup keys), chat model, text to speech | aistudio.google.com/apikey |
+| Groq | Chat model (bahut tez), speech to text (Whisper), English text to speech | console.groq.com/keys |
+| Cloudflare Workers AI | Chat model, speech to text. **Account ID** bhi chahiye | dash.cloudflare.com → API Tokens (Workers AI permission) |
+| OpenRouter | Chat model (`:free` wale models) | openrouter.ai/keys |
+| Cerebras | Chat model | cloud.cerebras.ai |
+| Mistral | Chat model, speech to text | console.mistral.ai |
+| Sarvam AI | **Hindi** speech to text aur text to speech (Indian awaaz) | dashboard.sarvam.ai |
+| OpenAI-compatible | Koi bhi aur service jo OpenAI jaisa API deti hai (base URL daalein) | |
+
+**Hindi callers ke liye sujhaav:** speech to text aur text to speech, dono mein **Sarvam AI** sabse
+upar rakhein. Groq ka text to speech sirf English bolta hai. Chat model ke liye Groq ya Cerebras
+sabse tez hain. Ek suggested order:
+
+- Gemini Live: Settings wali key, phir 1-2 backup Gemini keys
+- Chat model: Groq → Cerebras → Cloudflare → OpenRouter → Gemini
+- Speech to text: Sarvam → Groq → Cloudflare
+- Text to speech: Sarvam → Gemini
+
+> Free tiers ki limits aur model ke naam badalte rehte hain. Model ka naam har provider mein
+> badal sakte hain. Kuch provider free plan pe aapka data training mein use kar sakte hain, unki
+> terms padh lein. Speech pipeline mein har jawab 1.5 se 3 second leta hai, jo Gemini Live se
+> dheema hai, isliye ise backup ki tarah rakhein.
 
 ---
 
@@ -318,7 +366,8 @@ bhej dein.
 
 ## Kharcha
 
-- **Gemini Live:** har call ke minute ke hisaab se Google charge karta hai. Rate
+- **AI:** Gemini Live har call ke minute ke hisaab se charge karta hai (free tier ki limit hai).
+  Limit khatam ho to backup providers (step 2.1) ke free tiers kaam aate hain. Rate
   [Gemini API pricing](https://ai.google.dev/pricing) pe dekhein, aur client ka plan usi hisaab se
   rakhein.
 - **VPS:** ek hi server pe kai clients chal jaate hain.

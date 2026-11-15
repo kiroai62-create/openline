@@ -109,6 +109,24 @@ export const clientSchema = z.object({
 export const createClientSchema = clientSchema.partial().required({ name: true });
 export const updateClientSchema = clientSchema.partial();
 
+const provider = z.object({
+  id: z.string().trim().min(1).max(64),
+  kind: z.enum(["live", "llm", "stt", "tts"]),
+  type: z.enum(["gemini", "groq", "cloudflare", "openrouter", "cerebras", "mistral", "sarvam", "openai"]),
+  label: z.string().trim().min(1).max(60),
+  enabled: z.boolean(),
+  /** Omit to keep the saved key. */
+  apiKey: z.string().trim().max(500).optional(),
+  model: z.string().trim().min(1).max(120),
+  baseUrl: z.union([z.literal(""), z.string().trim().url().regex(/^https:\/\//, "must be https")]).optional(),
+  accountId: z.string().trim().max(64).regex(/^[A-Za-z0-9]*$/, "letters and digits only").optional(),
+  voice: z.string().trim().max(60).optional(),
+});
+export const routingSchema = z.object({
+  mode: z.enum(["auto", "live", "pipeline"]),
+  providers: z.array(provider).max(40),
+});
+
 export const analyticsQuerySchema = z.object({
   days: z.coerce.number().int().min(1).max(365).default(7),
   clientId: z.string().min(1).max(64).default("all"),

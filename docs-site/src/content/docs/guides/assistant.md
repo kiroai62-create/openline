@@ -48,6 +48,19 @@ the receptionist takes the caller's name and preferred day as a message instead.
 It never diagnoses or prescribes. For emergencies it tells the caller to come in or call the
 emergency number from your notes.
 
+## Several AI providers and automatic failover
+
+**Settings → AI providers & failover** holds backup providers. Calls use Gemini Live first: the
+key from Settings, then any backup Gemini keys, in order. When none is usable, calls run on a
+speech pipeline (speech-to-text, chat model, text-to-speech), each step with its own ordered list:
+Gemini, Groq, Cloudflare Workers AI, OpenRouter, Cerebras, Mistral, Sarvam AI or any
+OpenAI-compatible API.
+
+A provider that returns a rate limit, quota, auth or server error is put on cooldown (90 s for
+rate limits, 1 h for daily quotas, 10 min for bad keys, 20 s otherwise) and the next one is used.
+If the engine fails mid-call, the next engine takes over with the conversation so far. Status is
+at `GET /v1/ai/providers`; save the list with `PUT /v1/ai/providers`. Keys are never returned.
+
 ## On a single call
 
 ```bash
