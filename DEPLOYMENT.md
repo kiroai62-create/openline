@@ -78,6 +78,22 @@ pe dekh lein.
 **Server ki jagah:** India ka region chunein (Oracle: Mumbai ya Hyderabad, Azure: Central India).
 Call ki awaaz server se aati-jaati hai, to paas wala server matlab kam delay.
 
+### Azure account ke liye kya chahiye
+
+- **Microsoft account** (Outlook/Hotmail email) ya GitHub account
+- **Mobile number**, SMS/call se verification ke liye
+- **Visa ya Mastercard** credit ya debit card, aapke apne naam ka. **RuPay, prepaid aur virtual
+  card nahi chalte.** Card pe **international/online transactions on** hone chahiye (bank ke app
+  mein). Verification ke liye lagbhag ₹2 kat ke wapas aa jaate hain.
+- Bank autopay (e-mandate) ki permission maang sakta hai, aur usme bada amount dikh sakta hai. Ye
+  sirf limit hai, free limit ke andar rehne pe paisa nahi katta.
+- Ek aadmi ka ek hi free account banta hai. Jisne pehle Azure free trial liya ho, use dobara nahi
+  milta.
+- Signup ke baad **Cost Management → Budgets** mein ₹100 ka budget alert laga dein, taaki galti se
+  koi paid cheez chal jaaye to email aa jaaye.
+- 30 din baad **Upgrade to pay-as-you-go** karein, tabhi 12 mahine ka free VM chalta rehta hai.
+  Upgrade na kiya to account band ho jaata hai.
+
 ### Azure ya Google Cloud pe VM
 
 `setup-vm.sh` aur `new-client.sh` kisi bhi **Ubuntu 22.04/24.04** VM pe chalti hain.
