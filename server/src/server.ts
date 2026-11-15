@@ -10,7 +10,7 @@ import { DeviceEventService } from "./events.js";
 import { MediaRelay } from "./media-relay.js";
 import { StateStore } from "./state.js";
 import { StreamManager } from "./stream/stream-manager.js";
-import { WhatsAppSender } from "./agent/whatsapp.js";
+import { ClientStore } from "./clients.js";
 import { HttpWebhookDispatcher, type WebhookDispatcher } from "./webhooks.js";
 
 export interface GatewayServerOptions {
@@ -42,6 +42,7 @@ export interface GatewayServer {
   media: MediaRelay;
   agents: AgentManager;
   streams: StreamManager;
+  clients: ClientStore;
 }
 
 export function createGatewayServer(options: GatewayServerOptions): GatewayServer {
@@ -69,7 +70,7 @@ export function createGatewayServer(options: GatewayServerOptions): GatewayServe
     return `ws://127.0.0.1:${port}/v1/calls/${encodeURIComponent(callId)}/media`;
   };
   const streams = new StreamManager({ state, deviceChannel: deviceHub, config, apiKey: options.apiKey, mediaUrl });
-  const whatsapp = new WhatsAppSender(config);
+  const clients = new ClientStore(db);
   const agents = new AgentManager({
     state,
     deviceChannel: deviceHub,
@@ -79,15 +80,15 @@ export function createGatewayServer(options: GatewayServerOptions): GatewayServe
     config,
     ownerName: options.agentOwnerName,
     mediaUrl,
-    whatsapp,
+    clients,
   });
   events.onCallEvent = (call, event) => {
     const streamed = streams.onCallEvent(call, event);
     agents.onCallEvent(state.getCall(call.id) ?? call, event, streamed);
   };
-  const app = createApp({ auth, config, state, deviceChannel: deviceHub, events, media, agents, streams, whatsapp });
+  const app = createApp({ auth, config, state, deviceChannel: deviceHub, events, media, agents, streams, clients });
   httpServer = createServer(app);
   deviceHub.attach(httpServer);
   media.attach(httpServer);
-  return { httpServer, db, state, config, auth, deviceHub, events, media, agents, streams };
+  return { httpServer, db, state, config, auth, deviceHub, events, media, agents, streams, clients };
 }

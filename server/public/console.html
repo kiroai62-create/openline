@@ -243,10 +243,11 @@
 
 <div id="appView" hidden>
 <header class="top"><div class="top-inner">
-  <a class="brand" href="#/">OpenLine</a>
+  <a class="brand" href="#/" id="brandName">OpenLine</a>
   <nav class="nav" aria-label="Main">
     <a href="#/" data-route="home">Home</a>
     <a href="#/playground" data-route="playground">Playground</a>
+    <a href="#/clients" data-route="clients">Clients</a>
     <a href="#/connection" data-route="connection">Connection</a>
     <a href="#/docs" data-route="docs" id="docsLink">Docs</a>
     <a href="#/settings" data-route="settings">Settings</a>
@@ -405,6 +406,65 @@
   </div>
 </main>
 
+<!-- Clients ---------------------------------------------------------------------------------->
+<main class="page" data-page="clients" hidden>
+  <h1 class="title">Clients</h1>
+  <p class="lede">Each client is a business the AI receptionist answers for: its own phone and SIM, its own knowledge, booking link and WhatsApp number. Add a client, assign its phone, and its calls are answered from then on.</p>
+  <div class="grid">
+    <div>
+      <section class="panel">
+        <div class="panel-head"><h2>Businesses</h2><button class="btn" id="newClient">New client</button></div>
+        <ul class="list" id="clientList" style="margin-top:8px"></ul>
+      </section>
+    </div>
+    <aside>
+      <section class="panel" id="clientEditor" hidden>
+        <div class="panel-head"><h2 id="clientTitle">New client</h2><span class="muted small" id="clientUpdated"></span></div>
+        <div class="panel-body">
+          <label class="switch"><span>Answer this client's calls with the AI receptionist</span><input type="checkbox" id="cEnabled" checked></label>
+          <label class="lbl" for="cName">Business name</label>
+          <input class="field" id="cName" maxlength="120" placeholder="32 Teeth Hospital">
+          <label class="lbl">Phones (SIMs) that answer for this client</label>
+          <div id="cDevices" class="small"></div>
+          <label class="lbl" for="cVoice">Voice</label>
+          <select class="field" id="cVoice">
+            <option>Kore</option><option>Puck</option><option>Charon</option><option>Fenrir</option>
+            <option>Aoede</option><option>Leda</option><option>Orus</option><option>Zephyr</option>
+          </select>
+          <label class="lbl" for="cBooking">Booking link</label>
+          <input class="field" id="cBooking" placeholder="https://wa.me/918789354445 or https://example.com/book">
+          <label class="lbl" for="cAbout">Everything the receptionist should know</label>
+          <textarea class="field" id="cAbout" rows="12" maxlength="20000"
+            placeholder="Services and fees, timings, address and landmark, doctors and their days, emergency number, FAQs. Paste the text of the client's website here."></textarea>
+          <p class="hint"><span id="cAboutCount"></span> The receptionist answers only from this text and says the staff will confirm anything else.</p>
+
+          <h3 style="font-size:15px; margin:22px 0 4px">WhatsApp</h3>
+          <p class="hint" style="margin-top:0">The client's own WhatsApp gateway. The booking link is sent from this number.</p>
+          <label class="lbl" for="cWaUrl">Gateway address</label>
+          <input class="field" id="cWaUrl" placeholder="https://client-whatsapp.hf.space">
+          <label class="lbl" for="cWaSecret">Gateway API secret</label>
+          <input class="field" id="cWaSecret" type="password" autocomplete="off">
+          <label class="lbl" for="cWaCountry">Country code for local numbers</label>
+          <input class="field" id="cWaCountry" maxlength="4" placeholder="91">
+          <label class="lbl" for="cWaMessage">Message</label>
+          <textarea class="field" id="cWaMessage" rows="5" maxlength="1000"></textarea>
+          <p class="hint"><code>{name}</code>, <code>{business}</code> and <code>{link}</code> are filled in.</p>
+          <div class="row" style="margin-top:16px; justify-content:space-between">
+            <button class="btn link" id="cDelete">Delete client</button>
+            <span class="row">
+              <button class="btn" id="cTestWa">Send test</button>
+              <button class="btn solid" id="cSave">Save</button>
+            </span>
+          </div>
+        </div>
+      </section>
+      <section class="panel" id="clientEmpty">
+        <div class="panel-body"><p class="muted small" style="margin:0">Select a client, or create one. You need a Gemini API key in Settings, and the client's phone paired under Connection.</p></div>
+      </section>
+    </aside>
+  </div>
+</main>
+
 <!-- Connection ------------------------------------------------------------------------------->
 <main class="page" data-page="connection" hidden>
   <h1 class="title">Connection</h1>
@@ -522,6 +582,9 @@
           <label class="lbl" for="setWebhookUrl">Default webhook</label>
           <input class="field" id="setWebhookUrl" placeholder="https://example.com/gateway/events">
           <p class="hint">Gets every call event, signed with HMAC-SHA256. A call's own <code>webhookUrl</code> takes priority.</p>
+          <label class="lbl" for="setBrandName">Product name</label>
+          <input class="field" id="setBrandName" maxlength="60" placeholder="OpenLine">
+          <p class="hint">Shown in this console's header and title, so you can run it under your own brand.</p>
           <label class="lbl" for="setDocsUrl">Docs address</label>
           <input class="field" id="setDocsUrl" placeholder="https://docs.example.com">
           <div class="row" style="margin-top:14px; justify-content:flex-end">
@@ -627,6 +690,7 @@ let me = null;
 async function boot() {
   const status = await api("/v1/auth/status").catch(() => ({ setupRequired: false, authenticated: false }));
   me = status.user;
+  applyBrand(status.brandName);
   if (status.authenticated) return showApp();
   setupMode = status.setupRequired;
   setupKeyRequired = status.setupKeyRequired;
@@ -641,7 +705,7 @@ function showAuth() {
   $("setupFields").hidden = !(setupMode && setupKeyRequired);
   $("confirmFields").hidden = !setupMode;
   $("authTitle").textContent = setupMode ? "Create your account" : "Sign in";
-  $("authLede").textContent = setupMode ? "The first account owns this gateway." : "OpenLine console";
+  $("authLede").textContent = setupMode ? "The first account owns this gateway." : `${$("brandName").textContent} console`;
   $("passwordLabel").textContent = setupMode ? "Choose a password" : "Password";
   $("password").autocomplete = setupMode ? "new-password" : "current-password";
   ($("email").value ? $("password") : $("email")).focus();
@@ -676,6 +740,7 @@ async function showApp() {
   $("authView").hidden = true;
   $("appView").hidden = false;
   server = await api("/v1/server").catch(() => ({}));
+  applyBrand(server.brandName);
   renderDocsLink();
   onRoute();
 }
@@ -696,7 +761,7 @@ function toast(text) {
 
 // ---- Routing -------------------------------------------------------------------------------
 
-const ROUTES = ["home", "playground", "connection", "docs", "settings"];
+const ROUTES = ["home", "playground", "clients", "connection", "docs", "settings"];
 window.addEventListener("hashchange", onRoute);
 
 function onRoute() {
@@ -711,6 +776,7 @@ function onRoute() {
   document.querySelectorAll(".nav a").forEach((a) => a.setAttribute("aria-current", a.dataset.route === route ? "page" : "false"));
   if (route === "connection") ensurePairingCode();
   if (route === "settings") loadSettings();
+  if (route === "clients") loadClients();
   if (route === "home") renderHome();
   refresh();
 }
@@ -1220,6 +1286,7 @@ async function loadSettings() {
     $("setPublicUrl").value = s.publicUrl || "";
     $("setWebhookUrl").value = s.webhookUrl || "";
     $("setDocsUrl").value = s.docsUrl || "";
+    $("setBrandName").value = s.brandName || "";
     $("setIncomingUrl").value = s.incomingStreamUrl || "";
     $("setIncomingFormat").value = s.incomingStreamFormat || "raw";
     $("setWaUrl").value = s.whatsappGatewayUrl || "";
@@ -1274,6 +1341,7 @@ async function saveSettings(patch, done) {
     const { settings: s } = await api("/v1/settings", { method: "PUT", body: JSON.stringify(patch) });
     settings = s;
     server = { ...server, publicUrl: s.publicUrl, docsUrl: s.docsUrl };
+    applyBrand(s.brandName);
     renderGeminiState();
     renderWaState();
     renderDocsLink();
@@ -1331,7 +1399,142 @@ $("saveServer").onclick = () => saveSettings({
   publicUrl: $("setPublicUrl").value.trim().replace(/\/+$/, ""),
   webhookUrl: $("setWebhookUrl").value.trim(),
   docsUrl: $("setDocsUrl").value.trim(),
+  brandName: $("setBrandName").value.trim(),
 }, "Saved.");
+
+// ---- Brand (white label) -------------------------------------------------------------------
+
+function applyBrand(name) {
+  const brand = name || "OpenLine";
+  $("brandName").textContent = brand;
+  document.title = brand;
+  if (!setupMode) $("authLede").textContent = `${brand} console`;
+}
+
+// ---- Clients -------------------------------------------------------------------------------
+
+let clients = [];
+let editingClient = null; // id, or "new"
+
+async function loadClients() {
+  try {
+    clients = (await api("/v1/clients")).clients;
+    devices = (await api("/v1/devices")).devices;
+    renderClientList();
+    if (editingClient && editingClient !== "new" && !clients.some((c) => c.id === editingClient)) editingClient = null;
+    if (editingClient) openClient(editingClient);
+  } catch (error) {
+    toast(error.message);
+  }
+}
+
+function renderClientList() {
+  $("clientList").innerHTML = clients.length ? clients.map((c) => {
+    const phones = c.deviceIds.map((id) => devices.find((d) => d.id === id)).filter(Boolean);
+    const online = phones.filter((d) => d.connected).length;
+    const state = !c.enabled ? "Paused" : !phones.length ? "No phone assigned" : `${online} of ${phones.length} phone${phones.length > 1 ? "s" : ""} online`;
+    return `<li><a class="call-row" href="#/clients" data-client="${esc(c.id)}" style="text-decoration:none; color:inherit; ${editingClient === c.id ? "background:var(--soft);" : ""}">
+      <span class="dot ${c.enabled && online ? "live" : c.enabled && phones.length ? "bad" : ""}"></span>
+      <span class="num">${esc(c.name)}</span>
+      <span class="when muted small">${esc(state)}${c.whatsappApiSecret.configured && c.whatsappGatewayUrl ? " · WhatsApp ready" : ""}</span>
+    </a></li>`;
+  }).join("") : `<li class="empty">No clients yet. Create one for each business you set up.</li>`;
+  $("clientList").querySelectorAll("[data-client]").forEach((a) => a.onclick = (e) => {
+    e.preventDefault();
+    openClient(a.dataset.client);
+  });
+}
+
+function openClient(id) {
+  editingClient = id;
+  const c = id === "new" ? null : clients.find((x) => x.id === id);
+  $("clientEditor").hidden = false;
+  $("clientEmpty").hidden = true;
+  $("clientTitle").textContent = c ? c.name : "New client";
+  $("clientUpdated").textContent = c ? `Updated ${timeAgo(c.updatedAt)}` : "";
+  $("cEnabled").checked = c ? c.enabled : true;
+  $("cName").value = c?.name || "";
+  $("cVoice").value = c?.voice || "Kore";
+  $("cBooking").value = c?.bookingUrl || "";
+  $("cAbout").value = c?.about || "";
+  $("cWaUrl").value = c?.whatsappGatewayUrl || "";
+  $("cWaSecret").value = "";
+  $("cWaSecret").placeholder = c?.whatsappApiSecret.configured ? `Saved secret ${c.whatsappApiSecret.hint}. Paste a new one to replace it.` : "API_SECRET of the client's gateway";
+  $("cWaCountry").value = c?.whatsappCountryCode || "91";
+  $("cWaMessage").value = c?.whatsappMessage || DEFAULT_WA_MESSAGE;
+  $("cDelete").hidden = !c;
+  $("cTestWa").hidden = !c;
+  const owner = (deviceId) => clients.find((x) => x.deviceIds.includes(deviceId));
+  $("cDevices").innerHTML = devices.length ? devices.map((d) => {
+    const other = owner(d.id);
+    const note = other && other.id !== c?.id ? ` <span class="muted">(now ${esc(other.name)}; ticking moves it here)</span>` : "";
+    return `<label style="display:flex; gap:8px; align-items:center; margin:6px 0">
+      <input type="checkbox" value="${esc(d.id)}" ${c?.deviceIds.includes(d.id) ? "checked" : ""}>
+      <span class="dot ${d.connected ? "live" : "bad"}"></span>${esc(d.name || d.id)}${note}</label>`;
+  }).join("") : `<p class="muted" style="margin:6px 0">No phones paired yet. Pair the client's phone under <a href="#/connection">Connection</a> first.</p>`;
+  countClientAbout();
+  renderClientList();
+}
+
+function countClientAbout() {
+  const n = $("cAbout").value.length;
+  $("cAboutCount").textContent = n ? `${n} / 20000 characters.` : "";
+}
+$("cAbout").oninput = countClientAbout;
+$("newClient").onclick = () => openClient("new");
+
+$("cSave").onclick = async () => {
+  const message = $("cWaMessage").value.trim();
+  const body = {
+    name: $("cName").value.trim(),
+    enabled: $("cEnabled").checked,
+    voice: $("cVoice").value,
+    bookingUrl: $("cBooking").value.trim(),
+    about: $("cAbout").value.trim(),
+    whatsappGatewayUrl: $("cWaUrl").value.trim().replace(/\/+$/, ""),
+    whatsappCountryCode: $("cWaCountry").value.trim() || "91",
+    whatsappMessage: message === DEFAULT_WA_MESSAGE ? "" : message,
+    deviceIds: [...$("cDevices").querySelectorAll("input:checked")].map((i) => i.value),
+  };
+  const secret = $("cWaSecret").value.trim();
+  if (secret) body.whatsappApiSecret = secret;
+  if (!body.name) return toast("Enter the business name.");
+  try {
+    const isNew = editingClient === "new";
+    const { client } = await api(isNew ? "/v1/clients" : `/v1/clients/${encodeURIComponent(editingClient)}`, {
+      method: isNew ? "POST" : "PUT",
+      body: JSON.stringify(body),
+    });
+    editingClient = client.id;
+    toast(client.enabled && client.deviceIds.length
+      ? `Saved. ${client.name}'s calls are answered by the receptionist.`
+      : `Saved. ${client.deviceIds.length ? "The receptionist is paused." : "Assign a phone to start answering calls."}`);
+    loadClients();
+  } catch (error) {
+    toast(error.message);
+  }
+};
+
+$("cTestWa").onclick = async () => {
+  const to = prompt("Send a test message to which WhatsApp number?");
+  if (!to) return;
+  try {
+    const r = await api(`/v1/clients/${encodeURIComponent(editingClient)}/whatsapp-test`, { method: "POST", body: JSON.stringify({ to }) });
+    toast(`Test sent to …${r.to.slice(-4)}. Check WhatsApp.`);
+  } catch (error) {
+    toast(error.message);
+  }
+};
+
+$("cDelete").onclick = async () => {
+  const c = clients.find((x) => x.id === editingClient);
+  if (!c || !confirm(`Delete ${c.name}? Its phones stop answering with the receptionist.`)) return;
+  await api(`/v1/clients/${encodeURIComponent(c.id)}`, { method: "DELETE" }).catch((e) => toast(e.message));
+  editingClient = null;
+  $("clientEditor").hidden = true;
+  $("clientEmpty").hidden = false;
+  loadClients();
+};
 
 function renderApiKeys(keys) {
   $("apiKeys").innerHTML = keys.length ? keys.map((k) => `<div class="key-row">

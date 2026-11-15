@@ -20,6 +20,8 @@ export interface AgentMessage {
   reason?: string;
   callbackNumber?: string;
   urgency?: "low" | "normal" | "high";
+  /** Receptionist: the business the message is for. */
+  business?: string;
   takenAt: string;
 }
 
@@ -218,6 +220,7 @@ export class GeminiCallAgent {
         reason: str(args.reason),
         callbackNumber: str(args.callback_number),
         urgency: (["low", "normal", "high"] as const).find((u) => u === args.urgency) ?? "normal",
+        ...(this.receptionist ? { business: this.businessName } : {}),
         takenAt: new Date().toISOString(),
       };
       this.options.onMessage(this.message);

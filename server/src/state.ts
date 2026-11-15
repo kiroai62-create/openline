@@ -19,6 +19,7 @@ interface DeviceRow {
   last_seen_at: string;
   health: string | null;
   health_at: string | null;
+  client_id: string | null;
 }
 
 interface CallRow {
@@ -156,6 +157,7 @@ export class StateStore {
       lastSeenAt: row.last_seen_at,
       ...(row.health ? { health: { ...parseJson<DeviceHealth>(row.health)!, reportedAt: row.health_at! } } : {}),
       ...(latencyMs !== undefined ? { latencyMs } : {}),
+      ...(row.client_id ? { clientId: row.client_id } : {}),
     };
   }
 

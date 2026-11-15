@@ -1,39 +1,54 @@
+import type { ClientProfile } from "../clients.js";
 import type { ConfigStore } from "../config.js";
 
 /**
- * Sends WhatsApp messages through an external WhatsApp gateway (e.g. a Baileys server) that
- * exposes `POST /send` with `X-API-KEY` and a JSON body `{ jid, text }`; `jid` may be plain
- * digits with the country code. Used by the receptionist to send the booking link after a call.
+ * WhatsApp messages go through an external WhatsApp gateway (e.g. a Baileys server) that exposes
+ * `POST /send` with `X-API-KEY` and a JSON body `{ jid, text }`; `jid` may be plain digits with
+ * the country code. The receptionist uses it to send the booking link after a call. Each client
+ * has its own gateway (its own WhatsApp number); phones without a client use the one in Settings.
  */
-export class WhatsAppSender {
-  constructor(
-    private readonly config: ConfigStore,
-    private readonly timeoutMs = 20_000,
-  ) {}
+export interface WhatsAppTarget {
+  url: string;
+  secret: string;
+  /** Added to 10-digit local numbers, e.g. "91". */
+  countryCode: string;
+  /** Template with {name}, {business}, {link}. */
+  message: string;
+}
 
-  get configured(): boolean {
-    return Boolean(this.config.get("whatsappGatewayUrl") && this.config.get("whatsappApiSecret"));
-  }
+export function whatsappFromConfig(config: ConfigStore): WhatsAppTarget | undefined {
+  return target(
+    config.get("whatsappGatewayUrl"),
+    config.get("whatsappApiSecret"),
+    config.get("whatsappCountryCode"),
+    config.get("whatsappMessage"),
+  );
+}
 
-  /** International number without "+", or undefined when the caller's number can't be used. */
-  normalize(raw: string | undefined): string | undefined {
-    return toWhatsAppNumber(raw, this.config.get("whatsappCountryCode") ?? "91");
-  }
+export function whatsappFromClient(client: ClientProfile): WhatsAppTarget | undefined {
+  return target(client.whatsappGatewayUrl, client.whatsappApiSecret, client.whatsappCountryCode, client.whatsappMessage);
+}
 
-  async send(number: string, text: string): Promise<void> {
-    const url = this.config.get("whatsappGatewayUrl")?.replace(/\/+$/, "");
-    const secret = this.config.get("whatsappApiSecret");
-    if (!url || !secret) throw new Error("WhatsApp gateway is not set up");
-    const response = await fetch(`${url}/send`, {
-      method: "POST",
-      headers: { "content-type": "application/json", "x-api-key": secret },
-      body: JSON.stringify({ jid: number, text }),
-      signal: AbortSignal.timeout(this.timeoutMs),
-    });
-    if (!response.ok) {
-      const body = (await response.json().catch(() => ({}))) as { error?: string };
-      throw new Error(body.error ?? `WhatsApp gateway returned HTTP ${response.status}`);
-    }
+function target(url?: string, secret?: string, countryCode?: string, message?: string): WhatsAppTarget | undefined {
+  if (!url || !secret) return undefined;
+  return {
+    url: url.replace(/\/+$/, ""),
+    secret,
+    countryCode: countryCode || "91",
+    message: message?.trim() || DEFAULT_WHATSAPP_MESSAGE,
+  };
+}
+
+export async function sendWhatsApp(target: WhatsAppTarget, number: string, text: string, timeoutMs = 20_000): Promise<void> {
+  const response = await fetch(`${target.url}/send`, {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-api-key": target.secret },
+    body: JSON.stringify({ jid: number, text }),
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+  if (!response.ok) {
+    const body = (await response.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? `WhatsApp gateway returned HTTP ${response.status}`);
   }
 }
 

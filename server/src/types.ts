@@ -22,6 +22,8 @@ export interface DeviceRecord {
   health?: DeviceHealth;
   /** Round trip to the phone over its channel, measured by the server. */
   latencyMs?: number;
+  /** The client (business) this phone answers for. */
+  clientId?: string;
 }
 
 /** What the phone reports about itself every so often. All fields optional; older apps send none. */

@@ -17,6 +17,8 @@ export interface GatewayConfig {
   whatsappCountryCode?: string;
   /** Message template with {name}, {business} and {link}. */
   whatsappMessage?: string;
+  /** Product name shown in the console header and title (white label). */
+  brandName?: string;
 }
 
 const KEYS = [
@@ -31,6 +33,7 @@ const KEYS = [
   "whatsappApiSecret",
   "whatsappCountryCode",
   "whatsappMessage",
+  "brandName",
 ] as const;
 export type ConfigKey = (typeof KEYS)[number];
 
@@ -73,6 +76,7 @@ export class ConfigStore {
         hint: gemini ? `…${gemini.slice(-4)}` : null,
         source: saved.geminiApiKey ? "console" : gemini ? "env" : null,
       },
+      brandName: this.get("brandName") ?? null,
       whatsappGatewayUrl: this.get("whatsappGatewayUrl") ?? null,
       whatsappCountryCode: this.get("whatsappCountryCode") ?? "91",
       whatsappMessage: this.get("whatsappMessage") ?? null,

@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "start": "node --disable-warning=ExperimentalWarning dist/index.js",
+    "start": "node --disable-warning=ExperimentalWarning --env-file-if-exists=.env dist/index.js",
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest"
