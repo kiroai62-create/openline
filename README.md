@@ -52,7 +52,13 @@ sudo bash deploy/setup-vm.sh                                   # once per server
 sudo bash deploy/new-client.sh 32teeth "32 Teeth Hospital" 32teeth.duckdns.org
 ```
 
+**Sell it as a SaaS:** run one central server and onboard paying customers with their own login,
+license, plan and Razorpay billing. Each customer edits their own business, pairs their own phone
+and sees their own analytics; you manage plans, licenses and customers from an admin console. See
+[SAAS.md](SAAS.md).
+
 - [DEPLOYMENT.md](DEPLOYMENT.md): free server, per-client deployment, AI keys, app and phone setup, step by step
+- [SAAS.md](SAAS.md): run as a SaaS — customers, plans, licenses, Razorpay billing
 - [docs/brochure/AI-Receptionist-Overview.pdf](docs/brochure/AI-Receptionist-Overview.pdf): client presentation
   (rebuild with your brand: `python docs/brochure/make_brochure.py --brand "..." --phone "..."`)
 - [clients/32-teeth-hospital.md](clients/32-teeth-hospital.md): example client knowledge
