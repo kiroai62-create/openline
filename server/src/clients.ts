@@ -15,6 +15,8 @@ export interface ClientProfile {
   about: string;
   bookingUrl: string;
   voice: string;
+  /** This client's own Gemini key (central SaaS: the customer brings their own). */
+  geminiApiKey: string;
   whatsappGatewayUrl: string;
   whatsappApiSecret: string;
   whatsappCountryCode: string;
@@ -31,6 +33,7 @@ const DEFAULTS: Omit<ClientProfile, "id" | "name" | "createdAt" | "updatedAt"> =
   about: "",
   bookingUrl: "",
   voice: "Kore",
+  geminiApiKey: "",
   whatsappGatewayUrl: "",
   whatsappApiSecret: "",
   whatsappCountryCode: "91",
@@ -106,10 +109,11 @@ export class ClientStore {
 
   /** Safe for the browser: the WhatsApp secret is reduced to whether it is set. */
   view(client: ClientProfile) {
-    const { whatsappApiSecret, ...rest } = client;
+    const { whatsappApiSecret, geminiApiKey, ...rest } = client;
     return {
       ...rest,
       deviceIds: this.deviceIds(client.id),
+      geminiApiKey: { configured: Boolean(geminiApiKey), hint: geminiApiKey ? `…${geminiApiKey.slice(-4)}` : null },
       whatsappApiSecret: { configured: Boolean(whatsappApiSecret), hint: whatsappApiSecret ? `…${whatsappApiSecret.slice(-4)}` : null },
     };
   }

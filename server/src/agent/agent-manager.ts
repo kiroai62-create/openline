@@ -49,6 +49,8 @@ export interface AgentManagerOptions {
   router?: AiRouter;
   /** "Please hold" / "please call later" audio for switches and total failure. */
   fallback?: FallbackAudio;
+  /** Central SaaS: may this client's calls be answered now? (license, trial, minute limit). */
+  entitled?(clientId: string | undefined): { ok: boolean; message?: string };
 }
 
 type CallAgent = GeminiCallAgent | PipelineCallAgent;
@@ -69,6 +71,8 @@ export interface CallProfile {
   bookingUrl: string;
   whatsapp?: WhatsAppTarget;
   clientId?: string;
+  /** The client's own Gemini key (central SaaS), used for Gemini Live before the shared keys. */
+  geminiApiKey?: string;
 }
 
 const LIVE_STATES = new Set<CallRecord["state"]>(["queued", "dialing", "ringing", "active", "held"]);
@@ -178,7 +182,8 @@ export class AgentManager {
       !streamed &&
       call.direction === "incoming" &&
       this.profileFor(call).autoAnswer &&
-      this.configured &&
+      Boolean(this.pickEngine(this.profileFor(call).geminiApiKey)) &&
+      this.checkEntitled(call) &&
       !this.requested.has(call.id)
     ) {
       this.requested.add(call.id);
@@ -198,7 +203,11 @@ export class AgentManager {
     // A finished or failed agent may be replaced (e.g. handed back to the assistant again).
     if (current && current.status !== "ended" && current.status !== "error") return;
     if (this.givingUp.has(call.id)) return;
-    const engine = this.pickEngine();
+    if (!this.checkEntitled(call)) {
+      void this.giveUp(call, this.entitlementMessage(call));
+      return;
+    }
+    const engine = this.pickEngine(this.profileFor(call).geminiApiKey);
     if (!engine) {
       console.error(`no AI provider available for call ${call.id}`);
       void this.giveUp(call);
@@ -234,8 +243,13 @@ export class AgentManager {
     void agent.start();
   }
 
-  private pickEngine(): { live?: ProviderConfig } | undefined {
+  private pickEngine(clientKey?: string): { live?: ProviderConfig } | undefined {
     const router = this.options.router;
+    // A customer's own Gemini Live key takes priority over the shared keys.
+    if (clientKey) {
+      const cooling = router?.status().find((s) => s.id === "client-gemini" && s.state === "cooldown");
+      if (!cooling) return { live: { id: "client-gemini", kind: "live", type: "gemini", label: "Gemini (customer key)", enabled: true, apiKey: clientKey, model: this.model } };
+    }
     if (!router) {
       const key = this.options.config.get("geminiApiKey");
       return key ? { live: { id: "settings-gemini", kind: "live", type: "gemini", label: "Gemini", enabled: true, apiKey: key, model: this.model } } : undefined;
@@ -278,12 +292,29 @@ export class AgentManager {
   }
 
   /** Nothing can answer: tell the caller to call later, then hang up, instead of a silent line. */
-  private async giveUp(call: CallRecord): Promise<void> {
+  private checkEntitled(call: CallRecord): boolean {
+    const gate = this.options.entitled;
+    if (!gate) return true;
+    const profile = this.profileFor(call);
+    return gate(profile.clientId).ok;
+  }
+
+  private entitlementMessage(call: CallRecord): "sorry" {
+    // The caller always hears the recorded "please call later"; the reason is for the console.
+    const gate = this.options.entitled;
+    if (gate) {
+      const r = gate(this.profileFor(call).clientId);
+      if (!r.ok && r.message) console.warn(`call ${call.id} not answered: ${r.message}`);
+    }
+    return "sorry";
+  }
+
+  private async giveUp(call: CallRecord, kind: "sorry" = "sorry"): Promise<void> {
     if (this.givingUp.has(call.id)) return;
     this.givingUp.add(call.id);
     this.agents.get(call.id)?.stop();
     const played = this.options.fallback
-      ? await this.options.fallback.play(this.options.mediaUrl(call.id), this.options.apiKey, "sorry")
+      ? await this.options.fallback.play(this.options.mediaUrl(call.id), this.options.apiKey, kind)
       : 0;
     setTimeout(() => {
       const latest = this.options.state.getCall(call.id);
@@ -338,6 +369,7 @@ export class AgentManager {
         bookingUrl: client.bookingUrl,
         whatsapp: whatsappFromClient(client),
         clientId: client.id,
+        geminiApiKey: client.geminiApiKey || undefined,
       };
     }
     const s = this.settings;

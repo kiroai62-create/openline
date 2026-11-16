@@ -12,6 +12,8 @@ export interface UserInfo {
   id: string;
   email: string;
   createdAt: string;
+  role: "admin" | "customer";
+  customerId?: string;
 }
 
 export interface ApiKeyInfo {
@@ -123,30 +125,58 @@ export class AuthService {
     return "ok";
   }
 
-  addUser(email: string, password: string): UserInfo | "exists" {
-    const user = { id: randomUUID(), email: email.trim().toLowerCase(), createdAt: new Date().toISOString() };
+  /** Platform owner (admin) or a paying customer's login. */
+  addUser(email: string, password: string, role: "admin" | "customer" = "admin", customerId?: string): UserInfo | "exists" {
+    const user: UserInfo = { id: randomUUID(), email: email.trim().toLowerCase(), createdAt: new Date().toISOString(), role, customerId };
     try {
       this.db
-        .prepare("INSERT INTO users (id, email, password_hash, created_at) VALUES (?, ?, ?, ?)")
-        .run(user.id, user.email, hashPassword(password), user.createdAt);
+        .prepare("INSERT INTO users (id, email, password_hash, created_at, role, customer_id) VALUES (?, ?, ?, ?, ?, ?)")
+        .run(user.id, user.email, hashPassword(password), user.createdAt, role, customerId ?? null);
     } catch {
       return "exists";
     }
     return user;
   }
 
-  listUsers(): UserInfo[] {
-    const rows = this.db.prepare("SELECT id, email, created_at FROM users ORDER BY created_at").all() as {
-      id: string;
-      email: string;
-      created_at: string;
-    }[];
-    return rows.map((r) => ({ id: r.id, email: r.email, createdAt: r.created_at }));
+  /** Changes a user's password without knowing the old one (admin resetting a customer's login). */
+  setPassword(userId: string, password: string): boolean {
+    const changed = Number(this.db.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(hashPassword(password), userId).changes);
+    if (changed) this.db.prepare("DELETE FROM sessions WHERE user_id = ?").run(userId);
+    return changed > 0;
   }
 
-  /** Never removes the last account. */
+  userByCustomer(customerId: string): UserInfo | undefined {
+    const r = this.db.prepare("SELECT id, email, created_at, role, customer_id FROM users WHERE customer_id = ? LIMIT 1").get(customerId) as UserRow | undefined;
+    return r ? toUser(r) : undefined;
+  }
+
+  getUser(id: string): UserInfo | undefined {
+    const r = this.db.prepare("SELECT id, email, created_at, role, customer_id FROM users WHERE id = ?").get(id) as UserRow | undefined;
+    return r ? toUser(r) : undefined;
+  }
+
+  /** Starts a session for a user without a password: admin "log in as customer". */
+  issueSessionFor(userId: string): { token: string; expiresAt: Date } | undefined {
+    if (!this.getUser(userId)) return undefined;
+    const now = Date.now();
+    const token = randomBytes(32).toString("base64url");
+    const expiresAt = new Date(now + SESSION_TTL_MS);
+    this.db.prepare("INSERT INTO sessions (token_hash, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)").run(hashToken(token), userId, new Date(now).toISOString(), expiresAt.toISOString());
+    return { token, expiresAt };
+  }
+
+  adminExists(): boolean {
+    return Boolean(this.db.prepare("SELECT 1 FROM users WHERE role = 'admin' LIMIT 1").get());
+  }
+
+  listUsers(): UserInfo[] {
+    return (this.db.prepare("SELECT id, email, created_at, role, customer_id FROM users WHERE role = 'admin' ORDER BY created_at").all() as unknown as UserRow[]).map(toUser);
+  }
+
+  /** Never removes the last admin. */
   removeUser(id: string): "ok" | "not_found" | "last" {
-    if (this.listUsers().length <= 1) return "last";
+    const u = this.getUser(id);
+    if (u?.role === "admin" && this.listUsers().length <= 1) return "last";
     if (Number(this.db.prepare("DELETE FROM users WHERE id = ?").run(id).changes) === 0) return "not_found";
     this.db.prepare("DELETE FROM sessions WHERE user_id = ?").run(id);
     return "ok";
@@ -170,7 +200,7 @@ export class AuthService {
     const now = Date.now();
     this.loginFailures = this.loginFailures.filter((at) => now - at < 60_000);
     if (this.loginFailures.length >= MAX_LOGIN_FAILURES_PER_MINUTE) return "throttled";
-    const row = this.db.prepare("SELECT id, password_hash FROM users WHERE email = ?").get(email.trim()) as
+    const row = this.db.prepare("SELECT id, password_hash FROM users WHERE email = ?").get(email.trim().toLowerCase()) as
       | { id: string; password_hash: string }
       | undefined;
     if (!row || !verifyPassword(password, row.password_hash)) {
@@ -195,12 +225,12 @@ export class AuthService {
     if (!token) return undefined;
     const row = this.db
       .prepare(
-        `SELECT u.id, u.email, u.created_at, s.expires_at FROM sessions s JOIN users u ON u.id = s.user_id
+        `SELECT u.id, u.email, u.created_at, u.role, u.customer_id, s.expires_at FROM sessions s JOIN users u ON u.id = s.user_id
          WHERE s.token_hash = ?`,
       )
-      .get(hashToken(token)) as { id: string; email: string; created_at: string; expires_at: string } | undefined;
+      .get(hashToken(token)) as (UserRow & { expires_at: string }) | undefined;
     if (!row || Date.parse(row.expires_at) <= Date.now()) return undefined;
-    return { id: row.id, email: row.email, createdAt: row.created_at };
+    return toUser(row);
   }
 
   verifySession(token: string | undefined): boolean {
@@ -255,6 +285,11 @@ export class AuthService {
   clearSessionCookie(response: Response): void {
     response.clearCookie(SESSION_COOKIE, { path: "/" });
   }
+}
+
+interface UserRow { id: string; email: string; created_at: string; role: string; customer_id: string | null; }
+function toUser(r: UserRow): UserInfo {
+  return { id: r.id, email: r.email, createdAt: r.created_at, role: (r.role as "admin" | "customer") ?? "admin", customerId: r.customer_id ?? undefined };
 }
 
 function hashPassword(password: string): string {

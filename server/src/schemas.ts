@@ -103,11 +103,16 @@ export const clientSchema = z.object({
   whatsappApiSecret: z.union([z.literal(""), z.string().trim().min(4).max(500)]),
   whatsappCountryCode: z.string().trim().regex(/^\d{1,4}$/, "digits only, e.g. 91"),
   whatsappMessage: z.string().trim().max(1000),
+  /** Omit to keep the saved key; "" removes it. */
+  geminiApiKey: z.union([z.literal(""), z.string().trim().min(10).max(200)]),
   /** Phones that answer for this client. */
   deviceIds: z.array(z.string().min(1).max(128)).max(50),
 });
 export const createClientSchema = clientSchema.partial().required({ name: true });
 export const updateClientSchema = clientSchema.partial();
+
+/** What a customer may edit about their own business (no phone assignment, no enable toggle). */
+export const customerBusinessSchema = clientSchema.partial().omit({ deviceIds: true, enabled: true, name: true });
 
 const provider = z.object({
   id: z.string().trim().min(1).max(64),
@@ -125,6 +130,57 @@ const provider = z.object({
 export const routingSchema = z.object({
   mode: z.enum(["auto", "live", "pipeline"]),
   providers: z.array(provider).max(40),
+});
+
+const paise = z.number().int().min(0).max(100_000_000);
+export const planSchema = z.object({
+  id: z.string().trim().regex(/^[a-z0-9-]{2,32}$/).optional(),
+  name: z.string().trim().min(1).max(60),
+  priceMonthly: paise,
+  priceYearly: paise,
+  setupFee: paise.optional(),
+  minutesIncluded: z.number().int().min(-1).max(1_000_000),
+  maxPhones: z.number().int().min(1).max(100),
+  trialDays: z.number().int().min(0).max(90).optional(),
+  features: z.array(z.string().max(120)).max(20).optional(),
+  active: z.boolean().optional(),
+  public: z.boolean().optional(),
+  sort: z.number().int().min(0).max(999).optional(),
+  razorpayPlanMonthly: z.string().trim().max(64).optional(),
+  razorpayPlanYearly: z.string().trim().max(64).optional(),
+});
+
+export const createCustomerSchema = z.object({
+  businessName: z.string().trim().min(1).max(120),
+  email: z.string().trim().toLowerCase().email().max(254),
+  password: z.string().min(8).max(200),
+  planId: z.string().trim().max(32).optional(),
+  billingCycle: z.enum(["monthly", "yearly", "lifetime"]).optional(),
+  lifetime: z.boolean().optional(),
+  geminiApiKey: z.string().trim().max(200).optional(),
+  notes: z.string().max(2000).optional(),
+});
+
+export const updateCustomerSchema = z.object({
+  name: z.string().trim().min(1).max(120).optional(),
+  planId: z.string().trim().max(32).optional(),
+  billingCycle: z.enum(["monthly", "yearly", "lifetime"]).optional(),
+  status: z.enum(["trialing", "active", "past_due", "suspended", "cancelled"]).optional(),
+  lifetime: z.boolean().optional(),
+  currentPeriodEnd: z.string().datetime({ offset: true }).optional(),
+  notes: z.string().max(2000).optional(),
+  password: z.string().min(8).max(200).optional(),
+  licenseStatus: z.enum(["active", "suspended", "revoked"]).optional(),
+});
+
+export const licenseActivateSchema = z.object({
+  key: z.string().trim().min(6).max(40),
+  device: z.string().trim().max(120).optional(),
+});
+
+export const checkoutSchema = z.object({
+  planId: z.string().trim().max(32),
+  cycle: z.enum(["monthly", "yearly"]),
 });
 
 export const fallbackTextSchema = z.object({

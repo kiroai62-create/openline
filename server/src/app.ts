@@ -29,6 +29,11 @@ import {
   analyticsQuerySchema,
   routingSchema,
   fallbackTextSchema,
+  planSchema,
+  createCustomerSchema,
+  updateCustomerSchema,
+  licenseActivateSchema,
+  customerBusinessSchema,
   updateClientSchema,
 } from "./schemas.js";
 import type { AgentManager } from "./agent/agent-manager.js";
@@ -37,6 +42,7 @@ import { MEDIA_FORMAT } from "./media-relay.js";
 import { PairingService, pairUri } from "./pairing.js";
 import type { StateStore } from "./state.js";
 import { renderTemplate, sendWhatsApp, toWhatsAppNumber, whatsappFromClient, whatsappFromConfig, type WhatsAppTarget } from "./agent/whatsapp.js";
+import type { SaasStore } from "./saas.js";
 import type { ClientStore } from "./clients.js";
 import { Analytics } from "./analytics.js";
 import { PRESETS, type AiRouter } from "./ai/router.js";
@@ -56,6 +62,7 @@ export interface AppDependencies {
   analytics?: Analytics;
   router?: AiRouter;
   fallback?: FallbackAudio;
+  saas?: SaasStore;
   /** Show the Clients page (several businesses on one server). Off for one deployment per client. */
   multiClient?: boolean;
 }
@@ -116,6 +123,7 @@ export function createApp(deps: AppDependencies) {
     }
     const deviceId = `phone-${randomBytes(4).toString("hex")}`;
     const device = deps.state.upsertDevice({ id: deviceId, name: parsed.data.name ?? "Android phone" });
+    if (result.clientId) deps.clients?.assignDevice(deviceId, result.clientId);
     const deviceToken = randomBytes(32).toString("base64url");
     deps.state.setDeviceToken(deviceId, deviceToken);
     return response.status(201).json({ device, deviceToken, deviceChannelPath: "/v1/device-channel" });
@@ -132,6 +140,34 @@ export function createApp(deps: AppDependencies) {
       setupKeyRequired: setupRequired && !deps.auth.isLocalRequest(request),
       authenticated: Boolean(user) || deps.auth.isAuthorized(request),
       user: user ?? null,
+      role: user?.role ?? (deps.auth.isAuthorized(request) ? "admin" : null),
+    });
+  });
+
+  // Public pricing page data (no sign-in). Only active, public plans.
+  app.get("/v1/pricing", (_request, response) => {
+    if (!deps.saas) return response.json({ plans: [] });
+    return response.json({ plans: deps.saas.listPlans(false), brandName: deps.config.get("brandName") ?? null });
+  });
+
+  // The phone app checks its license here (no session; the key is the credential).
+  app.post("/v1/license/activate", (request, response) => {
+    if (!deps.saas) return response.status(404).json(errorBody("NOT_FOUND", "licensing unavailable"));
+    const parsed = licenseActivateSchema.safeParse(request.body);
+    if (!parsed.success) return validationError(response, parsed.error.issues);
+    const touched = deps.saas.touchLicense(parsed.data.key.trim().toUpperCase(), parsed.data.device);
+    if (!touched) return response.status(404).json(errorBody("INVALID_LICENSE", "license not found"));
+    const { customer } = touched;
+    const ent = deps.saas.entitlement(customer);
+    return response.json({
+      valid: ent.entitled,
+      customerName: customer.name,
+      status: customer.status,
+      lifetime: customer.lifetime,
+      plan: customer.planId ?? null,
+      expiresAt: customer.lifetime ? null : customer.status === "trialing" ? customer.trialEndsAt : customer.currentPeriodEnd,
+      reason: ent.reason ?? null,
+      message: ent.message ?? null,
     });
   });
 
@@ -167,6 +203,289 @@ export function createApp(deps: AppDependencies) {
   }
 
   app.use("/v1", deps.auth.middleware());
+
+  // ---- SaaS: platform admin and customer self-service ----
+  const saas = deps.saas;
+  const actingUser = (request: Request) => deps.auth.sessionUser(deps.auth.sessionToken(request));
+  const isAdmin = (request: Request) => {
+    const u = actingUser(request);
+    // A root API key (no session) counts as admin; a customer session does not.
+    return u ? u.role === "admin" : deps.auth.isAuthorized(request);
+  };
+  const adminActor = (request: Request) => actingUser(request)?.email ?? "admin";
+
+  function requireAdmin(request: Request, response: Response): boolean {
+    if (isAdmin(request)) return true;
+    response.status(403).json(errorBody("FORBIDDEN", "admin only"));
+    return false;
+  }
+
+  /** The customer whose data the current session may touch, or undefined for admins/root. */
+  function sessionCustomer(request: Request) {
+    const u = actingUser(request);
+    return u?.role === "customer" && u.customerId ? saas?.getCustomer(u.customerId) : undefined;
+  }
+
+  if (saas) {
+    // Full customer view (account, plan, license, usage, entitlement). Admin passes ?customerId.
+    const resolveCustomer = (request: Request) => {
+      const own = sessionCustomer(request);
+      if (own) return own;
+      const id = typeof request.query.customerId === "string" ? request.query.customerId : undefined;
+      return isAdmin(request) && id ? saas.getCustomer(id) : undefined;
+    };
+
+    const customerView = (customerId: string) => {
+      const c = saas.getCustomer(customerId);
+      if (!c) return undefined;
+      const plan = c.planId ? saas.getPlan(c.planId) : null;
+      const license = saas.licenseFor(c.id);
+      const ent = saas.entitlement(c);
+      const login = deps.auth.userByCustomer(c.id);
+      const client = c.clientId && deps.clients ? deps.clients.get(c.clientId) : undefined;
+      return {
+        customer: c,
+        plan,
+        license,
+        entitlement: ent,
+        email: login?.email ?? null,
+        clientId: c.clientId ?? null,
+        phones: c.clientId && deps.clients ? deps.clients.deviceIds(c.clientId) : [],
+        business: client ? deps.clients!.view(client) : null,
+        usage: saas.usageHistory(c.id),
+      };
+    };
+
+    // --- admin: plans ---
+    app.get("/v1/plans", (request, response) => {
+      // Any signed-in user may read plans (customer upgrade screen); only admins see hidden ones.
+      return response.json({ plans: saas.listPlans(isAdmin(request)) });
+    });
+
+    app.post("/v1/plans", (request, response) => {
+      if (!requireAdmin(request, response)) return;
+      const parsed = planSchema.safeParse(request.body);
+      if (!parsed.success) return validationError(response, parsed.error.issues);
+      const plan = saas.upsertPlan(parsed.data);
+      saas.audit(adminActor(request), "plan.save", plan.id, plan.name);
+      return response.status(201).json({ plan });
+    });
+
+    app.delete("/v1/plans/:id", (request, response) => {
+      if (!requireAdmin(request, response)) return;
+      const removed = saas.deletePlan(request.params.id);
+      saas.audit(adminActor(request), removed ? "plan.delete" : "plan.hide", request.params.id);
+      return response.json({ deleted: removed });
+    });
+
+    // --- admin: customers ---
+    app.get("/v1/customers", (request, response) => {
+      if (!requireAdmin(request, response)) return;
+      const customers = saas.listCustomers().map((c) => {
+        const plan = c.planId ? saas.getPlan(c.planId) : undefined;
+        const ent = saas.entitlement(c);
+        return {
+          ...c,
+          planName: plan?.name ?? null,
+          email: deps.auth.userByCustomer(c.id)?.email ?? null,
+          license: saas.licenseFor(c.id)?.key ?? null,
+          licenseStatus: saas.licenseFor(c.id)?.status ?? null,
+          entitled: ent.entitled,
+          minutesUsed: ent.minutesUsed,
+          minutesIncluded: ent.minutesIncluded,
+          phones: c.clientId && deps.clients ? deps.clients.deviceIds(c.clientId).length : 0,
+        };
+      });
+      return response.json({ customers });
+    });
+
+    app.post("/v1/customers", (request, response) => {
+      if (!requireAdmin(request, response)) return;
+      if (!deps.clients) return response.status(404).json(errorBody("NOT_FOUND", "clients unavailable"));
+      const parsed = createCustomerSchema.safeParse(request.body);
+      if (!parsed.success) return validationError(response, parsed.error.issues);
+      const data = parsed.data;
+      const client = deps.clients.create({ name: data.businessName, voice: "Kore" });
+      const customer = saas.createCustomer({
+        name: data.businessName, clientId: client.id, planId: data.planId,
+        billingCycle: data.billingCycle, lifetime: data.lifetime, notes: data.notes,
+      });
+      const login = deps.auth.addUser(data.email, data.password, "customer", customer.id);
+      if (login === "exists") {
+        saas.deleteCustomer(customer.id);
+        deps.clients.remove(client.id);
+        return response.status(409).json(errorBody("EMAIL_EXISTS", "an account with this email already exists"));
+      }
+      if (data.geminiApiKey) deps.clients.update(client.id, { geminiApiKey: data.geminiApiKey });
+      saas.audit(adminActor(request), "customer.create", customer.id, `${data.businessName} <${data.email}>`);
+      return response.status(201).json(customerView(customer.id));
+    });
+
+    app.get("/v1/customers/:id", (request, response) => {
+      if (!requireAdmin(request, response)) return;
+      const view = customerView(request.params.id);
+      if (!view) return response.status(404).json(errorBody("NOT_FOUND", "customer not found"));
+      return response.json({ ...view, payments: saas.payments(request.params.id, 50), loginId: deps.auth.userByCustomer(request.params.id)?.id ?? null });
+    });
+
+    app.put("/v1/customers/:id", (request, response) => {
+      if (!requireAdmin(request, response)) return;
+      const parsed = updateCustomerSchema.safeParse(request.body);
+      if (!parsed.success) return validationError(response, parsed.error.issues);
+      const customer = saas.getCustomer(request.params.id);
+      if (!customer) return response.status(404).json(errorBody("NOT_FOUND", "customer not found"));
+      const { password, licenseStatus, ...patch } = parsed.data;
+      saas.updateCustomer(customer.id, patch);
+      if (patch.name && customer.clientId) deps.clients?.update(customer.clientId, { name: patch.name });
+      if (password) {
+        const login = deps.auth.userByCustomer(customer.id);
+        if (login) deps.auth.setPassword(login.id, password);
+      }
+      if (licenseStatus) {
+        const lic = saas.licenseFor(customer.id);
+        if (lic) saas.setLicenseStatus(lic.key, licenseStatus);
+      }
+      saas.audit(adminActor(request), "customer.update", customer.id, JSON.stringify(parsed.data.password ? { ...parsed.data, password: "***" } : parsed.data));
+      return response.json(customerView(customer.id));
+    });
+
+    app.delete("/v1/customers/:id", (request, response) => {
+      if (!requireAdmin(request, response)) return;
+      const customer = saas.getCustomer(request.params.id);
+      if (!customer) return response.status(404).json(errorBody("NOT_FOUND", "customer not found"));
+      const login = deps.auth.userByCustomer(customer.id);
+      if (login) deps.auth.removeUser(login.id);
+      if (customer.clientId) deps.clients?.remove(customer.clientId);
+      saas.deleteCustomer(customer.id);
+      saas.audit(adminActor(request), "customer.delete", customer.id, customer.name);
+      return response.status(204).end();
+    });
+
+    app.post("/v1/customers/:id/reissue-license", (request, response) => {
+      if (!requireAdmin(request, response)) return;
+      if (!saas.getCustomer(request.params.id)) return response.status(404).json(errorBody("NOT_FOUND", "customer not found"));
+      const license = saas.issueLicense(request.params.id);
+      saas.audit(adminActor(request), "license.reissue", request.params.id, license.key);
+      return response.status(201).json({ license });
+    });
+
+    // Admin "log in as customer": starts a customer session in this browser.
+    app.post("/v1/customers/:id/login-as", (request, response) => {
+      if (!requireAdmin(request, response)) return;
+      const login = deps.auth.userByCustomer(request.params.id);
+      if (!login) return response.status(404).json(errorBody("NOT_FOUND", "customer login not found"));
+      const session = deps.auth.issueSessionFor(login.id);
+      if (!session) return response.status(404).json(errorBody("NOT_FOUND", "customer login not found"));
+      deps.auth.setSessionCookie(request, response, session.token, session.expiresAt);
+      saas.audit(adminActor(request), "customer.login_as", request.params.id, login.email);
+      return response.json({ ok: true, email: login.email });
+    });
+
+    app.get("/v1/billing/payments", (request, response) => {
+      if (!requireAdmin(request, response)) return;
+      return response.json({ payments: saas.payments(undefined, 200) });
+    });
+
+    app.get("/v1/audit", (request, response) => {
+      if (!requireAdmin(request, response)) return;
+      return response.json({ entries: saas.auditLog(300) });
+    });
+
+    // --- customer self-service ---
+    app.get("/v1/me", (request, response) => {
+      const customer = resolveCustomer(request);
+      if (!customer) return response.status(404).json(errorBody("NOT_FOUND", "no customer for this account"));
+      return response.json(customerView(customer.id));
+    });
+
+    // The customer's own business settings (and admin via ?customerId=). Secrets stay masked.
+    const meClient = (request: Request) => {
+      const c = resolveCustomer(request);
+      return c?.clientId && deps.clients ? { customer: c, client: deps.clients.get(c.clientId) } : undefined;
+    };
+
+    app.get("/v1/me/business", (request, response) => {
+      const ctx = meClient(request);
+      if (!ctx?.client) return response.status(404).json(errorBody("NOT_FOUND", "no business for this account"));
+      return response.json({ business: deps.clients!.view(ctx.client) });
+    });
+
+    app.put("/v1/me/business", (request, response) => {
+      const ctx = meClient(request);
+      if (!ctx?.client || !deps.clients) return response.status(404).json(errorBody("NOT_FOUND", "no business for this account"));
+      const parsed = customerBusinessSchema.safeParse(request.body);
+      if (!parsed.success) return validationError(response, parsed.error.issues);
+      // Empty-string secrets clear a key; omitted keeps it.
+      const patch: Record<string, unknown> = { ...parsed.data };
+      if (parsed.data.whatsappApiSecret === undefined) delete patch.whatsappApiSecret;
+      if (parsed.data.geminiApiKey === undefined) delete patch.geminiApiKey;
+      const client = deps.clients.update(ctx.client.id, patch as never)!;
+      saas!.audit(actingUser(request)?.email ?? "customer", "business.update", ctx.customer.id);
+      return response.json({ business: deps.clients.view(client) });
+    });
+
+    // Scoped dashboard data for the signed-in customer (admins read any via ?customerId=).
+    app.get("/v1/me/analytics", (request, response) => {
+      const ctx = meClient(request);
+      if (!ctx?.client || !deps.analytics) return response.status(404).json(errorBody("NOT_FOUND", "unavailable"));
+      const days = Math.min(Math.max(Number(request.query.days) || 7, 1), 365);
+      const tzOffset = Math.min(Math.max(Number(request.query.tzOffset) || 0, -840), 840);
+      const report = deps.analytics.report({ days, clientId: ctx.client.id, tzOffset });
+      return response.json({ ...report, entitlement: saas!.entitlement(ctx.customer), usage: saas!.usageHistory(ctx.customer.id) });
+    });
+
+    // A pairing code for the customer's own phone; the paired phone binds to their business.
+    app.post("/v1/me/pairing", async (request, response) => {
+      const ctx = meClient(request);
+      if (!ctx?.client) return response.status(404).json(errorBody("NOT_FOUND", "no business for this account"));
+      const ent = saas!.entitlement(ctx.customer);
+      const phones = deps.clients!.deviceIds(ctx.client.id).length;
+      if (phones >= ent.maxPhones) {
+        return response.status(409).json(errorBody("PHONE_LIMIT", `Your plan allows ${ent.maxPhones} phone(s). Upgrade to add more.`));
+      }
+      const publicUrl = (deps.config.get("publicUrl") ?? `${request.protocol}://${request.host}`).replace(/\/+$/, "");
+      const { code, expiresAt } = pairing.create(ctx.client.id);
+      const uri = pairUri(publicUrl, code);
+      const qrSvg = await QRCode.toString(uri, { type: "svg", margin: 1, errorCorrectionLevel: "M" });
+      return response.status(201).json({ code, expiresAt, publicUrl, pairUri: uri, qrSvg });
+    });
+
+    app.get("/v1/me/devices", (request, response) => {
+      const ctx = meClient(request);
+      if (!ctx?.client) return response.status(404).json(errorBody("NOT_FOUND", "no business for this account"));
+      const ids = new Set(deps.clients!.deviceIds(ctx.client.id));
+      return response.json({ devices: deps.state.listDevices().filter((d) => ids.has(d.id)) });
+    });
+
+    app.delete("/v1/me/devices/:id", (request, response) => {
+      const ctx = meClient(request);
+      if (!ctx?.client) return response.status(404).json(errorBody("NOT_FOUND", "no business for this account"));
+      if (!deps.clients!.deviceIds(ctx.client.id).includes(request.params.id)) {
+        return response.status(404).json(errorBody("NOT_FOUND", "phone not found"));
+      }
+      deps.deviceChannel.disconnect?.(request.params.id);
+      deps.state.removeDevice(request.params.id);
+      return response.status(204).end();
+    });
+
+    app.get("/v1/me/calls", (request, response) => {
+      const ctx = meClient(request);
+      if (!ctx?.client) return response.status(404).json(errorBody("NOT_FOUND", "no business for this account"));
+      const ids = new Set(deps.clients!.deviceIds(ctx.client.id));
+      const calls = deps.state.listCalls({ limit: 100 }).filter((c) => ids.has(c.deviceId));
+      return response.json({ calls });
+    });
+
+    app.get("/v1/me/calls/:callId/transcript", (request, response) => {
+      const ctx = meClient(request);
+      const call = deps.state.getCall(request.params.callId);
+      if (!ctx?.client || !call || !deps.clients!.deviceIds(ctx.client.id).includes(call.deviceId)) {
+        return response.status(404).json(errorBody("NOT_FOUND", "call not found"));
+      }
+      return response.json({ transcript: deps.agents?.transcript(call.id) ?? [] });
+    });
+  }
+
 
   app.post("/v1/auth/password", (request, response) => {
     const parsed = changePasswordSchema.safeParse(request.body);

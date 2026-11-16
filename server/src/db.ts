@@ -146,6 +146,87 @@ const MIGRATIONS: string[] = [
   );
   CREATE INDEX whatsapp_sends_at ON whatsapp_sends (at DESC);
   `,
+  // SaaS: paying customers, plans, licenses, usage, payments and an audit log. A central server
+  // serves many customers; each customer owns one client (its business settings and phones).
+  `
+  CREATE TABLE plans (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    price_monthly INTEGER NOT NULL,
+    price_yearly INTEGER NOT NULL,
+    setup_fee INTEGER NOT NULL DEFAULT 0,
+    currency TEXT NOT NULL DEFAULT 'INR',
+    minutes_included INTEGER NOT NULL,
+    max_phones INTEGER NOT NULL,
+    trial_days INTEGER NOT NULL DEFAULT 7,
+    features TEXT,
+    active INTEGER NOT NULL DEFAULT 1,
+    public INTEGER NOT NULL DEFAULT 1,
+    sort INTEGER NOT NULL DEFAULT 0,
+    razorpay_plan_monthly TEXT,
+    razorpay_plan_yearly TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+  CREATE TABLE customers (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    client_id TEXT,
+    plan_id TEXT,
+    billing_cycle TEXT NOT NULL DEFAULT 'monthly',
+    status TEXT NOT NULL DEFAULT 'trialing',
+    lifetime INTEGER NOT NULL DEFAULT 0,
+    trial_ends_at TEXT,
+    current_period_end TEXT,
+    razorpay_customer_id TEXT,
+    razorpay_subscription_id TEXT,
+    notes TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+  CREATE INDEX customers_client ON customers (client_id);
+  CREATE TABLE licenses (
+    key TEXT PRIMARY KEY,
+    customer_id TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'active',
+    issued_at TEXT NOT NULL,
+    activated_at TEXT,
+    last_seen_at TEXT,
+    last_device TEXT
+  );
+  CREATE INDEX licenses_customer ON licenses (customer_id);
+  CREATE TABLE usage_counters (
+    customer_id TEXT NOT NULL,
+    period TEXT NOT NULL,
+    seconds INTEGER NOT NULL DEFAULT 0,
+    calls INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (customer_id, period)
+  );
+  CREATE TABLE payments (
+    id TEXT PRIMARY KEY,
+    customer_id TEXT,
+    amount INTEGER NOT NULL,
+    currency TEXT NOT NULL DEFAULT 'INR',
+    status TEXT NOT NULL,
+    kind TEXT,
+    razorpay_payment_id TEXT,
+    razorpay_order_id TEXT,
+    at TEXT NOT NULL,
+    meta TEXT
+  );
+  CREATE INDEX payments_customer ON payments (customer_id, at DESC);
+  CREATE TABLE audit_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    actor TEXT NOT NULL,
+    action TEXT NOT NULL,
+    target TEXT,
+    detail TEXT,
+    at TEXT NOT NULL
+  );
+  CREATE INDEX audit_log_at ON audit_log (at DESC);
+  ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'admin';
+  ALTER TABLE users ADD COLUMN customer_id TEXT;
+  `,
 ];
 
 function migrate(db: Database): void {

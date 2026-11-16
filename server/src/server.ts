@@ -14,6 +14,7 @@ import { ClientStore } from "./clients.js";
 import { Analytics } from "./analytics.js";
 import { AiRouter } from "./ai/router.js";
 import { FallbackAudio } from "./ai/fallback-audio.js";
+import { SaasStore } from "./saas.js";
 import { HttpWebhookDispatcher, type WebhookDispatcher } from "./webhooks.js";
 
 export interface GatewayServerOptions {
@@ -53,6 +54,7 @@ export interface GatewayServer {
   clients: ClientStore;
   router: AiRouter;
   fallback: FallbackAudio;
+  saas: SaasStore;
 }
 
 export function createGatewayServer(options: GatewayServerOptions): GatewayServer {
@@ -81,6 +83,8 @@ export function createGatewayServer(options: GatewayServerOptions): GatewayServe
   };
   const streams = new StreamManager({ state, deviceChannel: deviceHub, config, apiKey: options.apiKey, mediaUrl });
   const clients = new ClientStore(db);
+  const saas = new SaasStore(db);
+  if (options.dataDir) saas.seedPlans();
   const router = new AiRouter(settings, config);
   // First start of a per-client deployment: the receptionist answers for CLIENT_NAME.
   if (options.clientName && !settings.get("agent")) {
@@ -111,14 +115,35 @@ export function createGatewayServer(options: GatewayServerOptions): GatewayServe
     clients,
     router,
     fallback,
+    entitled: (clientId) => {
+      if (!clientId) return { ok: true };
+      const customer = saas.customerByClient(clientId);
+      if (!customer) return { ok: true };
+      const ent = saas.entitlement(customer);
+      return { ok: ent.entitled, message: ent.message };
+    },
   });
+  const billed = new Set<string>();
   events.onCallEvent = (call, event) => {
     const streamed = streams.onCallEvent(call, event);
     agents.onCallEvent(state.getCall(call.id) ?? call, event, streamed);
+    // Central SaaS: bill a connected call's minutes to its customer, once, when it ends.
+    const latest = state.getCall(call.id) ?? call;
+    const ended = latest.state === "ended" || latest.state === "rejected" || latest.state === "failed";
+    if (ended && latest.answeredAt && latest.endedAt && !billed.has(latest.id)) {
+      billed.add(latest.id);
+      const client = clients.forDevice(latest.deviceId);
+      const customer = client ? saas.customerByClient(client.id) : undefined;
+      if (customer) {
+        const seconds = Math.max(0, (Date.parse(latest.endedAt) - Date.parse(latest.answeredAt)) / 1000);
+        if (seconds > 0) saas.addUsage(customer.id, seconds);
+      }
+      if (billed.size > 5000) billed.clear();
+    }
   };
-  const app = createApp({ auth, config, state, deviceChannel: deviceHub, events, media, agents, streams, clients, analytics: new Analytics(db), router, fallback, multiClient: options.multiClient || clients.list().length > 0 });
+  const app = createApp({ auth, config, state, deviceChannel: deviceHub, events, media, agents, streams, clients, analytics: new Analytics(db), router, fallback, saas, multiClient: options.multiClient || clients.list().length > 0 });
   httpServer = createServer(app);
   deviceHub.attach(httpServer);
   media.attach(httpServer);
-  return { httpServer, db, state, config, auth, deviceHub, events, media, agents, streams, clients, router, fallback };
+  return { httpServer, db, state, config, auth, deviceHub, events, media, agents, streams, clients, router, fallback, saas };
 }
