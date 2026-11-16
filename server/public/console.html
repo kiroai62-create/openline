@@ -193,6 +193,13 @@
   .tag.live { background: color-mix(in srgb, var(--live) 15%, var(--surface)); color: var(--live); }
   .tag.bad { background: color-mix(in srgb, var(--bad) 13%, var(--surface)); color: var(--bad); }
   .scroll-x { overflow-x: auto; }
+  .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: grid; place-items: center; z-index: 50; padding: 20px; }
+  .modal { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; width: min(560px, 100%); max-height: 90vh; display: flex; flex-direction: column; }
+  .modal-head, .modal-foot { padding: 14px 18px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .modal-head { border-bottom: 1px solid var(--line); } .modal-foot { border-top: 1px solid var(--line); justify-content: flex-end; }
+  .modal-head h2 { margin: 0; font-size: 16px; } .modal-body { padding: 18px; overflow-y: auto; }
+  .ok { color: var(--live); } .warn { color: var(--ring); } .mono { font-family: var(--mono); }
+  .price { font-size: 24px; font-weight: 600; } .price small { font-size: 13px; color: var(--muted); font-weight: 400; }
   .prov { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; margin: 8px 0; }
   .prov-head { display: flex; gap: 8px; align-items: center; }
   .prov-head .grow { flex: 1; min-width: 0; }
@@ -253,6 +260,7 @@
   .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--ink); color: var(--surface); padding: 10px 16px; border-radius: var(--radius); font-size: 14px; max-width: calc(100vw - 32px); z-index: 10; }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 </head>
 <body>
 
@@ -285,16 +293,144 @@
 <header class="top"><div class="top-inner">
   <a class="brand" href="#/dashboard" id="brandName">OpenLine</a>
   <nav class="nav" aria-label="Main">
-    <a href="#/dashboard" data-route="dashboard">Dashboard</a>
-    <a href="#/home" data-route="home">Get started</a>
-    <a href="#/playground" data-route="playground">Playground</a>
-    <a href="#/clients" data-route="clients">Clients</a>
-    <a href="#/connection" data-route="connection">Connection</a>
-    <a href="#/docs" data-route="docs" id="docsLink">Docs</a>
-    <a href="#/settings" data-route="settings">Settings</a>
+    <a href="#/dashboard" data-route="dashboard" data-role="admin">Dashboard</a>
+    <a href="#/customers" data-route="customers" data-role="admin">Customers</a>
+    <a href="#/plans" data-route="plans" data-role="admin">Plans</a>
+    <a href="#/billing" data-route="billing" data-role="admin">Billing</a>
+    <a href="#/home" data-route="home" data-role="admin">Get started</a>
+    <a href="#/playground" data-route="playground" data-role="admin">Playground</a>
+    <a href="#/clients" data-route="clients" data-role="admin">Clients</a>
+    <a href="#/connection" data-route="connection" data-role="admin">Connection</a>
+    <a href="#/settings" data-route="settings" data-role="admin">Settings</a>
+    <a href="#/overview" data-route="overview" data-role="customer">Overview</a>
+    <a href="#/business" data-route="business" data-role="customer">My business</a>
+    <a href="#/phones" data-route="phones" data-role="customer">Phones</a>
+    <a href="#/plan" data-route="plan" data-role="customer">Plan &amp; billing</a>
+    <a href="#/docs" data-route="docs" id="docsLink" data-role="admin">Docs</a>
+    <a href="#/account" data-route="account" data-role="both">Account</a>
   </nav>
-  <a class="phone-status" id="phoneStatus" href="#/connection" style="text-decoration:none"><span class="dot"></span><span>Checking phone…</span></a>
+  <span id="impersonateBar" hidden style="font-size:13px;color:var(--warn)"></span>
+  <a class="phone-status" id="phoneStatus" href="#/connection" style="text-decoration:none" data-role="admin"><span class="dot"></span><span>Checking phone…</span></a>
 </div></header>
+
+<!-- Customers (admin) ------------------------------------------------------------------------>
+<main class="page" data-page="customers" hidden>
+  <div class="dash-head">
+    <div><h1 class="title" style="margin-bottom:2px">Customers</h1><p class="muted small" style="margin:0" id="custSummary"></p></div>
+    <button class="btn solid" id="newCustomer">New customer</button>
+  </div>
+  <div class="scroll-x"><table class="data"><thead><tr>
+    <th>Business</th><th>Email</th><th>Plan</th><th>Status</th><th>Minutes</th><th>Phones</th><th>License</th><th></th>
+  </tr></thead><tbody id="customerRows"></tbody></table></div>
+</main>
+
+<!-- Plans (admin) ---------------------------------------------------------------------------->
+<main class="page" data-page="plans" hidden>
+  <div class="dash-head">
+    <div><h1 class="title" style="margin-bottom:2px">Plans</h1><p class="muted small" style="margin:0">What customers can buy. Prices in ₹. Edit anytime; changes apply to new purchases.</p></div>
+    <button class="btn solid" id="newPlan">New plan</button>
+  </div>
+  <div id="planList"></div>
+</main>
+
+<!-- Billing (admin) -------------------------------------------------------------------------->
+<main class="page" data-page="billing" hidden>
+  <h1 class="title">Billing &amp; activity</h1>
+  <div class="grid">
+    <div><section class="panel"><div class="panel-head"><h2>Payments</h2></div>
+      <div class="scroll-x"><table class="data"><thead><tr><th>When</th><th>Customer</th><th>Amount</th><th>Kind</th><th>Status</th></tr></thead><tbody id="paymentRows"></tbody></table></div></section></div>
+    <aside><section class="panel"><div class="panel-head"><h2>Audit log</h2></div>
+      <ul class="list" id="auditRows" style="margin-top:6px"></ul></section></aside>
+  </div>
+</main>
+
+<!-- Customer: Overview ----------------------------------------------------------------------->
+<main class="page" data-page="overview" hidden>
+  <div class="dash-head">
+    <div><h1 class="title" style="margin-bottom:2px" id="ovTitle">Overview</h1><p class="muted small" style="margin:0" id="ovUpdated"></p></div>
+    <select class="field" id="ovDays" aria-label="Period" style="width:auto">
+      <option value="1">Today</option><option value="7" selected>Last 7 days</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option>
+    </select>
+  </div>
+  <ul class="alerts" id="ovAlerts"></ul>
+  <div class="kpis" id="ovKpis"></div>
+  <div class="grid">
+    <div><section class="panel"><div class="panel-head"><h2>Calls per day</h2></div>
+      <div class="chart" id="ovDaily"></div><div class="chart-axis" id="ovDailyAxis"></div>
+      <div class="legend"><span><i style="background:var(--live)"></i>Answered</span><span><i style="background:var(--bad)"></i>Missed</span></div></section>
+      <section class="panel"><div class="panel-head"><h2>Recent calls</h2></div>
+        <div class="scroll-x"><table class="data"><thead><tr><th>Time</th><th>Caller</th><th>Result</th><th class="num">Length</th><th>AI</th></tr></thead><tbody id="ovCalls"></tbody></table></div></section></div>
+    <aside><section class="panel"><div class="panel-head"><h2>This month</h2></div><div class="panel-body" id="ovUsage"></div></section>
+      <section class="panel"><div class="panel-head"><h2>Phones</h2></div><div id="ovPhones"></div></section></aside>
+  </div>
+</main>
+
+<!-- Customer: My business -------------------------------------------------------------------->
+<main class="page" data-page="business" hidden>
+  <h1 class="title">My business</h1>
+  <p class="lede">What the AI receptionist knows and how it books appointments. Changes apply from the next call.</p>
+  <div class="grid">
+    <div><section class="panel"><div class="panel-head"><h2>Receptionist</h2></div><div class="panel-body">
+      <label class="lbl" for="bizName" style="margin-top:0">Business name</label><input class="field" id="bizName" maxlength="120">
+      <label class="lbl" for="bizVoice">Voice</label>
+      <select class="field" id="bizVoice"><option>Kore</option><option>Puck</option><option>Charon</option><option>Fenrir</option><option>Aoede</option><option>Leda</option><option>Orus</option><option>Zephyr</option></select>
+      <label class="lbl" for="bizBooking">Booking link</label><input class="field" id="bizBooking" placeholder="https://wa.me/9188... or your website booking page">
+      <label class="lbl" for="bizAbout">Everything the receptionist should know</label>
+      <textarea class="field" id="bizAbout" rows="12" maxlength="20000" placeholder="Services and fees, timings, address and landmark, doctors and their days, emergency number, FAQs. Paste the text of your website here."></textarea>
+      <p class="hint"><span id="bizAboutCount"></span> The receptionist answers only from this; anything else it says staff will confirm.</p>
+    </div></section></div>
+    <aside>
+      <section class="panel"><div class="panel-head"><h2>AI key (Gemini)</h2></div><div class="panel-body">
+        <p class="hint" style="margin-top:0">Your own Gemini key from aistudio.google.com. Your calls run on your account.</p>
+        <input class="field" id="bizGemini" type="password" autocomplete="off"><p class="hint" id="bizGeminiState"></p>
+      </div></section>
+      <section class="panel"><div class="panel-head"><h2>WhatsApp</h2></div><div class="panel-body">
+        <p class="hint" style="margin-top:0">Your WhatsApp gateway, so the booking link comes from your number.</p>
+        <label class="lbl" for="bizWaUrl">Gateway address</label><input class="field" id="bizWaUrl" placeholder="https://your-gateway.hf.space">
+        <label class="lbl" for="bizWaSecret">Gateway API secret</label><input class="field" id="bizWaSecret" type="password" autocomplete="off"><p class="hint" id="bizWaState"></p>
+        <label class="lbl" for="bizWaCountry">Country code</label><input class="field" id="bizWaCountry" maxlength="4" placeholder="91">
+        <label class="lbl" for="bizWaMessage">Message</label><textarea class="field" id="bizWaMessage" rows="4" maxlength="1000"></textarea>
+        <p class="hint"><code>{name}</code>, <code>{business}</code>, <code>{link}</code> are filled in.</p>
+      </div></section>
+    </aside>
+  </div>
+  <div class="row" style="justify-content:flex-end; margin-top:14px"><button class="btn solid" id="bizSave">Save</button></div>
+</main>
+
+<!-- Customer: Phones ------------------------------------------------------------------------->
+<main class="page" data-page="phones" hidden>
+  <h1 class="title">Phones</h1>
+  <p class="lede">Connect the Android phone with your SIM. Install your app, open it, and scan this code.</p>
+  <div class="grid">
+    <div><section class="panel"><div class="panel-head"><h2>Add a phone</h2></div><div class="panel-body">
+      <div id="phonePair"></div>
+      <button class="btn" id="phoneNewCode" style="margin-top:10px">Show pairing code</button>
+    </div></section></div>
+    <aside><section class="panel"><div class="panel-head"><h2>Your phones</h2></div><div id="phoneList" style="margin-top:6px"></div></section></aside>
+  </div>
+</main>
+
+<!-- Customer: Plan & billing ----------------------------------------------------------------->
+<main class="page" data-page="plan" hidden>
+  <h1 class="title">Plan &amp; billing</h1>
+  <div id="planStatus"></div>
+  <div class="row" style="gap:8px;margin:14px 0"><button class="btn" id="cycleMonthly" data-cycle="monthly">Monthly</button><button class="btn" id="cycleYearly" data-cycle="yearly">Yearly (2 months free)</button></div>
+  <div class="kpis" id="planCards"></div>
+  <p class="hint" id="planNote"></p>
+</main>
+
+<!-- Account (both) --------------------------------------------------------------------------->
+<main class="page" data-page="account" hidden>
+  <h1 class="title">Account</h1>
+  <div class="grid"><div>
+    <section class="panel"><div class="panel-head"><h2>Change password</h2></div><div class="panel-body">
+      <label class="lbl" for="pwCurrent" style="margin-top:0">Current password</label><input class="field" id="pwCurrent" type="password" autocomplete="off">
+      <label class="lbl" for="pwNew">New password</label><input class="field" id="pwNew" type="password" autocomplete="off">
+      <div class="row" style="justify-content:flex-end;margin-top:12px"><button class="btn solid" id="pwSave">Change</button></div>
+    </div></section>
+  </div><aside><section class="panel"><div class="panel-body"><p class="muted small" id="accountWho" style="margin:0"></p>
+    <button class="btn" id="signOut2" style="margin-top:12px">Sign out</button></div></section></aside></div>
+</main>
 
 <!-- Dashboard -------------------------------------------------------------------------------->
 <main class="page" data-page="dashboard" hidden>
@@ -779,6 +915,8 @@
 </main>
 </div>
 
+<div class="modal-backdrop" id="modal" hidden><div class="modal"><div class="modal-head"><h2 id="modalTitle"></h2><button class="btn link" id="modalClose">Close</button></div><div class="modal-body" id="modalBody"></div><div class="modal-foot" id="modalFoot"></div></div></div>
+
 <div class="toast" id="toast" role="status" hidden></div>
 
 <script>
@@ -870,16 +1008,30 @@ $("authForm").onsubmit = async (event) => {
   }
 };
 
+let userRole = "admin";
 async function showApp() {
   signedIn = true;
   $("authView").hidden = true;
   $("appView").hidden = false;
+  const status = await api("/v1/auth/status").catch(() => ({}));
+  userRole = status.role || (me && me.role) || "admin";
   server = await api("/v1/server").catch(() => ({}));
   applyBrand(server.brandName);
-  // One deployment per client: the Clients page is only for multi-client servers.
-  document.querySelector('.nav a[data-route="clients"]').hidden = !server.multiClient;
+  applyRole();
   renderDocsLink();
+  if (!location.hash || location.hash === "#/") location.hash = userRole === "customer" ? "#/overview" : "#/dashboard";
   onRoute();
+}
+
+function applyRole() {
+  document.querySelectorAll(".nav a[data-role], [data-role]").forEach((el) => {
+    if (!el.dataset.role) return;
+    const show = el.dataset.role === "both" || el.dataset.role === userRole;
+    el.hidden = !show;
+  });
+  // The Clients page is only for admins on a multi-client (non-SaaS) server.
+  const clientsLink = document.querySelector('.nav a[data-route="clients"]');
+  if (clientsLink) clientsLink.hidden = userRole !== "admin" || !server.multiClient;
 }
 
 $("signOut").onclick = async () => {
@@ -898,12 +1050,17 @@ function toast(text) {
 
 // ---- Routing -------------------------------------------------------------------------------
 
-const ROUTES = ["dashboard", "home", "playground", "clients", "connection", "docs", "settings"];
+const ROUTES = ["dashboard", "customers", "plans", "billing", "home", "playground", "clients", "connection", "docs", "settings", "overview", "business", "phones", "plan", "account"];
+const CUSTOMER_ROUTES = ["overview", "business", "phones", "plan", "account"];
 window.addEventListener("hashchange", onRoute);
 
 function onRoute() {
-  const name = location.hash.replace(/^#\/?/, "").split("?")[0] || "dashboard";
-  route = ROUTES.includes(name) ? name : "dashboard";
+  const fallback = userRole === "customer" ? "overview" : "dashboard";
+  const name = location.hash.replace(/^#\/?/, "").split("?")[0] || fallback;
+  route = ROUTES.includes(name) ? name : fallback;
+  // Keep customers out of admin pages and vice versa.
+  if (userRole === "customer" && !CUSTOMER_ROUTES.includes(route)) route = "overview";
+  if (userRole === "admin" && CUSTOMER_ROUTES.includes(route) && route !== "account") route = "dashboard";
   if (route === "docs" && server.docsUrl) {
     window.open(server.docsUrl, "_blank", "noopener");
     history.replaceState(null, "", "#/");
@@ -916,6 +1073,14 @@ function onRoute() {
   if (route === "clients") loadClients();
   if (route === "dashboard") loadDashboard();
   if (route === "home") renderHome();
+  if (route === "customers") loadCustomers();
+  if (route === "plans") loadPlansAdmin();
+  if (route === "billing") loadBilling();
+  if (route === "overview") loadOverview();
+  if (route === "business") loadBusiness();
+  if (route === "phones") loadPhonesPage();
+  if (route === "plan") loadPlanPage();
+  if (route === "account") loadAccount();
   refresh();
 }
 
@@ -938,6 +1103,7 @@ function renderDocsLink() {
 let refreshing = false;
 async function refresh() {
   if (!signedIn || refreshing || document.hidden) return;
+  if (userRole === "customer") { refreshing = false; return; } // customer pages refresh themselves
   refreshing = true;
   try {
     devices = (await api("/v1/devices")).devices;
@@ -1738,6 +1904,286 @@ $("dashCsv").onclick = () => {
   a.click();
   URL.revokeObjectURL(a.href);
 };
+
+// ============================================================================================
+//  SaaS: admin (customers, plans, billing) and customer (overview, business, phones, plan)
+// ============================================================================================
+
+const rupees = (paise) => "₹" + (paise / 100).toLocaleString("en-IN", { maximumFractionDigits: 0 });
+const STATUS_TEXT = { trialing: "Trial", active: "Active", past_due: "Payment due", suspended: "Suspended", cancelled: "Cancelled" };
+
+// ---- modal helper ----
+function modal(title, bodyHtml, actions) {
+  $("modalTitle").textContent = title;
+  $("modalBody").innerHTML = bodyHtml;
+  $("modalFoot").innerHTML = "";
+  for (const a of actions) {
+    const b = document.createElement("button");
+    b.className = "btn " + (a.primary ? "solid" : a.danger ? "d" : "");
+    b.textContent = a.label;
+    b.onclick = () => a.onClick($("modalBody"));
+    $("modalFoot").appendChild(b);
+  }
+  $("modal").hidden = false;
+}
+function closeModal() { $("modal").hidden = true; }
+$("modalClose").onclick = closeModal;
+$("modal").onclick = (e) => { if (e.target === $("modal")) closeModal(); };
+const mv = (id) => $("modalBody").querySelector(`[name="${id}"]`);
+
+// ---- admin: customers ----
+let plansCache = [];
+async function loadCustomers() {
+  try {
+    const [{ customers }, { plans }] = await Promise.all([api("/v1/customers"), api("/v1/plans")]);
+    plansCache = plans;
+    $("custSummary").textContent = `${customers.length} customer${customers.length === 1 ? "" : "s"} · ${customers.filter((c) => c.entitled).length} active`;
+    $("customerRows").innerHTML = customers.length ? customers.map((c) => {
+      const min = c.minutesIncluded < 0 ? `${c.minutesUsed} / ∞` : `${c.minutesUsed} / ${c.minutesIncluded}`;
+      const badge = c.entitled ? "live" : "bad";
+      return `<tr class="click" data-cust="${esc(c.id)}">
+        <td><b>${esc(c.name)}</b>${c.lifetime ? ' <span class="tag">Lifetime</span>' : ""}</td>
+        <td>${esc(c.email || "—")}</td><td>${esc(c.planName || "—")}</td>
+        <td><span class="tag ${badge}">${esc(STATUS_TEXT[c.status] || c.status)}</span></td>
+        <td class="num">${min}</td><td class="num">${c.phones}</td>
+        <td><span class="mono" style="font-size:12px">${esc(c.license || "—")}</span></td>
+        <td class="num">›</td></tr>`;
+    }).join("") : `<tr><td colspan="8" class="muted">No customers yet. Click “New customer” after you close a deal.</td></tr>`;
+    $("customerRows").querySelectorAll("[data-cust]").forEach((tr) => tr.onclick = () => openCustomer(tr.dataset.cust));
+  } catch (error) { toast(error.message); }
+}
+
+function planOptions(selected) {
+  return `<option value="">No plan</option>` + plansCache.map((p) => `<option value="${esc(p.id)}" ${p.id === selected ? "selected" : ""}>${esc(p.name)} · ${rupees(p.priceMonthly)}/mo</option>`).join("");
+}
+
+$("newCustomer").onclick = () => {
+  modal("New customer", `
+    <label class="lbl" style="margin-top:0">Business name</label><input class="field" name="businessName" maxlength="120">
+    <label class="lbl">Login email</label><input class="field" name="email" type="email" autocomplete="off">
+    <label class="lbl">Login password</label><input class="field" name="password" type="password" autocomplete="new-password">
+    <label class="lbl">Plan</label><select class="field" name="planId">${planOptions()}</select>
+    <label class="lbl">Billing</label><select class="field" name="billingCycle"><option value="monthly">Monthly</option><option value="yearly">Yearly</option><option value="lifetime">Lifetime (free, admin granted)</option></select>
+    <label class="switch" style="margin-top:12px"><span>Lifetime licence (no billing)</span><input type="checkbox" name="lifetime"></label>
+    <label class="lbl">Customer's Gemini API key (optional)</label><input class="field" name="geminiApiKey" type="password" autocomplete="off" placeholder="AIza… (they can add it later)">
+    <p class="hint">A licence key is generated automatically. They sign in with the email and password.</p>`,
+    [{ label: "Cancel", onClick: closeModal }, { label: "Create", primary: true, onClick: async () => {
+      const body = { businessName: mv("businessName").value.trim(), email: mv("email").value.trim(), password: mv("password").value, planId: mv("planId").value || undefined, billingCycle: mv("billingCycle").value, lifetime: mv("lifetime").checked, geminiApiKey: mv("geminiApiKey").value.trim() || undefined };
+      try { const v = await api("/v1/customers", { method: "POST", body: JSON.stringify(body) }); closeModal(); toast("Customer created."); openCustomer(v.customer.id); loadCustomers(); }
+      catch (e) { toast(e.message); }
+    } }]);
+};
+
+async function openCustomer(id) {
+  try {
+    const v = await api(`/v1/customers/${encodeURIComponent(id)}`);
+    const c = v.customer, ent = v.entitlement;
+    const expiry = c.lifetime ? "Lifetime" : (c.status === "trialing" ? `Trial ends ${c.trialEndsAt ? new Date(c.trialEndsAt).toLocaleDateString() : "—"}` : c.currentPeriodEnd ? `Renews ${new Date(c.currentPeriodEnd).toLocaleDateString()}` : "—");
+    modal(c.name, `
+      <div class="kv"><dt>Status</dt><dd>${esc(STATUS_TEXT[c.status] || c.status)} · ${ent.entitled ? "<span class='ok'>calls answered</span>" : "<span class='warn'>" + esc(ent.message || "not active") + "</span>"}</dd>
+        <dt>Email</dt><dd>${esc(v.email || "—")}</dd>
+        <dt>Licence</dt><dd><span class="mono">${esc(v.license?.key || "—")}</span> (${esc(v.license?.status || "—")})</dd>
+        <dt>Minutes</dt><dd>${ent.minutesUsed} / ${ent.minutesIncluded < 0 ? "∞" : ent.minutesIncluded} this month</dd>
+        <dt>Phones</dt><dd>${v.phones.length} / ${ent.maxPhones}</dd>
+        <dt>Billing</dt><dd>${expiry}</dd></div>
+      <hr style="border:0;border-top:1px solid var(--line);margin:14px 0">
+      <label class="lbl" style="margin-top:0">Plan</label><select class="field" name="planId">${planOptions(c.planId)}</select>
+      <label class="lbl">Status</label><select class="field" name="status">${["trialing","active","past_due","suspended","cancelled"].map((s) => `<option value="${s}" ${s === c.status ? "selected" : ""}>${STATUS_TEXT[s]}</option>`).join("")}</select>
+      <label class="lbl">Licence</label><select class="field" name="licenseStatus">${["active","suspended","revoked"].map((s) => `<option value="${s}" ${s === v.license?.status ? "selected" : ""}>${s}</option>`).join("")}</select>
+      <label class="switch" style="margin-top:12px"><span>Lifetime (free)</span><input type="checkbox" name="lifetime" ${c.lifetime ? "checked" : ""}></label>
+      <label class="lbl">Reset login password (optional)</label><input class="field" name="password" type="password" autocomplete="new-password">
+      <label class="lbl">Internal notes</label><textarea class="field" name="notes" rows="2">${esc(c.notes || "")}</textarea>`,
+      [
+        { label: "Delete", danger: true, onClick: async () => { if (!confirm(`Delete ${c.name}? This removes their account, data and licence.`)) return; await api(`/v1/customers/${c.id}`, { method: "DELETE" }).catch((e) => toast(e.message)); closeModal(); loadCustomers(); } },
+        { label: "Log in as", onClick: async () => { try { await api(`/v1/customers/${c.id}/login-as`, { method: "POST" }); location.hash = "#/overview"; location.reload(); } catch (e) { toast(e.message); } } },
+        { label: "Save", primary: true, onClick: async () => {
+          const body = { planId: mv("planId").value || undefined, status: mv("status").value, licenseStatus: mv("licenseStatus").value, lifetime: mv("lifetime").checked, notes: mv("notes").value };
+          if (mv("password").value) body.password = mv("password").value;
+          try { await api(`/v1/customers/${c.id}`, { method: "PUT", body: JSON.stringify(body) }); closeModal(); toast("Saved."); loadCustomers(); } catch (e) { toast(e.message); }
+        } },
+      ]);
+  } catch (error) { toast(error.message); }
+}
+
+// ---- admin: plans ----
+async function loadPlansAdmin() {
+  try {
+    const { plans } = await api("/v1/plans");
+    plansCache = plans;
+    $("planList").innerHTML = plans.map((p) => `<section class="panel"><div class="panel-head"><h2>${esc(p.name)} ${p.active ? "" : '<span class="tag">hidden</span>'}</h2>
+      <span><button class="btn" data-edit="${esc(p.id)}">Edit</button> <button class="btn link" data-del="${esc(p.id)}">Delete</button></span></div>
+      <div class="panel-body"><span class="price">${rupees(p.priceMonthly)}<small>/mo</small></span> &nbsp; ${rupees(p.priceYearly)}<small class="muted">/yr</small>
+      &nbsp;·&nbsp; ${p.minutesIncluded < 0 ? "Unlimited" : p.minutesIncluded + " min/mo"} ·&nbsp; ${p.maxPhones} phone(s) ·&nbsp; ${p.trialDays}-day trial ${p.setupFee ? "·&nbsp; setup " + rupees(p.setupFee) : ""}
+      <ul class="small muted" style="margin:8px 0 0">${(p.features || []).map((f) => "<li>" + esc(f) + "</li>").join("")}</ul></div></section>`).join("")
+      || `<div class="empty">No plans. Add one.</div>`;
+    $("planList").querySelectorAll("[data-edit]").forEach((b) => b.onclick = () => editPlan(plans.find((p) => p.id === b.dataset.edit)));
+    $("planList").querySelectorAll("[data-del]").forEach((b) => b.onclick = async () => { if (!confirm("Delete this plan? If customers use it, it is hidden instead.")) return; await api(`/v1/plans/${b.dataset.del}`, { method: "DELETE" }).catch((e) => toast(e.message)); loadPlansAdmin(); });
+  } catch (error) { toast(error.message); }
+}
+$("newPlan").onclick = () => editPlan(null);
+function editPlan(p) {
+  modal(p ? "Edit plan" : "New plan", `
+    <label class="lbl" style="margin-top:0">Name</label><input class="field" name="name" maxlength="60" value="${esc(p?.name || "")}">
+    <div class="prov-grid">
+      <div><label class="lbl">Price / month (₹)</label><input class="field" name="pm" type="number" min="0" value="${p ? p.priceMonthly / 100 : 0}"></div>
+      <div><label class="lbl">Price / year (₹)</label><input class="field" name="py" type="number" min="0" value="${p ? p.priceYearly / 100 : 0}"></div>
+      <div><label class="lbl">Setup fee (₹)</label><input class="field" name="sf" type="number" min="0" value="${p ? p.setupFee / 100 : 0}"></div>
+      <div><label class="lbl">Trial days</label><input class="field" name="td" type="number" min="0" value="${p?.trialDays ?? 7}"></div>
+      <div><label class="lbl">Minutes/mo (-1 = unlimited)</label><input class="field" name="mi" type="number" min="-1" value="${p?.minutesIncluded ?? 300}"></div>
+      <div><label class="lbl">Max phones</label><input class="field" name="mp" type="number" min="1" value="${p?.maxPhones ?? 1}"></div>
+    </div>
+    <label class="lbl">Features (one per line)</label><textarea class="field" name="features" rows="4">${esc((p?.features || []).join("\n"))}</textarea>
+    <div class="prov-grid"><label class="switch"><span>Active</span><input type="checkbox" name="active" ${!p || p.active ? "checked" : ""}></label>
+    <label class="switch"><span>Show on pricing page</span><input type="checkbox" name="public" ${!p || p.public ? "checked" : ""}></label></div>
+    <label class="lbl">Razorpay Plan ID (monthly) — optional</label><input class="field" name="rpm" value="${esc(p?.razorpayPlanMonthly || "")}" placeholder="plan_...">
+    <label class="lbl">Razorpay Plan ID (yearly) — optional</label><input class="field" name="rpy" value="${esc(p?.razorpayPlanYearly || "")}" placeholder="plan_...">`,
+    [{ label: "Cancel", onClick: closeModal }, { label: "Save", primary: true, onClick: async () => {
+      const body = { id: p?.id, name: mv("name").value.trim(), priceMonthly: Math.round(+mv("pm").value * 100), priceYearly: Math.round(+mv("py").value * 100), setupFee: Math.round(+mv("sf").value * 100), trialDays: +mv("td").value, minutesIncluded: +mv("mi").value, maxPhones: +mv("mp").value, features: mv("features").value.split("\n").map((s) => s.trim()).filter(Boolean), active: mv("active").checked, public: mv("public").checked, razorpayPlanMonthly: mv("rpm").value.trim() || undefined, razorpayPlanYearly: mv("rpy").value.trim() || undefined };
+      try { await api("/v1/plans", { method: "POST", body: JSON.stringify(body) }); closeModal(); toast("Saved."); loadPlansAdmin(); } catch (e) { toast(e.message); }
+    } }]);
+}
+
+// ---- admin: billing ----
+async function loadBilling() {
+  try {
+    const [{ payments }, { entries }] = await Promise.all([api("/v1/billing/payments"), api("/v1/audit")]);
+    $("paymentRows").innerHTML = payments.length ? payments.map((p) => `<tr><td>${esc(new Date(p.at).toLocaleString())}</td><td>${esc(p.customerId || "—")}</td><td class="num">${rupees(p.amount)}</td><td>${esc(p.kind || "—")}</td><td>${esc(p.status)}</td></tr>`).join("") : `<tr><td colspan="5" class="muted">No payments yet.</td></tr>`;
+    $("auditRows").innerHTML = entries.map((e) => `<li class="call-row"><span class="num">${esc(e.action)}</span><span class="when muted small">${esc(e.actor)} · ${timeAgo(e.at)}${e.detail ? " · " + esc(String(e.detail).slice(0, 60)) : ""}</span></li>`).join("");
+  } catch (error) { toast(error.message); }
+}
+
+// ---- customer: overview ----
+let meData = null;
+async function loadOverview() {
+  try {
+    const days = $("ovDays").value;
+    const tz = -new Date().getTimezoneOffset();
+    const [me, rep] = await Promise.all([api("/v1/me"), api(`/v1/me/analytics?days=${days}&tzOffset=${tz}`)]);
+    meData = me;
+    $("ovTitle").textContent = me.customer.name;
+    $("ovUpdated").textContent = `Updated ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+    const ent = rep.entitlement;
+    const alerts = [];
+    if (!ent.entitled) alerts.push(`<b>Service paused:</b> ${esc(ent.message || "")} <a href="#/plan">See plan</a>.`);
+    else if (ent.minutesIncluded >= 0 && ent.minutesUsed >= ent.minutesIncluded * 0.8) alerts.push(`You've used ${ent.minutesUsed} of ${ent.minutesIncluded} minutes this month. <a href="#/plan">Upgrade</a> to avoid interruptions.`);
+    for (const d of rep.phones) if (d.callsToday === undefined) break;
+    $("ovAlerts").innerHTML = alerts.length ? alerts.map((a) => `<li>${a}</li>`).join("") : `<li class="ok">Your receptionist is active and answering calls.</li>`;
+    const t = rep.totals;
+    const kpi = (k, v, d = "") => `<div class="kpi"><div class="k">${k}</div><div class="v">${v}</div><div class="d">${d}</div></div>`;
+    $("ovKpis").innerHTML = [
+      kpi("Calls", t.calls), kpi("Answered", t.answered, `${pct(t.answered, t.calls)}%`),
+      kpi("Missed", t.missed), kpi("Booking links", t.bookingLinks),
+      kpi("Messages", t.messages), kpi("Talk time", fmtDuration(t.talkSeconds)),
+    ].join("");
+    const max = Math.max(1, ...rep.daily.map((d) => d.calls));
+    $("ovDaily").innerHTML = rep.daily.map((d) => `<div class="col" title="${esc(d.day)}: ${d.calls} calls"><div class="seg missed" style="height:${(d.missed / max) * 100}%"></div><div class="seg answered" style="height:${(d.answered / max) * 100}%"></div></div>`).join("");
+    $("ovDailyAxis").innerHTML = rep.daily.map((d, i) => `<span>${i % Math.ceil(rep.daily.length / 8) === 0 ? esc(shortDay(d.day, rep.range.days)) : ""}</span>`).join("");
+    $("ovCalls").innerHTML = rep.calls.slice(0, 50).map((c) => `<tr><td>${esc(new Date(c.createdAt).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }))}</td><td>${esc(c.remoteNumber)}</td><td>${c.missed ? '<span class="tag bad">Missed</span>' : c.answeredAt ? '<span class="tag live">Answered</span>' : esc(c.state)}</td><td class="num">${c.seconds ? fmtDuration(c.seconds) : "—"}</td><td>${c.ai ? '<span class="tag live">AI</span>' : ""}${c.booking ? '<span class="tag live">Link</span>' : ""}</td></tr>`).join("") || `<tr><td colspan="5" class="muted">No calls in this period.</td></tr>`;
+    const u = ent.minutesIncluded < 0 ? `${ent.minutesUsed} minutes used (unlimited)` : `${ent.minutesUsed} of ${ent.minutesIncluded} minutes used`;
+    $("ovUsage").innerHTML = `<div class="stat"><span class="mu">Plan</span><b>${esc(meData.plan?.name || "—")}</b></div><div class="stat"><span class="mu">Status</span><b>${esc(STATUS_TEXT[meData.customer.status] || meData.customer.status)}</b></div><div class="stat"><span class="mu">Minutes</span><b>${u}</b></div>`;
+    $("ovPhones").innerHTML = rep.phones.length ? rep.phones.map((p) => { const d = (meData.business && devices.find) ? null : null; return `<div class="key-row"><span class="grow">${esc(p.id)}</span><span class="muted small">${p.callsToday ?? 0} today</span></div>`; }).join("") : `<div class="empty">No phone yet. <a href="#/phones">Add one</a>.</div>`;
+  } catch (error) { toast(error.message); }
+}
+$("ovDays").onchange = loadOverview;
+
+// ---- customer: my business ----
+async function loadBusiness() {
+  try {
+    const { business: b } = await api("/v1/me/business");
+    $("bizName").value = b.name || "";
+    $("bizVoice").value = b.voice || "Kore";
+    $("bizBooking").value = b.bookingUrl || "";
+    $("bizAbout").value = b.about || "";
+    $("bizGemini").value = ""; $("bizGemini").placeholder = b.geminiApiKey.configured ? `Saved key ${b.geminiApiKey.hint}. Paste to replace.` : "AIza…";
+    $("bizGeminiState").textContent = b.geminiApiKey.configured ? "Set. Your calls use your own Gemini key." : "Not set. Calls use the platform key until you add yours.";
+    $("bizWaUrl").value = b.whatsappGatewayUrl || "";
+    $("bizWaSecret").value = ""; $("bizWaSecret").placeholder = b.whatsappApiSecret.configured ? `Saved ${b.whatsappApiSecret.hint}. Paste to replace.` : "";
+    $("bizWaState").textContent = b.whatsappApiSecret.configured && b.whatsappGatewayUrl ? "WhatsApp connected." : "Not connected: booking links will be taken as messages.";
+    $("bizWaCountry").value = b.whatsappCountryCode || "91";
+    $("bizWaMessage").value = b.whatsappMessage || DEFAULT_WA_MESSAGE;
+    countBizAbout();
+  } catch (error) { toast(error.message); }
+}
+function countBizAbout() { $("bizAboutCount").textContent = $("bizAbout").value.length ? `${$("bizAbout").value.length} / 20000.` : ""; }
+$("bizAbout").oninput = countBizAbout;
+$("bizSave").onclick = async () => {
+  const msg = $("bizWaMessage").value.trim();
+  const body = { name: $("bizName").value.trim(), voice: $("bizVoice").value, bookingUrl: $("bizBooking").value.trim(), about: $("bizAbout").value.trim(), whatsappGatewayUrl: $("bizWaUrl").value.trim().replace(/\/+$/, ""), whatsappCountryCode: $("bizWaCountry").value.trim() || "91", whatsappMessage: msg === DEFAULT_WA_MESSAGE ? "" : msg };
+  if ($("bizGemini").value.trim()) body.geminiApiKey = $("bizGemini").value.trim();
+  if ($("bizWaSecret").value.trim()) body.whatsappApiSecret = $("bizWaSecret").value.trim();
+  try { await api("/v1/me/business", { method: "PUT", body: JSON.stringify(body) }); toast("Saved. Applies from the next call."); loadBusiness(); } catch (e) { toast(e.message); }
+};
+
+// ---- customer: phones ----
+async function loadPhonesPage() {
+  $("phonePair").innerHTML = `<p class="muted small">Tap “Show pairing code”, then scan it in your app under Connection.</p>`;
+  try {
+    const { devices: ds } = await api("/v1/me/devices");
+    $("phoneList").innerHTML = ds.length ? ds.map((d) => { const h = d.health || {}; return `<div class="device" style="padding:12px 18px"><div class="device-head"><span class="dot ${d.connected ? "live" : "bad"}"></span><span class="grow"><b>${esc(d.name || d.id)}</b><br><span class="muted small">${d.connected ? "Online" : "Offline, seen " + timeAgo(d.lastSeenAt)}</span></span><button class="btn link" data-rm="${esc(d.id)}">Remove</button></div></div>`; }).join("") : `<div class="empty">No phone connected yet.</div>`;
+    $("phoneList").querySelectorAll("[data-rm]").forEach((b) => b.onclick = async () => { if (!confirm("Remove this phone?")) return; await api(`/v1/me/devices/${encodeURIComponent(b.dataset.rm)}`, { method: "DELETE" }).catch((e) => toast(e.message)); loadPhonesPage(); });
+  } catch (error) { toast(error.message); }
+}
+$("phoneNewCode").onclick = async () => {
+  try { const r = await api("/v1/me/pairing", { method: "POST" }); $("phonePair").innerHTML = `<div class="qr-box">${r.qrSvg}</div><p class="small">Code: <b class="mono">${esc(r.code)}</b> · expires in 10 min</p>`; }
+  catch (e) { toast(e.message); }
+};
+
+// ---- customer: plan & billing ----
+let planCycle = "monthly";
+async function loadPlanPage() {
+  try {
+    const [me, { plans }] = await Promise.all([api("/v1/me"), api("/v1/plans")]);
+    meData = me; const c = me.customer, ent = me.entitlement;
+    const expiry = c.lifetime ? "Lifetime access" : c.status === "trialing" ? `Free trial ends ${c.trialEndsAt ? new Date(c.trialEndsAt).toLocaleDateString() : "soon"}` : c.currentPeriodEnd ? `Renews ${new Date(c.currentPeriodEnd).toLocaleDateString()}` : "—";
+    $("planStatus").innerHTML = `<div class="kpi" style="max-width:420px"><div class="k">Current plan</div><div class="v">${esc(me.plan?.name || "No plan")}</div><div class="d">${esc(STATUS_TEXT[c.status] || c.status)} · ${esc(expiry)} · ${ent.minutesUsed}/${ent.minutesIncluded < 0 ? "∞" : ent.minutesIncluded} min used</div></div>`;
+    renderPlanCards(plans.filter((p) => p.active && p.public), me.plan?.id);
+  } catch (error) { toast(error.message); }
+}
+function renderPlanCards(plans, currentId) {
+  $("cycleMonthly").className = "btn" + (planCycle === "monthly" ? " solid" : "");
+  $("cycleYearly").className = "btn" + (planCycle === "yearly" ? " solid" : "");
+  $("planCards").innerHTML = plans.map((p) => {
+    const price = planCycle === "yearly" ? p.priceYearly : p.priceMonthly;
+    const per = planCycle === "yearly" ? "/yr" : "/mo";
+    const cur = p.id === currentId;
+    return `<div class="kpi"><div class="k">${esc(p.name)}</div><div class="price">${rupees(price)}<small>${per}</small></div>
+      <ul class="small muted" style="margin:8px 0 12px">${(p.features || []).map((f) => "<li>" + esc(f) + "</li>").join("")}</ul>
+      <button class="btn ${cur ? "" : "solid"}" ${cur ? "disabled" : ""} data-buy="${esc(p.id)}">${cur ? "Current plan" : "Choose"}</button></div>`;
+  }).join("");
+  $("planCards").querySelectorAll("[data-buy]").forEach((b) => b.onclick = () => startCheckout(b.dataset.buy, planCycle));
+  $("planNote").textContent = "Payments are handled securely by Razorpay. After payment your plan activates automatically.";
+}
+document.querySelectorAll("[data-cycle]").forEach((b) => b.onclick = () => { planCycle = b.dataset.cycle; loadPlanPage(); });
+
+// ---- account (both) ----
+async function loadAccount() {
+  const who = userRole === "customer" && meData ? meData.email : (me ? me.email : "");
+  $("accountWho").textContent = who ? `Signed in as ${who}` : "";
+}
+$("pwSave").onclick = async () => {
+  try { await api("/v1/auth/password", { method: "POST", body: JSON.stringify({ current: $("pwCurrent").value, password: $("pwNew").value }) }); toast("Password changed."); $("pwCurrent").value = $("pwNew").value = ""; } catch (e) { toast(e.message); }
+};
+$("signOut2").onclick = async () => { await api("/v1/auth/logout", { method: "POST" }).catch(() => {}); location.reload(); };
+
+// Razorpay checkout — wired in the billing phase.
+async function startCheckout(planId, cycle) {
+  try {
+    const r = await api("/v1/billing/checkout", { method: "POST", body: JSON.stringify({ planId, cycle }) });
+    if (r.manual) { toast(r.message || "Contact us to activate this plan."); return; }
+    openRazorpay(r);
+  } catch (e) { toast(e.message); }
+}
+function openRazorpay(order) {
+  if (!window.Razorpay) { toast("Payment library still loading, try again."); return; }
+  const rzp = new window.Razorpay({
+    key: order.keyId, subscription_id: order.subscriptionId, order_id: order.orderId,
+    name: $("brandName").textContent, description: order.description,
+    prefill: { email: meData?.email || "" },
+    handler: async (res) => { try { await api("/v1/billing/confirm", { method: "POST", body: JSON.stringify(res) }); toast("Payment received. Activating…"); setTimeout(loadPlanPage, 1500); } catch (e) { toast(e.message); } },
+    theme: { color: "#0E6B5C" },
+  });
+  rzp.open();
+}
 
 // ---- AI providers --------------------------------------------------------------------------
 
