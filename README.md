@@ -59,6 +59,7 @@ and sees their own analytics; you manage plans, licenses and customers from an a
 
 - [DEPLOYMENT.md](DEPLOYMENT.md): free server, per-client deployment, AI keys, app and phone setup, step by step
 - [SAAS.md](SAAS.md): run as a SaaS — customers, plans, licenses, Razorpay billing
+- [CLIENT_DELIVERY.md](CLIENT_DELIVERY.md): delivering to each client, from deal close to go-live and monthly support
 - [docs/brochure/AI-Receptionist-Overview.pdf](docs/brochure/AI-Receptionist-Overview.pdf): client presentation
   (rebuild with your brand: `python docs/brochure/make_brochure.py --brand "..." --phone "..."`)
 - [clients/32-teeth-hospital.md](clients/32-teeth-hospital.md): example client knowledge
