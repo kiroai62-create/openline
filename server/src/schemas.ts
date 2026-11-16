@@ -111,8 +111,37 @@ export const clientSchema = z.object({
 export const createClientSchema = clientSchema.partial().required({ name: true });
 export const updateClientSchema = clientSchema.partial();
 
+/** Rejects loopback, private, link-local and metadata addresses (the server would POST there). */
+export function isPublicHttpsUrl(value: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== "https:") return false;
+  const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local") || host.endsWith(".internal")) return false;
+  const v4 = /^(\d+)\.(\d+)\.(\d+)\.(\d+)$/.exec(host);
+  if (v4) {
+    const [a, b] = [Number(v4[1]), Number(v4[2])];
+    if (a === 10 || a === 127 || a === 0 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127)) return false;
+  }
+  if (host.includes(":")) {
+    if (host === "::1" || host.startsWith("fc") || host.startsWith("fd") || host.startsWith("fe80") || host.startsWith("::ffff:")) return false;
+  }
+  return true;
+}
+
 /** What a customer may edit about their own business (no phone assignment, no enable toggle). */
-export const customerBusinessSchema = clientSchema.partial().omit({ deviceIds: true, enabled: true, name: true });
+export const customerBusinessSchema = clientSchema
+  .partial()
+  .omit({ deviceIds: true, enabled: true })
+  .extend({
+    whatsappGatewayUrl: z
+      .union([z.literal(""), z.string().trim().url().refine(isPublicHttpsUrl, "use the public https address of your WhatsApp gateway")])
+      .optional(),
+  });
 
 const provider = z.object({
   id: z.string().trim().min(1).max(64),
@@ -149,6 +178,7 @@ export const planSchema = z.object({
   razorpayPlanMonthly: z.string().trim().max(64).optional(),
   razorpayPlanYearly: z.string().trim().max(64).optional(),
 });
+
 
 export const createCustomerSchema = z.object({
   businessName: z.string().trim().min(1).max(120),

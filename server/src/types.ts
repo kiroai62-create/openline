@@ -67,6 +67,8 @@ export interface CallRecord {
   answeredAt?: string;
   endedAt?: string;
   stream?: StreamConfig;
+  /** The client (business) the call belonged to when it happened. */
+  clientId?: string;
 }
 
 export type DeviceAction =

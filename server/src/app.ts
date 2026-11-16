@@ -126,12 +126,22 @@ export function createApp(deps: AppDependencies) {
   app.post("/v1/pair", (request, response) => {
     const parsed = pairSchema.safeParse(request.body);
     if (!parsed.success) return validationError(response, parsed.error.issues);
-    const result = pairing.consume(parsed.data.code);
+    const result = pairing.consume(parsed.data.code, request.ip ?? "any");
     if (result === "throttled") {
       return response.status(429).json(errorBody("TOO_MANY_ATTEMPTS", "too many invalid codes, wait a minute"));
     }
     if (result === "invalid") {
       return response.status(401).json(errorBody("INVALID_CODE", "pairing code is invalid or expired"));
+    }
+    if (result.clientId) {
+      // The code was made for a customer's business: it must still exist and have room.
+      const client = deps.clients?.get(result.clientId);
+      if (!client) return response.status(410).json(errorBody("GONE", "this business no longer exists"));
+      const customer = deps.saas?.customerByClient(result.clientId);
+      const max = customer ? deps.saas!.entitlement(customer).maxPhones : Infinity;
+      if (deps.clients!.deviceIds(result.clientId).length >= max) {
+        return response.status(409).json(errorBody("PHONE_LIMIT", `This plan allows ${max} phone(s). Upgrade to add more.`));
+      }
     }
     const deviceId = `phone-${randomBytes(4).toString("hex")}`;
     const device = deps.state.upsertDevice({ id: deviceId, name: parsed.data.name ?? "Android phone" });
@@ -216,6 +226,24 @@ export function createApp(deps: AppDependencies) {
 
   app.use("/v1", deps.auth.middleware());
 
+  // A customer session may only use its own self-service routes. Everything else on /v1 is the
+  // platform admin's (all customers' phones, calls, settings, users, API keys...).
+  const CUSTOMER_ALLOWED: [string, RegExp][] = [
+    ["*", /^\/v1\/me(\/|$)/],
+    ["*", /^\/v1\/auth\//],
+    ["GET", /^\/v1\/plans$/],
+    ["GET", /^\/v1\/server$/],
+    ["POST", /^\/v1\/billing\/(checkout|confirm)$/],
+  ];
+  app.use("/v1", (request, response, next) => {
+    const user = deps.auth.sessionUser(deps.auth.sessionToken(request));
+    if (user?.role !== "customer") return next();
+    const path = `/v1${request.path}`;
+    const allowed = CUSTOMER_ALLOWED.some(([method, re]) => (method === "*" || method === request.method) && re.test(path));
+    if (allowed) return next();
+    return response.status(403).json(errorBody("FORBIDDEN", "not available for customer accounts"));
+  });
+
   // ---- SaaS: platform admin and customer self-service ----
   const saas = deps.saas;
   const actingUser = (request: Request) => deps.auth.sessionUser(deps.auth.sessionToken(request));
@@ -278,6 +306,10 @@ export function createApp(deps: AppDependencies) {
       if (!requireAdmin(request, response)) return;
       const parsed = planSchema.safeParse(request.body);
       if (!parsed.success) return validationError(response, parsed.error.issues);
+      // A new plan (no id) must not silently overwrite an existing plan with the same name.
+      if (!parsed.data.id && saas.getPlan(saas.planIdFor(parsed.data.name))) {
+        return response.status(409).json(errorBody("PLAN_EXISTS", "a plan with this name exists; edit it or choose another name"));
+      }
       const plan = saas.upsertPlan(parsed.data);
       saas.audit(adminActor(request), "plan.save", plan.id, plan.name);
       return response.status(201).json({ plan });
@@ -320,7 +352,7 @@ export function createApp(deps: AppDependencies) {
       const client = deps.clients.create({ name: data.businessName, voice: "Kore" });
       const customer = saas.createCustomer({
         name: data.businessName, clientId: client.id, planId: data.planId,
-        billingCycle: data.billingCycle, lifetime: data.lifetime, notes: data.notes,
+        billingCycle: data.billingCycle, lifetime: data.lifetime || data.billingCycle === "lifetime", notes: data.notes,
       });
       const login = deps.auth.addUser(data.email, data.password, "customer", customer.id);
       if (login === "exists") {
@@ -346,9 +378,21 @@ export function createApp(deps: AppDependencies) {
       if (!parsed.success) return validationError(response, parsed.error.issues);
       const customer = saas.getCustomer(request.params.id);
       if (!customer) return response.status(404).json(errorBody("NOT_FOUND", "customer not found"));
-      const { password, licenseStatus, ...patch } = parsed.data;
-      saas.updateCustomer(customer.id, patch);
-      if (patch.name && customer.clientId) deps.clients?.update(customer.clientId, { name: patch.name });
+      const { password, licenseStatus, ...rest } = parsed.data;
+      const patch: Record<string, unknown> = { ...rest };
+      if (rest.planId === "") patch.planId = undefined; // "No plan"
+      if (rest.billingCycle === "lifetime") patch.lifetime = true;
+      // Admin marks a customer active (paid offline) without a date: give them one billing cycle.
+      const lifetime = (patch.lifetime as boolean | undefined) ?? customer.lifetime;
+      if (rest.status === "active" && !lifetime && !rest.currentPeriodEnd) {
+        const end = customer.currentPeriodEnd ? Date.parse(customer.currentPeriodEnd) : 0;
+        if (end < Date.now()) {
+          const cycle = rest.billingCycle ?? customer.billingCycle;
+          patch.currentPeriodEnd = new Date(Date.now() + (cycle === "yearly" ? 365 : 30) * 86_400_000).toISOString();
+        }
+      }
+      saas.updateCustomer(customer.id, patch as never);
+      if (rest.name && customer.clientId) deps.clients?.update(customer.clientId, { name: rest.name });
       if (password) {
         const login = deps.auth.userByCustomer(customer.id);
         if (login) deps.auth.setPassword(login.id, password);
@@ -367,7 +411,14 @@ export function createApp(deps: AppDependencies) {
       if (!customer) return response.status(404).json(errorBody("NOT_FOUND", "customer not found"));
       const login = deps.auth.userByCustomer(customer.id);
       if (login) deps.auth.removeUser(login.id);
-      if (customer.clientId) deps.clients?.remove(customer.clientId);
+      if (customer.clientId && deps.clients) {
+        // Its phones must stop working, not fall back to the platform's own assistant and keys.
+        for (const deviceId of deps.clients.deviceIds(customer.clientId)) {
+          deps.deviceChannel.disconnect?.(deviceId);
+          deps.state.removeDevice(deviceId);
+        }
+        deps.clients.remove(customer.clientId);
+      }
       saas.deleteCustomer(customer.id);
       saas.audit(adminActor(request), "customer.delete", customer.id, customer.name);
       return response.status(204).end();
@@ -410,7 +461,10 @@ export function createApp(deps: AppDependencies) {
       const parsed = checkoutSchema.safeParse(request.body);
       if (!parsed.success) return validationError(response, parsed.error.issues);
       const plan = saas.getPlan(parsed.data.planId);
-      if (!plan || !plan.active) return response.status(404).json(errorBody("NOT_FOUND", "plan not available"));
+      // Hidden (non-public) plans can only be renewed by the customer already on them.
+      if (!plan || !plan.active || (!plan.public && plan.id !== customer.planId)) {
+        return response.status(404).json(errorBody("NOT_FOUND", "plan not available"));
+      }
       if (!deps.billing) return response.json({ manual: true, message: "Online payment isn't set up. Please contact us." });
       try {
         const out = await deps.billing.checkout(customer.id, plan, parsed.data.cycle);
@@ -433,7 +487,13 @@ export function createApp(deps: AppDependencies) {
     app.get("/v1/me", (request, response) => {
       const customer = resolveCustomer(request);
       if (!customer) return response.status(404).json(errorBody("NOT_FOUND", "no customer for this account"));
-      return response.json(customerView(customer.id));
+      const view = customerView(customer.id)!;
+      if (sessionCustomer(request)) {
+        // Internal notes and billing ids are for the admin only.
+        const { notes: _n, razorpayCustomerId: _c, razorpaySubscriptionId: _s, ...own } = view.customer;
+        return response.json({ ...view, customer: own });
+      }
+      return response.json(view);
     });
 
     // The customer's own business settings (and admin via ?customerId=). Secrets stay masked.
@@ -458,6 +518,7 @@ export function createApp(deps: AppDependencies) {
       if (parsed.data.whatsappApiSecret === undefined) delete patch.whatsappApiSecret;
       if (parsed.data.geminiApiKey === undefined) delete patch.geminiApiKey;
       const client = deps.clients.update(ctx.client.id, patch as never)!;
+      if (parsed.data.name && parsed.data.name !== ctx.customer.name) saas!.updateCustomer(ctx.customer.id, { name: parsed.data.name });
       saas!.audit(actingUser(request)?.email ?? "customer", "business.update", ctx.customer.id);
       return response.json({ business: deps.clients.view(client) });
     });
@@ -468,7 +529,7 @@ export function createApp(deps: AppDependencies) {
       if (!ctx?.client || !deps.analytics) return response.status(404).json(errorBody("NOT_FOUND", "unavailable"));
       const days = Math.min(Math.max(Number(request.query.days) || 7, 1), 365);
       const tzOffset = Math.min(Math.max(Number(request.query.tzOffset) || 0, -840), 840);
-      const report = deps.analytics.report({ days, clientId: ctx.client.id, tzOffset });
+      const { byClient: _others, ...report } = deps.analytics.report({ days, clientId: ctx.client.id, tzOffset });
       return response.json({ ...report, entitlement: saas!.entitlement(ctx.customer), usage: saas!.usageHistory(ctx.customer.id) });
     });
 
@@ -510,15 +571,13 @@ export function createApp(deps: AppDependencies) {
     app.get("/v1/me/calls", (request, response) => {
       const ctx = meClient(request);
       if (!ctx?.client) return response.status(404).json(errorBody("NOT_FOUND", "no business for this account"));
-      const ids = new Set(deps.clients!.deviceIds(ctx.client.id));
-      const calls = deps.state.listCalls({ limit: 100 }).filter((c) => ids.has(c.deviceId));
-      return response.json({ calls });
+      return response.json({ calls: deps.state.listCalls({ clientId: ctx.client.id, limit: 100 }) });
     });
 
     app.get("/v1/me/calls/:callId/transcript", (request, response) => {
       const ctx = meClient(request);
       const call = deps.state.getCall(request.params.callId);
-      if (!ctx?.client || !call || !deps.clients!.deviceIds(ctx.client.id).includes(call.deviceId)) {
+      if (!ctx?.client || !call || call.clientId !== ctx.client.id) {
         return response.status(404).json(errorBody("NOT_FOUND", "call not found"));
       }
       return response.json({ transcript: deps.agents?.transcript(call.id) ?? [] });

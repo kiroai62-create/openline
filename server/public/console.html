@@ -198,6 +198,11 @@
   .modal-head, .modal-foot { padding: 14px 18px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
   .modal-head { border-bottom: 1px solid var(--line); } .modal-foot { border-top: 1px solid var(--line); justify-content: flex-end; }
   .modal-head h2 { margin: 0; font-size: 16px; } .modal-body { padding: 18px; overflow-y: auto; }
+  @media (max-width: 720px) {
+    .top .nav { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+    .top .nav::-webkit-scrollbar { display: none; }
+    .top .nav a { white-space: nowrap; flex: 0 0 auto; }
+  }
   .ok { color: var(--live); } .warn { color: var(--ring); } .mono { font-family: var(--mono); }
   .price { font-size: 24px; font-weight: 600; } .price small { font-size: 13px; color: var(--muted); font-weight: 400; }
   .prov { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; margin: 8px 0; }
@@ -1024,6 +1029,16 @@ async function showApp() {
 }
 
 function applyRole() {
+  const imp = sessionStorage.getItem("impersonating");
+  const bar = $("impersonateBar");
+  if (imp && userRole === "customer") {
+    bar.hidden = false;
+    bar.innerHTML = `Viewing as ${esc(imp)} · <a href="#" id="impExit" title="Signs out; sign in again as admin">Back to admin</a>`;
+    $("impExit").onclick = async (e) => { e.preventDefault(); sessionStorage.removeItem("impersonating"); await api("/v1/auth/logout", { method: "POST" }).catch(() => {}); location.hash = "#/"; location.reload(); };
+  } else {
+    bar.hidden = true;
+    if (userRole !== "customer") sessionStorage.removeItem("impersonating");
+  }
   document.querySelectorAll(".nav a[data-role], [data-role]").forEach((el) => {
     if (!el.dataset.role) return;
     const show = el.dataset.role === "both" || el.dataset.role === userRole;
@@ -1790,7 +1805,7 @@ function renderDashboard() {
     const d = Math.round(((now - before) / before) * 100);
     if (!d) return `same as ${period}`;
     const good = d > 0 === goodUp;
-    return `<span class="${good ? "up" : "down"}">${d > 0 ? "▲" : "▼"} ${Math.abs(d)}%</span> vs ${period}`;
+    return `<span class="${good ? "up" : "down"}">${d > 0 ? "+" : "−"}${Math.abs(d)}%</span> vs ${period}`;
   };
   const kpi = (k, v, d) => `<div class="kpi"><div class="k">${k}</div><div class="v">${v}</div><div class="d">${d}</div></div>`;
   $("dashKpis").innerHTML = [
@@ -1835,7 +1850,7 @@ function renderDashboard() {
         <span class="muted small">${c ? esc(c.name) : "No client"} · ${d.connected ? "Online" : `Offline, seen ${timeAgo(d.lastSeenAt)}`}</span></span></div>
       <div style="margin-top:6px">
         <span class="tag ${audio[1] === "bad" ? "bad" : h.audio === "running" ? "live" : ""}">Audio: ${esc(audio[0])}</span>
-        ${h.battery !== undefined ? `<span class="tag ${h.battery < 20 && !h.charging ? "bad" : ""}">Battery ${h.battery}%${h.charging ? " ⚡" : ""}</span>` : ""}
+        ${h.battery !== undefined ? `<span class="tag ${h.battery < 20 && !h.charging ? "bad" : ""}">Battery ${h.battery}%${h.charging ? ", charging" : ""}</span>` : ""}
         ${h.network ? `<span class="tag">${esc(NETWORK_TEXT[h.network] || h.network)}${h.carrier ? ` · ${esc(h.carrier)}` : ""}</span>` : ""}
         <span class="tag">Today: ${st.callsToday ?? 0} call${(st.callsToday ?? 0) === 1 ? "" : "s"}</span>
         ${st.missed ? `<span class="tag bad">${st.missed} missed in this period</span>` : ""}
@@ -1856,7 +1871,7 @@ function renderDashboard() {
       : `<span class="tag">${esc(STATE_TEXT[c.state] || c.state)}</span>`;
     return `<tr class="click" data-call="${esc(c.id)}">
       <td style="white-space:nowrap">${esc(new Date(c.createdAt).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }))}</td>
-      <td>${c.direction === "incoming" ? "↙" : "↗"} ${esc(c.remoteNumber)}</td>
+      <td>${esc(c.remoteNumber)}${c.direction === "incoming" ? "" : ' <span class="muted small">out</span>'}</td>
       <td>${esc(c.clientName || "—")}</td>
       <td>${result}</td>
       <td class="num">${c.seconds ? fmtDuration(c.seconds) : "—"}</td>
@@ -1990,14 +2005,16 @@ async function openCustomer(id) {
       <label class="lbl" style="margin-top:0">Plan</label><select class="field" name="planId">${planOptions(c.planId)}</select>
       <label class="lbl">Status</label><select class="field" name="status">${["trialing","active","past_due","suspended","cancelled"].map((s) => `<option value="${s}" ${s === c.status ? "selected" : ""}>${STATUS_TEXT[s]}</option>`).join("")}</select>
       <label class="lbl">Licence</label><select class="field" name="licenseStatus">${["active","suspended","revoked"].map((s) => `<option value="${s}" ${s === v.license?.status ? "selected" : ""}>${s}</option>`).join("")}</select>
+      <label class="lbl">Paid until (for offline payments; leave empty to auto-set one cycle when Active)</label><input class="field" name="periodEnd" type="date" value="${c.currentPeriodEnd ? c.currentPeriodEnd.slice(0, 10) : ""}">
       <label class="switch" style="margin-top:12px"><span>Lifetime (free)</span><input type="checkbox" name="lifetime" ${c.lifetime ? "checked" : ""}></label>
       <label class="lbl">Reset login password (optional)</label><input class="field" name="password" type="password" autocomplete="new-password">
       <label class="lbl">Internal notes</label><textarea class="field" name="notes" rows="2">${esc(c.notes || "")}</textarea>`,
       [
         { label: "Delete", danger: true, onClick: async () => { if (!confirm(`Delete ${c.name}? This removes their account, data and licence.`)) return; await api(`/v1/customers/${c.id}`, { method: "DELETE" }).catch((e) => toast(e.message)); closeModal(); loadCustomers(); } },
-        { label: "Log in as", onClick: async () => { try { await api(`/v1/customers/${c.id}/login-as`, { method: "POST" }); location.hash = "#/overview"; location.reload(); } catch (e) { toast(e.message); } } },
+        { label: "Log in as", onClick: async () => { try { const r = await api(`/v1/customers/${c.id}/login-as`, { method: "POST" }); sessionStorage.setItem("impersonating", r.email); location.hash = "#/overview"; location.reload(); } catch (e) { toast(e.message); } } },
         { label: "Save", primary: true, onClick: async () => {
-          const body = { planId: mv("planId").value || undefined, status: mv("status").value, licenseStatus: mv("licenseStatus").value, lifetime: mv("lifetime").checked, notes: mv("notes").value };
+          const body = { planId: mv("planId").value, status: mv("status").value, licenseStatus: mv("licenseStatus").value, lifetime: mv("lifetime").checked, notes: mv("notes").value };
+          if (mv("periodEnd").value) body.currentPeriodEnd = new Date(mv("periodEnd").value + "T23:59:59").toISOString();
           if (mv("password").value) body.password = mv("password").value;
           try { await api(`/v1/customers/${c.id}`, { method: "PUT", body: JSON.stringify(body) }); closeModal(); toast("Saved."); loadCustomers(); } catch (e) { toast(e.message); }
         } },
@@ -2038,7 +2055,7 @@ function editPlan(p) {
     <label class="lbl">Razorpay Plan ID (monthly) — optional</label><input class="field" name="rpm" value="${esc(p?.razorpayPlanMonthly || "")}" placeholder="plan_...">
     <label class="lbl">Razorpay Plan ID (yearly) — optional</label><input class="field" name="rpy" value="${esc(p?.razorpayPlanYearly || "")}" placeholder="plan_...">`,
     [{ label: "Cancel", onClick: closeModal }, { label: "Save", primary: true, onClick: async () => {
-      const body = { id: p?.id, name: mv("name").value.trim(), priceMonthly: Math.round(+mv("pm").value * 100), priceYearly: Math.round(+mv("py").value * 100), setupFee: Math.round(+mv("sf").value * 100), trialDays: +mv("td").value, minutesIncluded: +mv("mi").value, maxPhones: +mv("mp").value, features: mv("features").value.split("\n").map((s) => s.trim()).filter(Boolean), active: mv("active").checked, public: mv("public").checked, razorpayPlanMonthly: mv("rpm").value.trim() || undefined, razorpayPlanYearly: mv("rpy").value.trim() || undefined };
+      const body = { id: p?.id, name: mv("name").value.trim(), priceMonthly: Math.round(+mv("pm").value * 100), priceYearly: Math.round(+mv("py").value * 100), setupFee: Math.round(+mv("sf").value * 100), trialDays: +mv("td").value, minutesIncluded: +mv("mi").value, maxPhones: +mv("mp").value, features: mv("features").value.split("\n").map((s) => s.trim()).filter(Boolean), active: mv("active").checked, public: mv("public").checked, razorpayPlanMonthly: mv("rpm").value.trim(), razorpayPlanYearly: mv("rpy").value.trim() };
       try { await api("/v1/plans", { method: "POST", body: JSON.stringify(body) }); closeModal(); toast("Saved."); loadPlansAdmin(); } catch (e) { toast(e.message); }
     } }]);
 }
@@ -2047,8 +2064,8 @@ function editPlan(p) {
 async function loadBilling() {
   try {
     const [{ payments }, { entries }] = await Promise.all([api("/v1/billing/payments"), api("/v1/audit")]);
-    $("paymentRows").innerHTML = payments.length ? payments.map((p) => `<tr><td>${esc(new Date(p.at).toLocaleString())}</td><td>${esc(p.customerId || "—")}</td><td class="num">${rupees(p.amount)}</td><td>${esc(p.kind || "—")}</td><td>${esc(p.status)}</td></tr>`).join("") : `<tr><td colspan="5" class="muted">No payments yet.</td></tr>`;
-    $("auditRows").innerHTML = entries.map((e) => `<li class="call-row"><span class="num">${esc(e.action)}</span><span class="when muted small">${esc(e.actor)} · ${timeAgo(e.at)}${e.detail ? " · " + esc(String(e.detail).slice(0, 60)) : ""}</span></li>`).join("");
+    $("paymentRows").innerHTML = payments.length ? payments.map((p) => `<tr><td>${esc(new Date(p.at).toLocaleString())}</td><td>${esc(p.customerName || "—")}</td><td class="num">${rupees(p.amount)}</td><td>${esc(p.kind || "—")}</td><td>${esc(p.status)}</td></tr>`).join("") : `<tr><td colspan="5" class="muted">No payments yet.</td></tr>`;
+    $("auditRows").innerHTML = entries.length ? entries.map((e) => `<li style="padding:10px 18px;border-bottom:1px solid var(--line)"><b style="font-size:14px">${esc(e.action)}</b><br><span class="muted small">${esc(e.actor)} · ${timeAgo(e.at)}${e.detail ? " · " + esc(String(e.detail).slice(0, 80)) : ""}</span></li>`).join("") : `<li class="empty">No activity yet.</li>`;
   } catch (error) { toast(error.message); }
 }
 
@@ -2066,7 +2083,9 @@ async function loadOverview() {
     const alerts = [];
     if (!ent.entitled) alerts.push(`<b>Service paused:</b> ${esc(ent.message || "")} <a href="#/plan">See plan</a>.`);
     else if (ent.minutesIncluded >= 0 && ent.minutesUsed >= ent.minutesIncluded * 0.8) alerts.push(`You've used ${ent.minutesUsed} of ${ent.minutesIncluded} minutes this month. <a href="#/plan">Upgrade</a> to avoid interruptions.`);
-    for (const d of rep.phones) if (d.callsToday === undefined) break;
+    const myPhones = (await api("/v1/me/devices").catch(() => ({ devices: [] }))).devices;
+    if (!myPhones.length) alerts.push(`<b>No phone connected yet.</b> <a href="#/phones">Connect your phone</a> to start answering calls.`);
+    else if (myPhones.some((d) => !d.connected)) alerts.unshift(`<b>A phone is offline.</b> Calls to it are not answered by the AI. Check its internet and open the app.`);
     $("ovAlerts").innerHTML = alerts.length ? alerts.map((a) => `<li>${a}</li>`).join("") : `<li class="ok">Your receptionist is active and answering calls.</li>`;
     const t = rep.totals;
     const kpi = (k, v, d = "") => `<div class="kpi"><div class="k">${k}</div><div class="v">${v}</div><div class="d">${d}</div></div>`;
@@ -2080,8 +2099,11 @@ async function loadOverview() {
     $("ovDailyAxis").innerHTML = rep.daily.map((d, i) => `<span>${i % Math.ceil(rep.daily.length / 8) === 0 ? esc(shortDay(d.day, rep.range.days)) : ""}</span>`).join("");
     $("ovCalls").innerHTML = rep.calls.slice(0, 50).map((c) => `<tr><td>${esc(new Date(c.createdAt).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }))}</td><td>${esc(c.remoteNumber)}</td><td>${c.missed ? '<span class="tag bad">Missed</span>' : c.answeredAt ? '<span class="tag live">Answered</span>' : esc(c.state)}</td><td class="num">${c.seconds ? fmtDuration(c.seconds) : "—"}</td><td>${c.ai ? '<span class="tag live">AI</span>' : ""}${c.booking ? '<span class="tag live">Link</span>' : ""}</td></tr>`).join("") || `<tr><td colspan="5" class="muted">No calls in this period.</td></tr>`;
     const u = ent.minutesIncluded < 0 ? `${ent.minutesUsed} minutes used (unlimited)` : `${ent.minutesUsed} of ${ent.minutesIncluded} minutes used`;
-    $("ovUsage").innerHTML = `<div class="stat"><span class="mu">Plan</span><b>${esc(meData.plan?.name || "—")}</b></div><div class="stat"><span class="mu">Status</span><b>${esc(STATUS_TEXT[meData.customer.status] || meData.customer.status)}</b></div><div class="stat"><span class="mu">Minutes</span><b>${u}</b></div>`;
-    $("ovPhones").innerHTML = rep.phones.length ? rep.phones.map((p) => { const d = (meData.business && devices.find) ? null : null; return `<div class="key-row"><span class="grow">${esc(p.id)}</span><span class="muted small">${p.callsToday ?? 0} today</span></div>`; }).join("") : `<div class="empty">No phone yet. <a href="#/phones">Add one</a>.</div>`;
+    const pctUsed = ent.minutesIncluded > 0 ? Math.min(100, Math.round((ent.minutesUsed / ent.minutesIncluded) * 100)) : 0;
+    $("ovUsage").innerHTML = `<dl class="kv"><dt>Plan</dt><dd>${esc(meData.plan?.name || "—")}</dd><dt>Status</dt><dd>${esc(STATUS_TEXT[meData.customer.status] || meData.customer.status)}</dd><dt>Minutes</dt><dd>${u}</dd></dl>`
+      + (ent.minutesIncluded > 0 ? `<div style="height:6px;background:var(--soft);border-radius:3px;margin-top:10px"><div style="height:6px;width:${pctUsed}%;background:${pctUsed >= 90 ? "var(--bad)" : "var(--live)"};border-radius:3px"></div></div>` : "");
+    const today = new Map(rep.phones.map((p) => [p.id, p.callsToday ?? 0]));
+    $("ovPhones").innerHTML = myPhones.length ? myPhones.map((d) => `<div class="key-row"><span class="dot ${d.connected ? "live" : "bad"}"></span><span class="grow">${esc(d.name || d.id)}<br><span class="muted small">${d.connected ? "Online" : "Offline, seen " + timeAgo(d.lastSeenAt)}</span></span><span class="muted small">${today.get(d.id) ?? 0} today</span></div>`).join("") : `<div class="empty">No phone yet. <a href="#/phones">Add one</a>.</div>`;
   } catch (error) { toast(error.message); }
 }
 $("ovDays").onchange = loadOverview;
@@ -2116,7 +2138,7 @@ $("bizSave").onclick = async () => {
 
 // ---- customer: phones ----
 async function loadPhonesPage() {
-  $("phonePair").innerHTML = `<p class="muted small">Tap “Show pairing code”, then scan it in your app under Connection.</p>`;
+  $("phonePair").innerHTML = `<p class="muted small">Tap “Show pairing code”, then open the app on your phone and tap <b>Scan QR</b> (step 2).</p>`;
   try {
     const { devices: ds } = await api("/v1/me/devices");
     $("phoneList").innerHTML = ds.length ? ds.map((d) => { const h = d.health || {}; return `<div class="device" style="padding:12px 18px"><div class="device-head"><span class="dot ${d.connected ? "live" : "bad"}"></span><span class="grow"><b>${esc(d.name || d.id)}</b><br><span class="muted small">${d.connected ? "Online" : "Offline, seen " + timeAgo(d.lastSeenAt)}</span></span><button class="btn link" data-rm="${esc(d.id)}">Remove</button></div></div>`; }).join("") : `<div class="empty">No phone connected yet.</div>`;
@@ -2157,8 +2179,9 @@ document.querySelectorAll("[data-cycle]").forEach((b) => b.onclick = () => { pla
 
 // ---- account (both) ----
 async function loadAccount() {
-  const who = userRole === "customer" && meData ? meData.email : (me ? me.email : "");
-  $("accountWho").textContent = who ? `Signed in as ${who}` : "";
+  const status = await api("/v1/auth/status").catch(() => ({}));
+  const who = status.user?.email || "";
+  $("accountWho").textContent = who ? `Signed in as ${who}` : "Signed in with an API key";
 }
 $("pwSave").onclick = async () => {
   try { await api("/v1/auth/password", { method: "POST", body: JSON.stringify({ current: $("pwCurrent").value, password: $("pwNew").value }) }); toast("Password changed."); $("pwCurrent").value = $("pwNew").value = ""; } catch (e) { toast(e.message); }

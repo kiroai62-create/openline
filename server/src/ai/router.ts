@@ -206,6 +206,11 @@ export class AiRouter {
     });
   }
 
+  /** True while a provider (or a customer's own key, by id) is sitting out after a failure. */
+  isCoolingDown(id: string): boolean {
+    return (this.cooldown.get(id) ?? 0) > Date.now();
+  }
+
   resetCooldowns(): void {
     this.cooldown.clear();
   }

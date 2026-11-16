@@ -56,7 +56,8 @@ function readCookie(header: string | undefined, name: string): string | undefine
  * hashes), and console sessions (password login, httpOnly cookie).
  */
 export class AuthService {
-  private loginFailures: number[] = [];
+  /** Failed logins per email; one attacker can't lock everyone else out. */
+  private readonly loginFailures = new Map<string, number[]>();
 
   constructor(
     private readonly db: Database,
@@ -156,11 +157,11 @@ export class AuthService {
   }
 
   /** Starts a session for a user without a password: admin "log in as customer". */
-  issueSessionFor(userId: string): { token: string; expiresAt: Date } | undefined {
+  issueSessionFor(userId: string, ttlMs = 2 * 60 * 60_000): { token: string; expiresAt: Date } | undefined {
     if (!this.getUser(userId)) return undefined;
     const now = Date.now();
     const token = randomBytes(32).toString("base64url");
-    const expiresAt = new Date(now + SESSION_TTL_MS);
+    const expiresAt = new Date(now + ttlMs);
     this.db.prepare("INSERT INTO sessions (token_hash, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)").run(hashToken(token), userId, new Date(now).toISOString(), expiresAt.toISOString());
     return { token, expiresAt };
   }
@@ -198,15 +199,19 @@ export class AuthService {
   /** Returns a new session token, or why not. */
   login(email: string, password: string): { token: string; expiresAt: Date } | "invalid" | "throttled" {
     const now = Date.now();
-    this.loginFailures = this.loginFailures.filter((at) => now - at < 60_000);
-    if (this.loginFailures.length >= MAX_LOGIN_FAILURES_PER_MINUTE) return "throttled";
+    const who = email.trim().toLowerCase();
+    const recent = (this.loginFailures.get(who) ?? []).filter((at) => now - at < 60_000);
+    this.loginFailures.set(who, recent);
+    if (recent.length >= MAX_LOGIN_FAILURES_PER_MINUTE) return "throttled";
+    if (this.loginFailures.size > 10_000) this.loginFailures.clear();
     const row = this.db.prepare("SELECT id, password_hash FROM users WHERE email = ?").get(email.trim().toLowerCase()) as
       | { id: string; password_hash: string }
       | undefined;
     if (!row || !verifyPassword(password, row.password_hash)) {
-      this.loginFailures.push(now);
+      recent.push(now);
       return "invalid";
     }
+    this.loginFailures.delete(who);
     const token = randomBytes(32).toString("base64url");
     const expiresAt = new Date(now + SESSION_TTL_MS);
     this.db.prepare("DELETE FROM sessions WHERE expires_at < ?").run(new Date(now).toISOString());
@@ -244,6 +249,12 @@ export class AuthService {
   }
 
   /** API key (header, bearer or ?apiKey=) or console session cookie. Used for HTTP and WebSockets. */
+  /** API key or an admin session. Customer sessions are excluded (live call audio, admin APIs). */
+  isAdminAuthorized(request: { headers: IncomingMessage["headers"] }, url?: URL): boolean {
+    if (this.verifyApiKey(extractApiKey(request, url))) return true;
+    return this.sessionUser(this.sessionToken(request))?.role === "admin";
+  }
+
   isAuthorized(request: { headers: IncomingMessage["headers"] }, url?: URL): boolean {
     return this.verifyApiKey(extractApiKey(request, url)) || this.verifySession(this.sessionToken(request));
   }

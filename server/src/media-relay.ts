@@ -42,7 +42,7 @@ export class MediaRelay {
 
   constructor(
     private readonly state: StateStore,
-    private readonly auth: Pick<AuthService, "isAuthorized">,
+    private readonly auth: Pick<AuthService, "isAdminAuthorized">,
   ) {}
 
   attach(httpServer: HttpServer): void {
@@ -107,7 +107,7 @@ export class MediaRelay {
     url: URL,
     callId: string,
   ): void {
-    if (!this.auth.isAuthorized(request, url)) {
+    if (!this.auth.isAdminAuthorized(request, url)) {
       reject(socket, 401, "Unauthorized");
       return;
     }

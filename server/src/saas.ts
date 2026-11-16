@@ -104,6 +104,11 @@ export class SaasStore {
     return rows.map(toPlan).filter((p) => includeHidden || (p.active && p.public));
   }
 
+  /** The id a new plan with this name would get. */
+  planIdFor(name: string): string {
+    return slug(name);
+  }
+
   getPlan(id: string): Plan | undefined {
     const row = this.db.prepare("SELECT * FROM plans WHERE id = ?").get(id) as PlanRow | undefined;
     return row ? toPlan(row) : undefined;
@@ -127,8 +132,9 @@ export class SaasStore {
       active: input.active ?? existing?.active ?? true,
       public: input.public ?? existing?.public ?? true,
       sort: input.sort ?? existing?.sort ?? 0,
-      razorpayPlanMonthly: input.razorpayPlanMonthly ?? existing?.razorpayPlanMonthly,
-      razorpayPlanYearly: input.razorpayPlanYearly ?? existing?.razorpayPlanYearly,
+      // "" clears a Razorpay plan id; omitted keeps it.
+      razorpayPlanMonthly: input.razorpayPlanMonthly === "" ? undefined : input.razorpayPlanMonthly ?? existing?.razorpayPlanMonthly,
+      razorpayPlanYearly: input.razorpayPlanYearly === "" ? undefined : input.razorpayPlanYearly ?? existing?.razorpayPlanYearly,
     };
     this.db
       .prepare(
@@ -268,6 +274,13 @@ export class SaasStore {
 
   // ---- usage ----
 
+  /** Bills one call once (safe across restarts and repeated events). */
+  addCallUsage(customerId: string, callId: string, seconds: number): boolean {
+    const fresh = Number(this.db.prepare("INSERT OR IGNORE INTO billed_calls (call_id, customer_id, seconds, at) VALUES (?, ?, ?, ?)").run(callId, customerId, Math.round(seconds), nowIso()).changes) > 0;
+    if (fresh) this.addUsage(customerId, seconds);
+    return fresh;
+  }
+
   addUsage(customerId: string, seconds: number): void {
     this.db
       .prepare(
@@ -309,7 +322,11 @@ export class SaasStore {
     if (customer.status === "suspended") return { ...base, entitled: false, reason: "suspended", message: "Account suspended." };
     if (!customer.lifetime) {
       const end = customer.status === "trialing" ? customer.trialEndsAt : customer.currentPeriodEnd;
-      if (end && Date.now() > Date.parse(end) + (customer.status === "past_due" ? GRACE_DAYS * 86_400_000 : 0)) {
+      if (!end) {
+        return { ...base, entitled: false, reason: "expired", message: customer.status === "trialing" ? "No trial on this plan. Awaiting payment." : "Awaiting payment." };
+      }
+      // Trials end on the day; paid periods get a few days for a late renewal to arrive.
+      if (Date.now() > Date.parse(end) + (customer.status === "trialing" ? 0 : GRACE_DAYS * 86_400_000)) {
         return { ...base, entitled: false, reason: "expired", message: customer.status === "trialing" ? "Free trial ended." : "Subscription expired." };
       }
     }
@@ -330,12 +347,34 @@ export class SaasStore {
       .run(randomUUID(), p.customerId ?? null, p.amount, p.currency ?? "INR", p.status, p.kind ?? null, p.razorpayPaymentId ?? null, p.razorpayOrderId ?? null, nowIso(), p.meta ? JSON.stringify(p.meta) : null);
   }
 
+  /** A started checkout (order or subscription) waiting for payment; meta holds plan and cycle. */
+  pendingPayment(ref: string): { id: string; customerId?: string; amount: number; meta: { planId?: string; cycle?: string } } | undefined {
+    const row = this.db
+      .prepare("SELECT id, customer_id, amount, meta FROM payments WHERE status = 'created' AND razorpay_order_id = ? ORDER BY at DESC LIMIT 1")
+      .get(ref) as { id: string; customer_id: string | null; amount: number; meta: string | null } | undefined;
+    return row ? { id: row.id, customerId: row.customer_id ?? undefined, amount: row.amount, meta: row.meta ? JSON.parse(row.meta) : {} } : undefined;
+  }
+
+  /** Marks a pending payment captured; false if it was already captured (idempotent). */
+  capturePayment(id: string, razorpayPaymentId: string, amount?: number): boolean {
+    const r = this.db
+      .prepare("UPDATE payments SET status = 'captured', razorpay_payment_id = ?, amount = COALESCE(?, amount), at = ? WHERE id = ? AND status = 'created'")
+      .run(razorpayPaymentId, amount ?? null, nowIso(), id);
+    return Number(r.changes) > 0;
+  }
+
+  hasPayment(razorpayPaymentId: string): boolean {
+    return Boolean(this.db.prepare("SELECT 1 FROM payments WHERE razorpay_payment_id = ? AND status = 'captured'").get(razorpayPaymentId));
+  }
+
   payments(customerId?: string, limit = 100): Record<string, unknown>[] {
     const rows = customerId
-      ? this.db.prepare("SELECT * FROM payments WHERE customer_id = ? ORDER BY at DESC LIMIT ?").all(customerId, limit)
-      : this.db.prepare("SELECT * FROM payments ORDER BY at DESC LIMIT ?").all(limit);
+      ? this.db.prepare("SELECT * FROM payments WHERE customer_id = ? AND status != 'created' ORDER BY at DESC LIMIT ?").all(customerId, limit)
+      : this.db.prepare("SELECT * FROM payments WHERE status != 'created' ORDER BY at DESC LIMIT ?").all(limit);
     return (rows as unknown as PaymentRow[]).map((r) => ({
-      id: r.id, customerId: r.customer_id, amount: r.amount, currency: r.currency, status: r.status,
+      id: r.id, customerId: r.customer_id,
+      customerName: r.customer_id ? this.getCustomer(r.customer_id)?.name ?? "(deleted)" : null,
+      amount: r.amount, currency: r.currency, status: r.status,
       kind: r.kind, razorpayPaymentId: r.razorpay_payment_id, at: r.at,
     }));
   }
@@ -349,18 +388,6 @@ export class SaasStore {
       actor: string; action: string; target: string | null; detail: string | null; at: string;
     }[];
     return rows.map((r) => ({ actor: r.actor, action: r.action, target: r.target ?? undefined, detail: r.detail ?? undefined, at: r.at }));
-  }
-
-  /** Moves expired trials/subscriptions to the state the entitlement check expects. */
-  reconcile(): void {
-    const now = Date.now();
-    for (const c of this.listCustomers()) {
-      if (c.lifetime || c.status === "cancelled" || c.status === "suspended") continue;
-      const end = c.status === "trialing" ? c.trialEndsAt : c.currentPeriodEnd;
-      if (end && now > Date.parse(end) + GRACE_DAYS * 86_400_000 && c.status !== "past_due") {
-        this.updateCustomer(c.id, { status: "past_due" });
-      }
-    }
   }
 }
 

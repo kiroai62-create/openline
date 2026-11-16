@@ -227,6 +227,15 @@ const MIGRATIONS: string[] = [
   ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'admin';
   ALTER TABLE users ADD COLUMN customer_id TEXT;
   `,
+  // Each connected call is billed to its customer exactly once.
+  `
+  CREATE TABLE billed_calls (
+    call_id TEXT PRIMARY KEY,
+    customer_id TEXT NOT NULL,
+    seconds INTEGER NOT NULL,
+    at TEXT NOT NULL
+  );
+  `,
 ];
 
 function migrate(db: Database): void {

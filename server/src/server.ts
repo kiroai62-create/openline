@@ -135,22 +135,20 @@ export function createGatewayServer(options: GatewayServerOptions): GatewayServe
       return { ok: ent.entitled, message: ent.message };
     },
   });
-  const billed = new Set<string>();
   events.onCallEvent = (call, event) => {
     const streamed = streams.onCallEvent(call, event);
     agents.onCallEvent(state.getCall(call.id) ?? call, event, streamed);
     // Central SaaS: bill a connected call's minutes to its customer, once, when it ends.
     const latest = state.getCall(call.id) ?? call;
     const ended = latest.state === "ended" || latest.state === "rejected" || latest.state === "failed";
-    if (ended && latest.answeredAt && latest.endedAt && !billed.has(latest.id)) {
-      billed.add(latest.id);
+    if (ended && latest.answeredAt && latest.endedAt) {
       const client = clients.forDevice(latest.deviceId);
       const customer = client ? saas.customerByClient(client.id) : undefined;
-      if (customer) {
+      // Only calls the AI actually talked on count (staff-answered calls are free).
+      if (customer && agents.transcript(latest.id).length > 0) {
         const seconds = Math.max(0, (Date.parse(latest.endedAt) - Date.parse(latest.answeredAt)) / 1000);
-        if (seconds > 0) saas.addUsage(customer.id, seconds);
+        if (seconds > 0) saas.addCallUsage(customer.id, latest.id, seconds);
       }
-      if (billed.size > 5000) billed.clear();
     }
   };
   const app = createApp({ auth, config, state, deviceChannel: deviceHub, events, media, agents, streams, clients, analytics: new Analytics(db), router, fallback, saas, billing, multiClient: options.multiClient || clients.list().length > 0 });

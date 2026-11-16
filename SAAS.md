@@ -106,7 +106,7 @@ Aap bhi "Log in as customer" se yahi panel kholkar customer ke liye sab set kar 
 - App pe dikhta hai: **"Licensed to <business> · <plan>"**. License inactive/expire/minute khatam
   ho to app pe **"Licence inactive"** dikhta hai aur app call nahi lagne deta.
 - Asli rok **server pe** hai: license active na ho, trial/subscription khatam ho, ya mahine ke
-  minute khatam ho jaayein, to server call AI se nahi uthwata. Caller ko "kृपया baad mein call
+  minute khatam ho jaayein, to server call AI se nahi uthwata. Caller ko "kripya baad mein call
   karein" sunaai deta hai (recorded), call chup-chaap nahi katti.
 
 ---

@@ -36,10 +36,13 @@ interface CallRow {
   answered_at: string | null;
   ended_at: string | null;
   stream: string | null;
+  client_id: string | null;
 }
 
 export interface CallQuery {
   deviceId?: string;
+  /** Calls that belonged to this client (business) when they happened. */
+  clientId?: string;
   state?: CallState;
   direction?: CallDirection;
   /** Only calls created before this ISO time (cursor for paging). */
@@ -208,6 +211,7 @@ export class StateStore {
     const where: string[] = [];
     const params: string[] = [];
     if (q.deviceId) (where.push("device_id = ?"), params.push(q.deviceId));
+    if (q.clientId) (where.push("client_id = ?"), params.push(q.clientId));
     if (q.state) (where.push("state = ?"), params.push(q.state));
     if (q.direction) (where.push("direction = ?"), params.push(q.direction));
     if (q.before) (where.push("created_at < ?"), params.push(q.before));
@@ -325,6 +329,7 @@ function toCall(row: CallRow): CallRecord {
     answeredAt: row.answered_at ?? undefined,
     endedAt: row.ended_at ?? undefined,
     stream: parseJson<StreamConfig>(row.stream),
+    ...(row.client_id ? { clientId: row.client_id } : {}),
   };
 }
 

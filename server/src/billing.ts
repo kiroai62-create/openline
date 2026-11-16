@@ -74,11 +74,13 @@ export class Billing {
         customer_notify: 1,
         notes,
       });
-      this.saas.updateCustomer(customerId, { razorpaySubscriptionId: String(sub.id), planId: plan.id, billingCycle: cycle });
+      // The plan changes only once Razorpay confirms the first charge (webhook or confirm).
+      this.saas.recordPayment({ customerId, amount, status: "created", kind: "subscription", razorpayOrderId: String(sub.id), meta: { planId: plan.id, cycle } });
       return { subscriptionId: sub.id, keyId: this.env.keyId, description: `${plan.name} (${cycle})` };
     }
 
     const order = await this.rzp("/v1/orders", { amount, currency: plan.currency || "INR", notes });
+    this.saas.recordPayment({ customerId, amount, status: "created", kind: "one_time", razorpayOrderId: String(order.id), meta: { planId: plan.id, cycle } });
     return { orderId: order.id, amount, keyId: this.env.keyId, description: `${plan.name} (${cycle})`, planId: plan.id, cycle };
   }
 
@@ -91,11 +93,14 @@ export class Billing {
     if (!paymentId || !signature || !this.env.keySecret) return { ok: false };
     const base = subId ? `${paymentId}|${subId}` : orderId ? `${orderId}|${paymentId}` : "";
     if (!base || !this.safeEqual(this.hmac(base, this.env.keySecret), signature)) return { ok: false };
-    const customer = this.saas.getCustomer(customerId);
-    if (!customer) return { ok: false };
-    // Orders activate immediately here; subscriptions also confirm via webhook.
-    if (orderId && !subId) this.activatePeriod(customerId, customer.billingCycle);
-    this.saas.recordPayment({ customerId, amount: 0, status: "captured", kind: subId ? "subscription" : "one_time", razorpayPaymentId: paymentId, razorpayOrderId: orderId });
+    const pending = this.saas.pendingPayment(subId ?? orderId!);
+    // The checkout must belong to this customer.
+    if (!pending || pending.customerId !== customerId) {
+      return { ok: this.saas.hasPayment(paymentId) }; // already handled by the webhook
+    }
+    if (this.saas.capturePayment(pending.id, paymentId)) {
+      this.applyPurchase(customerId, pending.meta, subId ? { id: subId } : undefined);
+    }
     return { ok: true };
   }
 
@@ -111,19 +116,42 @@ export class Billing {
     }
     const sub = event.payload?.subscription?.entity;
     const payment = event.payload?.payment?.entity;
+    // Who owns this? Our own records first (the pending checkout or the stored subscription), and
+    // only then the notes we set when creating the subscription server-side.
+    const pendingOrder = payment?.order_id ? this.saas.pendingPayment(payment.order_id) : undefined;
+    const pendingSub = sub?.id ? this.saas.pendingPayment(sub.id) : undefined;
     const customerId =
-      (sub?.notes?.customerId as string | undefined) ??
-      (payment?.notes?.customerId as string | undefined) ??
-      (sub?.id ? this.saas.customerByRazorpaySub(sub.id)?.id : undefined);
-    if (!customerId) return { ok: true, handled: "ignored" };
+      pendingOrder?.customerId ??
+      pendingSub?.customerId ??
+      (sub?.id ? this.saas.customerByRazorpaySub(sub.id)?.id : undefined) ??
+      (sub?.notes?.customerId as string | undefined);
+    if (!customerId || !this.saas.getCustomer(customerId)) return { ok: true, handled: "ignored" };
+
+    // A subscription event for an older subscription (the customer has since switched plans) must
+    // not change the current plan or status.
+    const current = this.saas.getCustomer(customerId)!.razorpaySubscriptionId;
+    if (sub?.id && event.event.startsWith("subscription.") && current && sub.id !== current && !pendingSub) {
+      return { ok: true, handled: "stale_subscription" };
+    }
 
     switch (event.event) {
       case "subscription.activated":
       case "subscription.charged":
-      case "subscription.resumed":
-        this.activatePeriod(customerId, this.saas.getCustomer(customerId)?.billingCycle ?? "monthly", sub);
-        if (payment) this.saas.recordPayment({ customerId, amount: Number(payment.amount ?? 0), status: "captured", kind: "subscription", razorpayPaymentId: payment.id });
+      case "subscription.resumed": {
+        const meta = { planId: sub?.notes?.planId as string | undefined, cycle: sub?.notes?.cycle as string | undefined };
+        const pending = sub?.id ? this.saas.pendingPayment(sub.id) : undefined;
+        if (payment?.id && this.saas.hasPayment(payment.id)) {
+          // Already captured by confirm: just refresh the period from Razorpay.
+          this.applyPurchase(customerId, meta, sub);
+        } else if (pending && payment?.id) {
+          this.saas.capturePayment(pending.id, payment.id, Number(payment.amount ?? pending.amount));
+          this.applyPurchase(customerId, meta, sub);
+        } else {
+          this.applyPurchase(customerId, meta, sub);
+          if (payment?.id) this.saas.recordPayment({ customerId, amount: Number(payment.amount ?? 0), status: "captured", kind: "subscription", razorpayPaymentId: payment.id });
+        }
         break;
+      }
       case "subscription.halted":
       case "subscription.pending":
         this.saas.updateCustomer(customerId, { status: "past_due" });
@@ -132,9 +160,15 @@ export class Billing {
       case "subscription.completed":
         this.saas.updateCustomer(customerId, { status: "cancelled" });
         break;
-      case "payment.captured":
-        if (payment) this.saas.recordPayment({ customerId, amount: Number(payment.amount ?? 0), status: "captured", kind: "one_time", razorpayPaymentId: payment.id });
+      case "payment.captured": {
+        // One-time order paid (the browser may have closed before confirm ran).
+        if (pendingOrder && payment?.id && this.saas.capturePayment(pendingOrder.id, payment.id, Number(payment.amount ?? pendingOrder.amount))) {
+          this.applyPurchase(customerId, pendingOrder.meta);
+        } else {
+          return { ok: true, handled: "ignored" };
+        }
         break;
+      }
       default:
         return { ok: true, handled: "ignored" };
     }
@@ -142,12 +176,36 @@ export class Billing {
     return { ok: true, handled: event.event };
   }
 
-  private activatePeriod(customerId: string, cycle: BillingCycle, sub?: RazorpaySubscription): void {
-    const end =
-      sub?.current_end != null
-        ? new Date(Number(sub.current_end) * 1000).toISOString()
-        : new Date(Date.now() + (cycle === "yearly" ? 365 : 31) * 86_400_000).toISOString();
-    this.saas.updateCustomer(customerId, { status: "active", currentPeriodEnd: end });
+  /** Switches the customer to the bought plan and starts/extends the paid period. */
+  private applyPurchase(customerId: string, meta: { planId?: string; cycle?: string }, sub?: RazorpaySubscription): void {
+    const customer = this.saas.getCustomer(customerId);
+    if (!customer) return;
+    const cycle = (meta.cycle === "yearly" || meta.cycle === "monthly" ? meta.cycle : customer.billingCycle) as BillingCycle;
+    const planId = meta.planId && this.saas.getPlan(meta.planId) ? meta.planId : customer.planId;
+    let end: string;
+    if (sub?.current_end != null) {
+      end = new Date(Number(sub.current_end) * 1000).toISOString();
+    } else {
+      // One-time payment: extend from the current end if still in the future.
+      const from = Math.max(Date.now(), customer.currentPeriodEnd ? Date.parse(customer.currentPeriodEnd) : 0);
+      end = new Date(from + (cycle === "yearly" ? 365 : 30) * 86_400_000).toISOString();
+    }
+    const previousSub = customer.razorpaySubscriptionId;
+    this.saas.updateCustomer(customerId, {
+      status: "active", planId, billingCycle: cycle, currentPeriodEnd: end,
+      ...(sub?.id ? { razorpaySubscriptionId: sub.id } : {}),
+    });
+    // Switched to a new subscription: stop billing the old one.
+    if (sub?.id && previousSub && previousSub !== sub.id) void this.cancelSubscription(previousSub);
+  }
+
+  private async cancelSubscription(id: string): Promise<void> {
+    try {
+      await this.rzp(`/v1/subscriptions/${encodeURIComponent(id)}/cancel`, { cancel_at_cycle_end: 0 });
+      this.saas.audit("razorpay", "subscription.cancel_old", id);
+    } catch (error) {
+      console.error(`could not cancel old subscription ${id}: ${error instanceof Error ? error.message : error}`);
+    }
   }
 
   private hmac(data: string, secret: string): string {
@@ -169,6 +227,7 @@ interface RazorpaySubscription {
 interface RazorpayPayment {
   id?: string;
   amount?: number;
+  order_id?: string;
   notes?: Record<string, unknown>;
 }
 interface RazorpayEvent {

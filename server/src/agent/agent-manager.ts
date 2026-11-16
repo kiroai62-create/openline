@@ -182,7 +182,7 @@ export class AgentManager {
       !streamed &&
       call.direction === "incoming" &&
       this.profileFor(call).autoAnswer &&
-      Boolean(this.pickEngine(this.profileFor(call).geminiApiKey)) &&
+      Boolean(this.pickEngine(this.profileFor(call).geminiApiKey, this.profileFor(call).clientId)) &&
       this.checkEntitled(call) &&
       !this.requested.has(call.id)
     ) {
@@ -207,7 +207,8 @@ export class AgentManager {
       void this.giveUp(call, this.entitlementMessage(call));
       return;
     }
-    const engine = this.pickEngine(this.profileFor(call).geminiApiKey);
+    const profileNow = this.profileFor(call);
+    const engine = this.pickEngine(profileNow.geminiApiKey, profileNow.clientId);
     if (!engine) {
       console.error(`no AI provider available for call ${call.id}`);
       void this.giveUp(call);
@@ -243,12 +244,12 @@ export class AgentManager {
     void agent.start();
   }
 
-  private pickEngine(clientKey?: string): { live?: ProviderConfig } | undefined {
+  private pickEngine(clientKey?: string, clientId?: string): { live?: ProviderConfig } | undefined {
     const router = this.options.router;
-    // A customer's own Gemini Live key takes priority over the shared keys.
+    // A customer's own Gemini Live key takes priority over the shared keys; it cools down on its own.
     if (clientKey) {
-      const cooling = router?.status().find((s) => s.id === "client-gemini" && s.state === "cooldown");
-      if (!cooling) return { live: { id: "client-gemini", kind: "live", type: "gemini", label: "Gemini (customer key)", enabled: true, apiKey: clientKey, model: this.model } };
+      const id = `client-gemini:${clientId ?? "default"}`;
+      if (!router?.isCoolingDown(id)) return { live: { id, kind: "live", type: "gemini", label: "Gemini (customer key)", enabled: true, apiKey: clientKey, model: this.model } };
     }
     if (!router) {
       const key = this.options.config.get("geminiApiKey");

@@ -17,7 +17,7 @@ interface PendingCode {
 
 export class PairingService {
   private readonly codes = new Map<string, PendingCode>();
-  private failures: number[] = [];
+  private readonly failures = new Map<string, number[]>();
 
   constructor(private readonly ttlMs = 10 * 60_000) {}
 
@@ -31,15 +31,17 @@ export class PairingService {
   }
 
   /** Single use. Returns the bound clientId (or null) on success, else why not. */
-  consume(input: string): { clientId: string | null } | "invalid" | "throttled" {
+  consume(input: string, from = "any"): { clientId: string | null } | "invalid" | "throttled" {
     const now = Date.now();
-    this.failures = this.failures.filter((at) => now - at < 60_000);
-    if (this.failures.length >= MAX_FAILURES_PER_MINUTE) return "throttled";
+    const recent = (this.failures.get(from) ?? []).filter((at) => now - at < 60_000);
+    this.failures.set(from, recent);
+    if (this.failures.size > 10_000) this.failures.clear();
+    if (recent.length >= MAX_FAILURES_PER_MINUTE) return "throttled";
 
     const code = input.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
     const pending = this.codes.get(code);
     if (!pending || pending.expiresAt < now) {
-      this.failures.push(now);
+      recent.push(now);
       return "invalid";
     }
     this.codes.delete(code);
