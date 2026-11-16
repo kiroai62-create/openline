@@ -34,6 +34,7 @@ import {
   updateCustomerSchema,
   licenseActivateSchema,
   customerBusinessSchema,
+  checkoutSchema,
   updateClientSchema,
 } from "./schemas.js";
 import type { AgentManager } from "./agent/agent-manager.js";
@@ -43,6 +44,7 @@ import { PairingService, pairUri } from "./pairing.js";
 import type { StateStore } from "./state.js";
 import { renderTemplate, sendWhatsApp, toWhatsAppNumber, whatsappFromClient, whatsappFromConfig, type WhatsAppTarget } from "./agent/whatsapp.js";
 import type { SaasStore } from "./saas.js";
+import type { Billing } from "./billing.js";
 import type { ClientStore } from "./clients.js";
 import { Analytics } from "./analytics.js";
 import { PRESETS, type AiRouter } from "./ai/router.js";
@@ -63,6 +65,7 @@ export interface AppDependencies {
   router?: AiRouter;
   fallback?: FallbackAudio;
   saas?: SaasStore;
+  billing?: Billing;
   /** Show the Clients page (several businesses on one server). Off for one deployment per client. */
   multiClient?: boolean;
 }
@@ -79,6 +82,15 @@ export function createApp(deps: AppDependencies) {
   app.disable("x-powered-by");
   // Behind Tailscale Funnel / Cloudflare Tunnel: honour X-Forwarded-Proto/Host for URLs we hand out.
   app.set("trust proxy", true);
+  // Razorpay webhook needs the raw body for signature checking, so it is mounted before the JSON
+  // parser and before the auth middleware (Razorpay signs, there is no session).
+  app.post("/v1/billing/webhook", express.raw({ type: "*/*", limit: "1mb" }), (request, response) => {
+    if (!deps.billing) return response.status(404).end();
+    const result = deps.billing.webhook(request.body as Buffer, request.header("x-razorpay-signature"));
+    if (!result.ok) return response.status(400).json(errorBody("BAD_SIGNATURE", "invalid webhook signature"));
+    return response.json({ ok: true, handled: result.handled });
+  });
+
   app.use(express.json({ limit: "64kb" }));
 
   // Web console (home, playground, connection, settings). The page is public; it signs in with the
@@ -389,6 +401,32 @@ export function createApp(deps: AppDependencies) {
     app.get("/v1/audit", (request, response) => {
       if (!requireAdmin(request, response)) return;
       return response.json({ entries: saas.auditLog(300) });
+    });
+
+    // --- billing (customer buys/upgrades) ---
+    app.post("/v1/billing/checkout", async (request, response) => {
+      const customer = sessionCustomer(request);
+      if (!customer) return response.status(403).json(errorBody("FORBIDDEN", "customers only"));
+      const parsed = checkoutSchema.safeParse(request.body);
+      if (!parsed.success) return validationError(response, parsed.error.issues);
+      const plan = saas.getPlan(parsed.data.planId);
+      if (!plan || !plan.active) return response.status(404).json(errorBody("NOT_FOUND", "plan not available"));
+      if (!deps.billing) return response.json({ manual: true, message: "Online payment isn't set up. Please contact us." });
+      try {
+        const out = await deps.billing.checkout(customer.id, plan, parsed.data.cycle);
+        saas.audit(customer.name, "billing.checkout", customer.id, `${plan.id}/${parsed.data.cycle}`);
+        return response.json(out);
+      } catch (error) {
+        return response.status(502).json(errorBody("RAZORPAY_ERROR", (error as Error).message));
+      }
+    });
+
+    app.post("/v1/billing/confirm", (request, response) => {
+      const customer = sessionCustomer(request);
+      if (!customer || !deps.billing) return response.status(403).json(errorBody("FORBIDDEN", "customers only"));
+      const result = deps.billing.confirm(customer.id, (request.body ?? {}) as Record<string, string>);
+      if (!result.ok) return response.status(400).json(errorBody("PAYMENT_UNVERIFIED", "could not verify the payment"));
+      return response.json({ ok: true });
     });
 
     // --- customer self-service ---

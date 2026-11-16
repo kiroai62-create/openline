@@ -15,6 +15,7 @@ import { Analytics } from "./analytics.js";
 import { AiRouter } from "./ai/router.js";
 import { FallbackAudio } from "./ai/fallback-audio.js";
 import { SaasStore } from "./saas.js";
+import { Billing } from "./billing.js";
 import { HttpWebhookDispatcher, type WebhookDispatcher } from "./webhooks.js";
 
 export interface GatewayServerOptions {
@@ -31,6 +32,10 @@ export interface GatewayServerOptions {
   docsUrl?: string;
   whatsappGatewayUrl?: string;
   whatsappApiSecret?: string;
+  razorpayKeyId?: string;
+  razorpayKeySecret?: string;
+  razorpayWebhookSecret?: string;
+  razorpayApiBase?: string;
   /** One deployment serves several businesses (Clients page). Default: one deployment per client. */
   multiClient?: boolean;
   /** This deployment's client: seeds the receptionist on first start. */
@@ -55,6 +60,7 @@ export interface GatewayServer {
   router: AiRouter;
   fallback: FallbackAudio;
   saas: SaasStore;
+  billing: Billing;
 }
 
 export function createGatewayServer(options: GatewayServerOptions): GatewayServer {
@@ -85,6 +91,12 @@ export function createGatewayServer(options: GatewayServerOptions): GatewayServe
   const clients = new ClientStore(db);
   const saas = new SaasStore(db);
   if (options.dataDir) saas.seedPlans();
+  const billing = new Billing(saas, config, {
+    keyId: options.razorpayKeyId,
+    keySecret: options.razorpayKeySecret,
+    webhookSecret: options.razorpayWebhookSecret,
+    apiBase: options.razorpayApiBase ?? "https://api.razorpay.com",
+  });
   const router = new AiRouter(settings, config);
   // First start of a per-client deployment: the receptionist answers for CLIENT_NAME.
   if (options.clientName && !settings.get("agent")) {
@@ -141,9 +153,9 @@ export function createGatewayServer(options: GatewayServerOptions): GatewayServe
       if (billed.size > 5000) billed.clear();
     }
   };
-  const app = createApp({ auth, config, state, deviceChannel: deviceHub, events, media, agents, streams, clients, analytics: new Analytics(db), router, fallback, saas, multiClient: options.multiClient || clients.list().length > 0 });
+  const app = createApp({ auth, config, state, deviceChannel: deviceHub, events, media, agents, streams, clients, analytics: new Analytics(db), router, fallback, saas, billing, multiClient: options.multiClient || clients.list().length > 0 });
   httpServer = createServer(app);
   deviceHub.attach(httpServer);
   media.attach(httpServer);
-  return { httpServer, db, state, config, auth, deviceHub, events, media, agents, streams, clients, router, fallback, saas };
+  return { httpServer, db, state, config, auth, deviceHub, events, media, agents, streams, clients, router, fallback, saas, billing };
 }
