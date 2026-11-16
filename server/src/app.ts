@@ -96,7 +96,8 @@ export function createApp(deps: AppDependencies) {
   // Web console (home, playground, connection, settings). The page is public; it signs in with the
   // console password and then uses a session cookie for the API.
   const consolePage = fileURLToPath(new URL("../public/console.html", import.meta.url));
-  app.get(["/", "/console"], (_request, response) => response.sendFile(consolePage));
+  // dotfiles: "allow" — the install path itself may contain a hidden folder (e.g. ~/.apps/...).
+  app.get(["/", "/console"], (_request, response) => response.sendFile(consolePage, { dotfiles: "allow" }));
 
   app.get("/health", (_request, response) => {
     response.json({ ok: true, service: "openline-server" });
