@@ -483,7 +483,8 @@ export function createApp(deps: AppDependencies) {
       }
       const publicUrl = (deps.config.get("publicUrl") ?? `${request.protocol}://${request.host}`).replace(/\/+$/, "");
       const { code, expiresAt } = pairing.create(ctx.client.id);
-      const uri = pairUri(publicUrl, code);
+      const license = saas!.licenseFor(ctx.customer.id)?.key;
+      const uri = pairUri(publicUrl, code, license);
       const qrSvg = await QRCode.toString(uri, { type: "svg", margin: 1, errorCorrectionLevel: "M" });
       return response.status(201).json({ code, expiresAt, publicUrl, pairUri: uri, qrSvg });
     });

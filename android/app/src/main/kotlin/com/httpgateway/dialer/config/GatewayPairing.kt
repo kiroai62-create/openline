@@ -16,7 +16,7 @@ import java.util.concurrent.TimeUnit
  * server URL (https -> wss), so nothing has to be typed.
  */
 object GatewayPairing {
-    data class Invite(val serverUrl: String, val code: String)
+    data class Invite(val serverUrl: String, val code: String, val license: String? = null)
 
     private val client = OkHttpClient.Builder().callTimeout(20, TimeUnit.SECONDS).build()
 
@@ -26,7 +26,7 @@ object GatewayPairing {
         val server = uri.getQueryParameter("url")?.trimEnd('/') ?: return null
         val code = uri.getQueryParameter("code") ?: return null
         if (!server.startsWith("http://") && !server.startsWith("https://")) return null
-        return Invite(server, code)
+        return Invite(server, code, uri.getQueryParameter("lic")?.takeIf { it.isNotBlank() })
     }
 
     /** Blocking network call; returns the saved config or throws with a user-readable message. */
@@ -53,6 +53,7 @@ object GatewayPairing {
             deviceToken = json.getString("deviceToken"),
         )
         GatewayConfigStore(context).save(config)
+        invite.license?.let { com.httpgateway.dialer.license.LicenseManager.saveKey(context, it) }
         return config
     }
 }

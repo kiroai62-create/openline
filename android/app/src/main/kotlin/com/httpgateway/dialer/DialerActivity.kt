@@ -129,6 +129,9 @@ class DialerActivity : Activity() {
         wifiPromptShown = false
         renderSteps()
         refreshAudioStatus()
+        if (com.httpgateway.dialer.license.LicenseManager.hasKey(this)) {
+            Thread { com.httpgateway.dialer.license.LicenseManager.refresh(this); runOnUiThread(::renderConnection) }.start()
+        }
         handler.post(ticker)
         runCatching {
             getSystemService(ConnectivityManager::class.java).registerNetworkCallback(
@@ -201,8 +204,15 @@ class DialerActivity : Activity() {
             GatewayRuntime.isConnected() -> R.color.live to "Online at $host"
             else -> R.color.bad to "Can't reach $host. Retrying."
         }
-        connectionDot.backgroundTintList = ColorStateList.valueOf(getColor(color))
-        connectionText.text = text
+        val lic = com.httpgateway.dialer.license.LicenseManager.cached(this)
+        val licText = when {
+            !com.httpgateway.dialer.license.LicenseManager.hasKey(this) -> null
+            lic == null -> null
+            lic.valid -> "Licensed to ${lic.customerName ?: "customer"}${lic.plan?.let { " · $it" } ?: ""}"
+            else -> "Licence inactive: ${lic.message ?: "contact your provider"}"
+        }
+        connectionDot.backgroundTintList = ColorStateList.valueOf(getColor(if (lic != null && !lic.valid) R.color.bad else color))
+        connectionText.text = if (licText != null) "$text\n$licText" else text
         renderServerStep(config, host)
     }
 
@@ -390,6 +400,11 @@ class DialerActivity : Activity() {
             numberInput.requestFocus()
             return
         }
+        if (!com.httpgateway.dialer.license.LicenseManager.allowsCalls(this)) {
+            val message = com.httpgateway.dialer.license.LicenseManager.cached(this)?.message
+            toast(message ?: "This app's licence is not active. Contact your provider.")
+            return
+        }
         if (checkSelfPermission(Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED) {
             pendingPermissionNumber = number
             requestPermissions(arrayOf(Manifest.permission.CALL_PHONE), REQUEST_CALL_PHONE)
@@ -438,6 +453,7 @@ class DialerActivity : Activity() {
                     fillAdvancedFields()
                     GatewayRuntime.reconfigure()
                     toast("Connected to your gateway")
+                    Thread { com.httpgateway.dialer.license.LicenseManager.refresh(this) }.start()
                 }.onFailure {
                     toast("Couldn't connect: ${it.message}")
                 }
