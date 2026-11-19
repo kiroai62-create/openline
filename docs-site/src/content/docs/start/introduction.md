@@ -1,9 +1,9 @@
 ---
 title: Introduction
-description: 'What OpenLine is: an open-source, self-hosted voice API that turns an Android phone into a programmable phone line for AI voice agents. How it works and its limits.'
+description: 'What VaaniFlow is: an open-source, self-hosted voice API that turns an Android phone into a programmable phone line for AI voice agents. How it works and its limits.'
 ---
 
-OpenLine turns an Android phone with a SIM card into a programmable phone line. Your code places
+VaaniFlow turns an Android phone with a SIM card into a programmable phone line. Your code places
 and answers real calls through a REST API, receives call events by webhook, and streams call
 audio over WebSockets. It's a small, self-hosted alternative to Twilio Voice, built for putting
 AI voice agents on real phone calls.
@@ -11,16 +11,16 @@ AI voice agents on real phone calls.
 ## How it works
 
 ```text
- Caller's phone ── mobile network ──  Android phone (OpenLine app)
+ Caller's phone ── mobile network ──  Android phone (VaaniFlow app)
                                             │  WebSocket (commands, events, audio)
                                             ▼
-                                     OpenLine server  ── webhooks ──▶ your backend
+                                     VaaniFlow server  ── webhooks ──▶ your backend
                                             │
                           REST + WebSocket  ▼
                          your code  /  your AI agent (Pipecat, LiveKit worker, custom)
 ```
 
-- **The phone** runs the OpenLine app. It's the default phone app, so it can dial, answer and
+- **The phone** runs the VaaniFlow app. It's the default phone app, so it can dial, answer and
   hang up. It captures the call's audio and plays your audio into the call, and stays silent
   itself.
 - **The server** runs on your machine. It exposes the API, relays audio, sends webhooks and stores
@@ -38,7 +38,7 @@ AI voice agents on real phone calls.
 
 ## What it isn't
 
-OpenLine is a v1. It does calls well and leaves out the rest:
+VaaniFlow is a v1. It does calls well and leaves out the rest:
 
 - **One line per phone.** Each phone handles one call at a time on its own number. For more
   parallel calls, pair more phones.

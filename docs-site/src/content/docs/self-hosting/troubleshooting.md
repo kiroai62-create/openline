@@ -32,7 +32,7 @@ data until the next reboot.
 ## Audio plays on the phone's speaker
 
 The app puts calls in "audio processing" mode as soon as they connect, which keeps the handset
-silent. If you hear audio on the phone, make sure OpenLine is the default phone app (step 1).
+silent. If you hear audio on the phone, make sure VaaniFlow is the default phone app (step 1).
 
 ## My agent never gets a connection
 

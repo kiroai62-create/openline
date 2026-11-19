@@ -22,7 +22,7 @@ Patient ─call─▶ Clinic ka Android phone (aapka app, client ka SIM)
                       ▼
                Aapka central server (ek hi, saare clients)
                ├─ AI receptionist (client ki apni Gemini key, backup: Groq/Sarvam…)
-               ├─ WhatsApp pe booking link (client ka apna WhatsApp gateway)
+               ├─ WhatsApp automation: AI replies, inbox, booking link (client ka apna number, QR se linked)
                ├─ Client ka dashboard (sirf uska data)
                └─ Aapka admin panel (saare clients, plans, license, billing)
 ```
@@ -123,38 +123,45 @@ Example: [`clients/32-teeth-hospital.md`](clients/32-teeth-hospital.md)
 
 Har client ki apni key hone se ek client ki calls doosre client ki limit nahi khaati.
 
-### D2. WhatsApp gateway (client ka number)
+### D2. WhatsApp (client ka number)
 
-1. 32 Teeth wale WhatsApp gateway (Hugging Face Space + PHP dashboard) ki ek copy client ke liye
-   banao. Space ke secrets mein `PHP_URL` aur `API_SECRET` daalo.
-2. Client ke WhatsApp se QR scan karo.
-3. **My business → WhatsApp**: Space ka `https://...hf.space` address aur `API_SECRET` daalo, phir
-   Save.
+1. Client ke panel mein **WhatsApp → Connection → Connect**.
+2. Client ke phone pe WhatsApp → **Settings → Linked devices → Link a device** se QR scan karo.
+3. **Automation** tab mein quick replies (clinic address, timings) aur fallback message daalo.
+4. Doosre phone se client ke WhatsApp pe "timings?" bhejo. AI ka jawab aana chahiye aur **Inbox**
+   mein dikhna chahiye.
 
-> WhatsApp gateway unofficial (Baileys) hai, aur number block hone ka thoda risk hai. Client ko
-> bata do.
+> WhatsApp linked device (Baileys) unofficial hai, number restrict hone ka thoda risk hai. Client ko
+> bata do ki bulk ya bina maange messages na bheje.
 
 ### D3. Phone (sabse zaroori hissa)
 
 Phone **Wi-Fi** pe ho aur charger lagao.
 
 1. **APK install:** APK phone pe bhejo, kholo, aur "Unknown apps" ki ijazat do.
-2. **Default phone app:** app mein step 1 → **Set**.
+2. **Default phone app:** app kholte hi upar banner → **Set as default** (ya **VaaniFlow AI** tab →
+   Setup → Default phone app → **Set**). Contacts aur call history ki permission bhi do.
    - Vivo/Oppo/Xiaomi pe "Restricted setting" aaye to **Settings → Apps → (app) → ⋮ → Allow
      restricted settings**, phir dobara try karo.
 3. **Server se jodna (license ke saath):**
    - Laptop pe **client ke panel → Phones → Show pairing code**. Ye QR **client ke panel se hi**
      lena hai. Admin ke Connection page wala QR client se nahi judta.
-   - App mein step 2 → **Scan QR**.
+   - App mein **VaaniFlow AI** tab → Setup → Connect to your workspace → **Scan QR**.
    - App pe dikhna chahiye: **"Licensed to <business> · <plan>"**. Client ke Phones page pe phone
      **Online** aana chahiye.
 4. **Call audio (ek baar):**
    - Developer options chalu karo: Settings → About phone → Build number pe 7 baar tap.
-   - App mein step 3 → **Set up** → **Wireless debugging** on → **Pair device with pairing code**.
+   - **VaaniFlow AI** tab → AI call audio → **Set up** → **Wireless debugging** on → **Pair device with pairing code**.
    - Notification mein **Enter code** dabao, 6-digit code daalo. "Call audio ready" aana chahiye.
-5. **Background:** app mein step 4 → **Allow**. Vivo pe **Settings → Battery → Background power
+5. **Background:** **VaaniFlow AI** tab → Stay online → **Allow**. Vivo pe **Settings → Battery → Background power
    consumption → (app) → Allow**. Doosre brands pe Autostart aur "No restrictions".
-6. Phone ko charger pe lagakar fixed jagah rakh do.
+6. **AI kab uthaye** (VaaniFlow AI tab):
+   - Sirf business ka phone hai: **AI answers instantly**.
+   - Client ka apna phone hai: **Ring first, then AI** (pehle phone bajta hai, na uthaya to AI),
+     **Saved contacts always ring normally** on, aur dual SIM ho to **SIM the AI handles** mein
+     business SIM chuno. **Business hours** daalne pe band hone ke baad AI turant uthata hai.
+   - Notification mein **Turn AI off/on** se ek tap mein AI band/chalu.
+7. Phone ko charger pe lagakar rakh do.
 
 ---
 
@@ -162,7 +169,8 @@ Phone **Wi-Fi** pe ho aur charger lagao.
 
 Doosre phone se client ke SIM number pe call karo aur ye sab tick karo:
 
-- [ ] AI 1-2 second mein uthata hai, aur business ke naam se greeting deta hai
+- [ ] AI setting ke hisaab se uthata hai (instant: 1-2 second, ring first: chuni hui seconds ke baad), aur business ke naam se greeting deta hai
+- [ ] Saved contact se call aane pe phone normal bajta hai, AI nahi uthata
 - [ ] Clinic wale phone pe koi awaaz nahi aati
 - [ ] Timing, address aur doctor ke baare mein sahi jawab aata hai
 - [ ] Price poochne pe AI andaza nahi lagata ("doctor batayenge")
@@ -232,7 +240,7 @@ pe forward lagao: hamesha, ya sirf busy aur no-answer pe.
 | "AI call nahi utha raha" | 1) Dashboard pe phone **Online** hai? 2) Customer **Active** hai, minute bache hain? 3) App pe "Licence inactive" to nahi? 4) My business mein Gemini key set hai? |
 | "Caller ko 'baad mein call karein' sunaai deta hai" | Saare AI fail ho rahe hain. Dashboard → AI providers: kaun limit pe hai aur error kya hai. Client ki Gemini key check karo, backup keys jodo |
 | "Phone pe awaaz aa rahi hai" | App → step 3 (call audio). Phone restart hua ho to Wi-Fi pe app kholo |
-| "WhatsApp link nahi gaya" | Gateway Space chalu hai? WhatsApp connected hai? My business mein address aur secret sahi hai? |
+| "WhatsApp link nahi gaya" | WhatsApp page pe status "Connected" hai? Nahi to Reconnect, ya QR dobara scan karo |
 | "AI galat bata raha hai" | My business ka text theek karo. Jo nahi likha, AI wo nahi bolega |
 | "Login nahi ho raha" | Customer card → Reset login password |
 | "Phone add nahi ho raha (limit)" | Plan ke Max phones. Upgrade karo |
@@ -252,7 +260,7 @@ Server ke logs: `sudo journalctl -u receptionist-platform -f`. Restart: `sudo sy
 
 **Kharcha:** server ek hi hai (free tier ya ₹400-800/mahina saare clients ke liye). AI client ki
 apni Gemini key pe chalta hai (free limit, uske baad client ke account pe bill). SIM aur phone
-client ka. WhatsApp gateway ke liye Hugging Face free Space.
+client ka. WhatsApp server ke andar hi chalta hai, alag kharcha nahi.
 
 ---
 

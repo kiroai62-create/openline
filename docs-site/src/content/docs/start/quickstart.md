@@ -1,6 +1,6 @@
 ---
 title: Quickstart
-description: Run the OpenLine server, pair an Android phone and place your first API phone call in about 15 minutes.
+description: Run the VaaniFlow server, pair an Android phone and place your first API phone call in about 15 minutes.
 ---
 
 You need a Windows, macOS or Linux machine with **Node.js 22.13 or newer**, and an Android phone
@@ -41,7 +41,7 @@ Copy the address it prints (like `https://your-pc.your-tailnet.ts.net`) into the
 
 ## 3. Pair the phone
 
-1. Install the OpenLine APK on the phone.
+1. Install the VaaniFlow APK on the phone.
 2. In the console, open **Connection**. A QR code appears.
 3. In the app, work through the setup steps:
    1. **Default phone app.** Tap **Set**.
@@ -57,14 +57,14 @@ The phone appears on the Connection page as online. [More on phone setup](../../
 Create an API key under **Settings → API keys**, then:
 
 ```bash
-export OPENLINE_URL=https://your-pc.your-tailnet.ts.net
-export OPENLINE_KEY=gw_...
+export VAANIFLOW_URL=https://your-pc.your-tailnet.ts.net
+export VAANIFLOW_KEY=gw_...
 
 # find your phone's id
-curl -s $OPENLINE_URL/v1/devices -H "Authorization: Bearer $OPENLINE_KEY"
+curl -s $VAANIFLOW_URL/v1/devices -H "Authorization: Bearer $VAANIFLOW_KEY"
 
-curl -X POST $OPENLINE_URL/v1/calls \
-  -H "Authorization: Bearer $OPENLINE_KEY" -H "content-type: application/json" \
+curl -X POST $VAANIFLOW_URL/v1/calls \
+  -H "Authorization: Bearer $VAANIFLOW_KEY" -H "content-type: application/json" \
   -d '{"deviceId":"phone-7f3a91c2","to":"+919876543210"}'
 ```
 
@@ -72,7 +72,7 @@ The phone dials. Watch the call in the console's **Playground**, where you can a
 your laptop. End it with:
 
 ```bash
-curl -X POST $OPENLINE_URL/v1/calls/<call id>/hangup -H "Authorization: Bearer $OPENLINE_KEY"
+curl -X POST $VAANIFLOW_URL/v1/calls/<call id>/hangup -H "Authorization: Bearer $VAANIFLOW_KEY"
 ```
 
 ## Next

@@ -1,0 +1,30 @@
+# VaaniFlow on any VPS / Azure VM / AWS EC2 or Lightsail with Docker:
+#   cp deploy/docker/.env.example deploy/docker/.env   # set DOMAIN and HTTP_GATEWAY_API_KEY
+#   docker compose -f deploy/docker/docker-compose.yml --env-file deploy/docker/.env up -d --build
+# Caddy gets the HTTPS certificate for DOMAIN automatically (ports 80 and 443 must be open).
+services:
+  vaaniflow:
+    build: { context: ../.., dockerfile: Dockerfile }
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      PUBLIC_URL: https://${DOMAIN}
+      DATA_DIR: /data
+    volumes:
+      - vaaniflow-data:/data
+    expose: ["8787"]
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on: [vaaniflow]
+    ports: ["80:80", "443:443", "443:443/udp"]
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+volumes:
+  vaaniflow-data:
+  caddy-data:
+  caddy-config:

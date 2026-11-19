@@ -34,13 +34,44 @@ data ya API limit ka doosre client pe koi asar nahi padta.
 | Har client ka address | Free: DuckDNS se `clientname.duckdns.org`. Ya apna domain: `32teeth.aapkibrand.com` |
 | Har client ki AI keys | Client ke apne Google account se Gemini key, aur backup ke liye Groq / Sarvam / Cloudflare (Step 6) |
 | Har client ka Android phone | Android 11 ya naya, SIM ke saath, 24 ghante charging pe. Abhi tak poori tarah sirf **Vivo V40 (Android 16)** pe test hua hai, isliye doosre phone pe pehle test call zaroor karein |
-| Har client ka WhatsApp gateway | Jaise 32 Teeth wala Hugging Face Space (Step 7) |
+| Har client ka WhatsApp number | Dashboard se QR scan karke link hota hai (Step 7) |
 | GitHub account | App (APK) banane ke liye |
 
 > **Ek SIM pe ek waqt mein ek hi call.** Kisi client ke yahan ek saath kai calls aati hain to
 > utne phone aur SIM uske deployment se jodein (sab ek hi console mein aate hain).
 
 ---
+
+## Docker se kisi bhi VPS, Azure ya AWS pe (sabse aasaan)
+
+Ek Linux VM (Ubuntu 22.04/24.04, 1 vCPU, 1-2 GB RAM kaafi hai) jisme ports **80** aur **443**
+khule hon, aur ek domain jiska A record VM ke public IP pe ho.
+
+| Platform | VM | Ports kahan kholein |
+|---|---|---|
+| Koi bhi VPS (Hostinger, DigitalOcean, Hetzner) | Ubuntu VPS | Provider ka firewall panel |
+| Azure | Virtual machine → Ubuntu, size B1s/B2s | VM → Networking → Add inbound port rule (80, 443) |
+| AWS | EC2 (t3.small) ya Lightsail ($5-10) | Security group / Lightsail Networking (80, 443) |
+
+```bash
+# VM pe (ek baar)
+curl -fsSL https://get.docker.com | sudo sh
+git clone https://github.com/kiroai62-create/openline.git && cd openline
+cp deploy/docker/.env.example deploy/docker/.env
+nano deploy/docker/.env            # DOMAIN aur HTTP_GATEWAY_API_KEY (openssl rand -base64 36)
+sudo docker compose -f deploy/docker/docker-compose.yml --env-file deploy/docker/.env up -d --build
+```
+
+Caddy apne aap HTTPS certificate le leta hai. `https://<DOMAIN>/` pe website, aur
+`https://<DOMAIN>/console` pe dashboard khulega; pehla account admin banta hai (setup key =
+`HTTP_GATEWAY_API_KEY`). Database Docker volume `vaaniflow-data` mein rehta hai.
+
+- Update: `git pull && sudo docker compose -f deploy/docker/docker-compose.yml --env-file deploy/docker/.env up -d --build`
+- Logs: `sudo docker compose -f deploy/docker/docker-compose.yml logs -f vaaniflow`
+- Backup: `sudo docker run --rm -v docker_vaaniflow-data:/d -v $PWD:/b busybox tar czf /b/vaaniflow-backup.tgz -C /d .`
+  (volume ka naam `sudo docker volume ls` se dekh lein)
+
+Neeche wala systemd + Caddy tareeka (Oracle Cloud, ek VM pe kai alag deployments) bhi chalta hai.
 
 ## 1. Free server: kaunsa platform
 
@@ -255,22 +286,26 @@ dabane ke baad "Recorded" dikhna chahiye. Record na hue hon to unki jagah beep b
 
 ---
 
-## 7. Client ka WhatsApp
+## 7. Client ka WhatsApp (ab built-in hai)
 
-Har client ka apna WhatsApp number aur apna gateway hona chahiye, taaki booking link usi clinic ke
-number se jaaye aur patient wahin reply kare.
+WhatsApp automation ab VaaniFlow ke andar hi hai. Alag gateway, Hugging Face Space ya PHP
+dashboard ki zaroorat nahi.
 
-1. 32 Teeth wale gateway (Hugging Face Space + PHP dashboard) ki ek copy client ke liye banayein.
-2. Space ke secrets mein `PHP_URL` aur `API_SECRET` set karein, phir client ke WhatsApp se QR scan
-   karein.
-3. Client ke console mein **Settings → WhatsApp**: Space ka address aur `API_SECRET` daalein, phir
-   **Send test** dabayein.
+1. Client ke dashboard mein **WhatsApp → Connection → Connect** dabayein. QR code aayega.
+2. Client ke phone pe WhatsApp (ya WhatsApp Business) → **Settings → Linked devices → Link a
+   device** se QR scan karein.
+3. **Automation** tab: AI reply on/off, reply delay, quick replies, "AI na chal sake to" message,
+   aur AI ke liye extra rules. **Save automation** dabayein.
+4. **Inbox** tab mein saari chats dikhengi. Kisi chat mein **Pause AI** dabakar staff khud reply kar
+   sakta hai. Phone se reply karne pe bhi AI us chat ke liye apne aap ruk jaata hai.
 
-> Ye gateway WhatsApp Web (Baileys) pe chalta hai, jo WhatsApp ki official API nahi hai. Bahut
-> zyada ya bina maange messages bhejne pe number block ho sakta hai. Yahan message sirf usi ko
-> jaata hai jisne khud booking maangi, phir bhi client ko ye baat bata dein.
+Call ke baad booking link bhi isi linked number se jaata hai (aur inbox mein dikhta hai). Purana
+external gateway (`POST /send`) chahiye ho to **Settings → Booking message & external gateway**
+mein ab bhi laga sakte hain; built-in WhatsApp connected ho to pehle wahi use hota hai.
 
----
+> Ye WhatsApp Web jaisa linked device (Baileys) hai, official WhatsApp Business API nahi. Naye
+> number se ek saath bahut saare messages ya bina maange messages na bhejein, warna WhatsApp
+> number restrict kar sakta hai. Client ko ye pehle bata dein.
 
 ## 8. Client ki jaankari
 

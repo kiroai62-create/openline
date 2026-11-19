@@ -11,7 +11,7 @@ on:
       app_name:
         description: "App name shown on the phone (letters, digits and spaces)"
         required: false
-        default: "OpenLine"
+        default: "VaaniFlow"
       client:
         description: "Client short name, used in the download name (e.g. 32teeth)"
         required: false
@@ -34,7 +34,7 @@ jobs:
           java-version: 17
       # ubuntu-latest already has the Android SDK (ANDROID_HOME); Gradle fetches missing platforms.
       - name: Set app name
-        if: ${{ inputs.app_name != '' && inputs.app_name != 'OpenLine' }}
+        if: ${{ inputs.app_name != '' && inputs.app_name != 'VaaniFlow' }}
         env:
           APP_NAME: ${{ inputs.app_name }}
         run: |
@@ -42,8 +42,8 @@ jobs:
           sed -i "s|<string name=\"app_name\">.*</string>|<string name=\"app_name\">$APP_NAME</string>|" app/src/main/res/values/strings.xml
           grep app_name app/src/main/res/values/strings.xml
       - name: Build
-        run: chmod +x gradlew && ./gradlew --no-daemon :protocol:test :app:assembleDebug
+        run: chmod +x gradlew && ./gradlew --no-daemon :protocol:test :app:testDebugUnitTest :app:assembleDebug
       - uses: actions/upload-artifact@v4
         with:
-          name: ${{ format('phone-app-{0}', (inputs.client != '' && inputs.client) || 'app') }}
+          name: ${{ format('vaaniflow-{0}', (inputs.client != '' && inputs.client) || 'app') }}
           path: android/app/build/outputs/apk/debug/app-debug.apk

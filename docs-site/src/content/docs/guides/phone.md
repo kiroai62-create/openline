@@ -1,9 +1,9 @@
 ---
 title: Set up the phone
-description: Install the OpenLine app, pair it, enable call audio and keep it online.
+description: Install the VaaniFlow app, pair it, enable call audio and keep it online.
 ---
 
-The phone is the line. It needs Android 11 or newer, a SIM that can make calls, and the OpenLine
+The phone is the line. It needs Android 11 or newer, a SIM that can make calls, and the VaaniFlow
 app. Use a spare phone if you can: the app becomes its default phone app.
 
 ## Setup steps in the app
@@ -17,7 +17,7 @@ app. Use a spare phone if you can: the app becomes its default phone app.
    needed. Tap **Set up**, turn on **Wireless debugging**, tap **Pair device with pairing code**,
    and type the 6-digit code into the app's notification.
 4. **Stay online in the background.** Allow the app to ignore battery optimisation. On Vivo,
-   also set **Battery → Background power consumption → Allow** for OpenLine.
+   also set **Battery → Background power consumption → Allow** for VaaniFlow.
 
 ## Wi-Fi and mobile data
 

@@ -1,6 +1,6 @@
-# OpenLine docs
+# VaaniFlow docs
 
-Starlight site for the OpenLine API, deployed to GitHub Pages by `.github/workflows/docs.yml`.
+Starlight site for the VaaniFlow API, deployed to GitHub Pages by `.github/workflows/docs.yml`.
 
 ```bash
 npm install

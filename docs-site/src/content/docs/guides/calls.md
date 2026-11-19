@@ -9,8 +9,8 @@ All requests need `Authorization: Bearer <api key>`. Full schemas are in the
 ## Place a call
 
 ```bash
-curl -X POST $OPENLINE_URL/v1/calls \
-  -H "Authorization: Bearer $OPENLINE_KEY" -H "content-type: application/json" \
+curl -X POST $VAANIFLOW_URL/v1/calls \
+  -H "Authorization: Bearer $VAANIFLOW_KEY" -H "content-type: application/json" \
   -d '{
     "deviceId": "phone-7f3a91c2",
     "to": "+919876543210",
@@ -36,10 +36,10 @@ curl -X POST $OPENLINE_URL/v1/calls \
 ## Control a live call
 
 ```bash
-curl -X POST $OPENLINE_URL/v1/calls/$CALL_ID/hangup  -H "Authorization: Bearer $OPENLINE_KEY"
-curl -X POST $OPENLINE_URL/v1/calls/$CALL_ID/hold    -H "Authorization: Bearer $OPENLINE_KEY"
-curl -X POST $OPENLINE_URL/v1/calls/$CALL_ID/unhold  -H "Authorization: Bearer $OPENLINE_KEY"
-curl -X POST $OPENLINE_URL/v1/calls/$CALL_ID/dtmf    -H "Authorization: Bearer $OPENLINE_KEY" \
+curl -X POST $VAANIFLOW_URL/v1/calls/$CALL_ID/hangup  -H "Authorization: Bearer $VAANIFLOW_KEY"
+curl -X POST $VAANIFLOW_URL/v1/calls/$CALL_ID/hold    -H "Authorization: Bearer $VAANIFLOW_KEY"
+curl -X POST $VAANIFLOW_URL/v1/calls/$CALL_ID/unhold  -H "Authorization: Bearer $VAANIFLOW_KEY"
+curl -X POST $VAANIFLOW_URL/v1/calls/$CALL_ID/dtmf    -H "Authorization: Bearer $VAANIFLOW_KEY" \
   -H "content-type: application/json" -d '{"digits":"1#"}'
 ```
 
@@ -52,15 +52,15 @@ Each returns `202` once the phone has the command. Wait for the event (`call.dis
 
 ```bash
 # newest first; filter by state, direction or phone
-curl "$OPENLINE_URL/v1/calls?state=ended&direction=incoming&limit=20" -H "Authorization: Bearer $OPENLINE_KEY"
+curl "$VAANIFLOW_URL/v1/calls?state=ended&direction=incoming&limit=20" -H "Authorization: Bearer $VAANIFLOW_KEY"
 
 # next page
-curl "$OPENLINE_URL/v1/calls?limit=20&before=<nextBefore from the last page>" -H "Authorization: Bearer $OPENLINE_KEY"
+curl "$VAANIFLOW_URL/v1/calls?limit=20&before=<nextBefore from the last page>" -H "Authorization: Bearer $VAANIFLOW_KEY"
 
 # one call, its events, its transcript
-curl $OPENLINE_URL/v1/calls/$CALL_ID            -H "Authorization: Bearer $OPENLINE_KEY"
-curl $OPENLINE_URL/v1/calls/$CALL_ID/events     -H "Authorization: Bearer $OPENLINE_KEY"
-curl $OPENLINE_URL/v1/calls/$CALL_ID/transcript -H "Authorization: Bearer $OPENLINE_KEY"
+curl $VAANIFLOW_URL/v1/calls/$CALL_ID            -H "Authorization: Bearer $VAANIFLOW_KEY"
+curl $VAANIFLOW_URL/v1/calls/$CALL_ID/events     -H "Authorization: Bearer $VAANIFLOW_KEY"
+curl $VAANIFLOW_URL/v1/calls/$CALL_ID/transcript -H "Authorization: Bearer $VAANIFLOW_KEY"
 ```
 
 Calls carry `answeredAt` and `endedAt`, so talk time is `endedAt - answeredAt`.

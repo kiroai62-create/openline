@@ -1,128 +1,91 @@
-# OpenLine
+<p align="center"><img src="server/public/assets/logo.svg" width="72" alt="VaaniFlow"></p>
 
-**Your Android phone's SIM, as a voice API.** OpenLine is an open-source, self-hosted alternative
-to Twilio Voice: an Android phone places and answers real phone calls on its SIM, and your code or
-AI voice agent controls them over REST and talks through WebSockets.
+<h1 align="center">VaaniFlow</h1>
 
-**[Documentation](https://manohar-k-reddy.github.io/openline/)** ·
-[Quickstart](https://manohar-k-reddy.github.io/openline/start/quickstart/) ·
-[Connect an AI agent](https://manohar-k-reddy.github.io/openline/guides/agent-streams/) ·
-[API reference](https://manohar-k-reddy.github.io/openline/api/) ·
-[llms.txt](https://manohar-k-reddy.github.io/openline/llms.txt)
+<p align="center"><b>AI receptionist for business calls and WhatsApp.</b><br>
+Real SIM calls answered by AI, WhatsApp chats answered by AI, one dashboard for your team.</p>
 
-[![OpenLine in 30 seconds (video)](docs-site/public/media/openline-explainer-thumb.jpg)](https://manohar-k-reddy.github.io/openline/media/openline-explainer.mp4)
+---
 
-```bash
-curl -X POST https://your-openline.example/v1/calls \
-  -H "Authorization: Bearer $OPENLINE_KEY" -H "content-type: application/json" \
-  -d '{"deviceId":"phone-7f3a91c2","to":"+919876543210",
-       "stream":{"url":"wss://my-agent.example.com/ws","format":"twilio"}}'
-```
+VaaniFlow is a self-hosted SaaS platform. An Android phone with the business SIM runs the VaaniFlow
+phone app; the server answers its calls with an AI voice agent, replies to the business's WhatsApp
+messages, sends booking links, and hands conversations to staff when needed.
 
-The phone dials. When the call is answered, OpenLine connects it to your agent's WebSocket and
-streams the conversation both ways. Your agent hangs up by closing the socket.
+## What's inside
 
-## Features
+| Part | What it does |
+|---|---|
+| **Website** (`/`) | Product landing page with live pricing from your plans. |
+| **Dashboard** (`/console`) | Admin: customers, plans, billing, phones, AI providers, live calls, developers. Customer: overview, WhatsApp inbox, business info, phones, plan & billing. Light and dark mode, mobile friendly. |
+| **WhatsApp automation** | Each business links its own number by QR (Linked devices). AI replies from the business info in Hindi, Hinglish or English, human hand-off, per-chat AI pause, staff replies from the inbox or phone, quick replies, fallback message, booking links after calls. |
+| **AI providers** | Gemini Live for calls; Gemini, Groq, Cloudflare Workers AI, OpenRouter, Cerebras, Mistral, Sarvam or any OpenAI-compatible API for chat and the speech pipeline. Automatic failover and a **Test** button per key. |
+| **Phone app** (`android/`) | A full dialer like the Google Phone app: favourites, recents, contacts, T9 keypad, call screen (mute, speaker, Bluetooth, hold, add call, swap, merge, dual SIM), incoming call notifications and missed calls. The **VaaniFlow AI** tab decides when the AI may answer. |
+| **Voice API** | Place, answer and control calls over REST, signed webhooks, stream call audio to your own agents over WebSockets (raw PCM or Twilio Media Streams). |
+| **SaaS** | Customers, plans, licences, minutes, Razorpay billing, audit log. See [SAAS.md](SAAS.md). |
 
-- **Calls API:** place, answer, reject, hang up, hold and send DTMF with plain HTTP requests.
-  Every call, event and transcript is stored and queryable.
-- **AI agents on real calls:** the server streams calls to your agent's WebSocket as raw 16 kHz
-  PCM or in Twilio Media Streams format, so Pipecat and other Twilio-ready agents work as they are.
-  Outgoing and incoming calls.
-- **Webhooks:** signed (HMAC-SHA256) call events with retries and a delivery log.
-- **Built-in assistant:** an optional Gemini Live receptionist that answers your calls and takes
-  messages.
-- **Silent phone, no root:** the phone only routes the call; audio never plays on the handset. One
-  APK, no Shizuku, no PC, no extra hardware.
-- **Console:** sign in, pair phones by QR code, watch phone health, test calls from the browser,
-  manage API keys and settings.
-- **Self-hosted:** one Node.js process and one SQLite file. Expose it with Tailscale Funnel or
-  Cloudflare Tunnel.
+## Personal calls stay personal
 
-## AI receptionist for clients
+The phone app is the default phone app, so the owner can keep using their own phone:
 
-Each client gets its own deployment: its own copy of the server, database, AI keys, WhatsApp
-gateway, web address, console and phone app. Their calls are answered 24/7, questions are answered
-from the client's information, and the booking link goes out on WhatsApp. Calls use Gemini Live
-with automatic failover to other providers (Groq, Cloudflare, Sarvam and more); if no AI can
-answer, the caller hears a recorded "please call later" message instead of a dead line.
+- **Ring first, then AI**: the phone rings for N seconds; if nobody answers, the AI picks up silently.
+- **Saved contacts always ring normally** and never reach the AI (checked on the phone, contacts never leave it).
+- **SIM the AI handles**: on dual-SIM phones the personal SIM rings normally.
+- **Business hours**: outside them the AI answers instantly.
+- **Let AI answer / Take over** buttons on the call screen, and **Turn AI off** in the notification.
+
+The phone sends its decision with each incoming call (`"ai": "now" | "after:<s>" | "never"`) and
+the server follows it.
+
+## Run it
+
+**Docker (any VPS, Azure VM, AWS EC2/Lightsail)**
 
 ```bash
-sudo bash deploy/setup-vm.sh                                   # once per server (Oracle Cloud Always Free)
-sudo bash deploy/new-client.sh 32teeth "32 Teeth Hospital" 32teeth.duckdns.org
+cp deploy/docker/.env.example deploy/docker/.env    # set DOMAIN and HTTP_GATEWAY_API_KEY
+docker compose -f deploy/docker/docker-compose.yml --env-file deploy/docker/.env up -d --build
 ```
 
-**Sell it as a SaaS:** run one central server and onboard paying customers with their own login,
-license, plan and Razorpay billing. Each customer edits their own business, pairs their own phone
-and sees their own analytics; you manage plans, licenses and customers from an admin console. See
-[SAAS.md](SAAS.md).
+Caddy provisions HTTPS for your domain. Open `https://<domain>/console` and create the admin account.
 
-- [DEPLOYMENT.md](DEPLOYMENT.md): free server, per-client deployment, AI keys, app and phone setup, step by step
-- [SAAS.md](SAAS.md): run as a SaaS — customers, plans, licenses, Razorpay billing
-- [CLIENT_DELIVERY.md](CLIENT_DELIVERY.md): delivering to each client, from deal close to go-live and monthly support
-- [docs/brochure/AI-Receptionist-Overview.pdf](docs/brochure/AI-Receptionist-Overview.pdf): client presentation
-  (rebuild with your brand: `python docs/brochure/make_brochure.py --brand "..." --phone "..."`)
-- [clients/32-teeth-hospital.md](clients/32-teeth-hospital.md): example client knowledge
-
-## How it works
-
-```text
- Caller ── mobile network ── Android phone (OpenLine app)
-                                   │  WebSocket: commands, events, call audio
-                                   ▼
-                            OpenLine server ── webhooks ──▶ your backend
-                                   │
-                    REST + WebSocket
-                                   ▼
-                  your code / AI agent (Pipecat, LiveKit worker, custom)
-```
-
-## Quick start
-
-Needs Node.js 22.13+ and an Android 11+ phone with a SIM.
+**Node.js 22.13+**
 
 ```bash
-git clone https://github.com/Manohar-k-Reddy/openline.git
-cd openline/server
+cd server
 cp .env.example .env          # set HTTP_GATEWAY_API_KEY to a long random string
 npm install && npm run build && npm start
 ```
 
-On Windows, double-click `run-server.bat` instead. Then:
+Step-by-step guides (Hindi/Hinglish): [DEPLOYMENT.md](DEPLOYMENT.md) ·
+[CLIENT_DELIVERY.md](CLIENT_DELIVERY.md) · [SAAS.md](SAAS.md).
 
-1. Open `http://localhost:8787/` and create your account.
-2. Give the server a public address: `tailscale funnel --bg 8787` (or a Cloudflare Tunnel), and
-   save it in **Settings**.
-3. Install the APK from [Releases](https://github.com/Manohar-k-Reddy/openline/releases) on the
-   phone, open **Connection** in the console and scan the QR code with the app.
-4. Create an API key in **Settings** and place a call.
+## Phone app
 
-The [Quickstart](https://manohar-k-reddy.github.io/openline/start/quickstart/) walks through every
-step.
+GitHub → Actions → **Android APK** → Run workflow, or build locally:
+
+```bash
+cd android && ./gradlew :app:assembleDebug        # app/build/outputs/apk/debug/app-debug.apk
+./gradlew :app:testDebugUnitTest -Droborazzi.test.record=true   # screenshots of the screens
+```
+
+Install it on an Android 10+ phone with the SIM, set it as the phone app, then scan the pairing QR
+from **Phones** in the dashboard. Details: [android/README.md](android/README.md).
 
 ## Repository
 
-| Folder | What's in it |
+| Folder | Contents |
 |---|---|
-| [`server/`](server/) | Node.js + TypeScript server: REST API, WebSockets, console, SQLite |
-| [`android/`](android/) | The OpenLine Android app (Kotlin) |
-| [`docs-site/`](docs-site/) | Documentation site (Astro Starlight), API spec, llms.txt |
-| [`simulator/`](simulator/) | Mock phone, media client and an example echo agent |
-| [`docs/notes/`](docs/notes/) | Historical development notes |
-
-## Status
-
-OpenLine is a v1, tested end to end on a Vivo V40 with Android 16: outgoing and incoming carrier
-calls, two-way call audio, AI agents on calls, and a silent handset. Call audio depends on
-Android behaviour that can differ between phone makers; reports from other phones are welcome.
-
-Not included yet: SMS, call recording, conferencing and TwiML-style call flows.
+| [`server/`](server/) | Node.js + TypeScript server: REST API, WebSockets, WhatsApp (Baileys), AI routing, dashboard and website, SQLite |
+| [`android/`](android/) | VaaniFlow phone app (Kotlin, Jetpack Compose) |
+| [`deploy/`](deploy/) | Docker Compose + Caddy, and VM scripts for per-client deployments |
+| [`docs-site/`](docs-site/) | API documentation site (Astro Starlight) |
+| [`simulator/`](simulator/) | Mock phone and example agents for development |
 
 ## Responsible use
 
-You're responsible for the calls you place. Follow local laws on automated calls, telling people
-they're talking to an AI, and recording consent.
+You're responsible for the calls and messages you send. Follow local laws on automated calls,
+telling people they're talking to an AI, recording consent and WhatsApp's terms. The WhatsApp link
+is an unofficial linked-device client; avoid bulk or unsolicited messaging.
 
 ## License
 
-[MIT](LICENSE)
+MIT. VaaniFlow builds on the open-source OpenLine project; see [LICENSE](LICENSE).

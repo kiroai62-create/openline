@@ -1,6 +1,6 @@
 @echo off
 setlocal
-rem Starts the OpenLine server. Settings and secrets live in server\.env (not committed).
+rem Starts the VaaniFlow server. Settings and secrets live in server\.env (not committed).
 rem Usage: run-server.bat            build, open Tailscale Funnel, start the server
 rem        run-server.bat nofunnel   same, but keep the server private (no Funnel)
 
