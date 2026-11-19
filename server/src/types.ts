@@ -104,7 +104,9 @@ export type DeviceEventName =
   | "call.rejected"
   | "call.failed"
   | "command.completed"
-  | "command.ack";
+  | "command.ack"
+  | "call.ai_requested"
+  | "call.ai_released";
 
 export interface DeviceEvent {
   type: "event";

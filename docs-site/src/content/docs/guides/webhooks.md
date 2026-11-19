@@ -1,6 +1,6 @@
 ---
 title: Webhooks
-description: 'Receive OpenLine call events as signed webhooks: payload format, HMAC signature verification in Node.js and Python, retries and the delivery log.'
+description: 'Receive VaaniFlow call events as signed webhooks: payload format, HMAC signature verification in Node.js and Python, retries and the delivery log.'
 ---
 
 The gateway POSTs every call event to a webhook: the call's own `webhookUrl` if it has one,
@@ -34,8 +34,8 @@ timestamps (server clock) for ordering. [All event names](../../reference/call-s
 
 Each request has two headers:
 
-- `x-openline-timestamp`: Unix seconds.
-- `x-openline-signature`: `sha256=` + hex HMAC-SHA256 of `"<timestamp>.<raw body>"`.
+- `x-vaaniflow-timestamp`: Unix seconds.
+- `x-vaaniflow-signature`: `sha256=` + hex HMAC-SHA256 of `"<timestamp>.<raw body>"`.
 
 The secret is `WEBHOOK_SECRET` from `server/.env`, or `HTTP_GATEWAY_API_KEY` if that isn't set.
 
@@ -43,9 +43,9 @@ The secret is `WEBHOOK_SECRET` from `server/.env`, or `HTTP_GATEWAY_API_KEY` if 
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 function verify(rawBody, headers, secret) {
-  const timestamp = headers["x-openline-timestamp"];
+  const timestamp = headers["x-vaaniflow-timestamp"];
   const expected = "sha256=" + createHmac("sha256", secret).update(`${timestamp}.${rawBody}`).digest("hex");
-  const given = String(headers["x-openline-signature"] ?? "");
+  const given = String(headers["x-vaaniflow-signature"] ?? "");
   const fresh = Math.abs(Date.now() / 1000 - Number(timestamp)) < 300;
   return fresh && given.length === expected.length && timingSafeEqual(Buffer.from(given), Buffer.from(expected));
 }
@@ -55,10 +55,10 @@ function verify(rawBody, headers, secret) {
 import hmac, hashlib, time
 
 def verify(raw_body: bytes, headers, secret: str) -> bool:
-    ts = headers["x-openline-timestamp"]
+    ts = headers["x-vaaniflow-timestamp"]
     expected = "sha256=" + hmac.new(secret.encode(), f"{ts}.".encode() + raw_body, hashlib.sha256).hexdigest()
     fresh = abs(time.time() - int(ts)) < 300
-    return fresh and hmac.compare_digest(expected, headers.get("x-openline-signature", ""))
+    return fresh and hmac.compare_digest(expected, headers.get("x-vaaniflow-signature", ""))
 ```
 
 Use the raw request body, before any JSON parsing.
@@ -69,7 +69,7 @@ Reply with any `2xx` within 5 seconds. Otherwise the gateway retries after 5 sec
 and 2 minutes (4 attempts in all). Every attempt is logged:
 
 ```bash
-curl "$OPENLINE_URL/v1/webhook-deliveries?callId=$CALL_ID" -H "Authorization: Bearer $OPENLINE_KEY"
+curl "$VAANIFLOW_URL/v1/webhook-deliveries?callId=$CALL_ID" -H "Authorization: Bearer $VAANIFLOW_KEY"
 ```
 
 Events can arrive more than once and, with retries, out of order. Use `eventId` to de-duplicate

@@ -3,6 +3,7 @@ import type { DeviceCommandChannel } from "../device-channel.js";
 import type { StateStore } from "../state.js";
 import type { CallRecord, DeviceEventName, StreamConfig, StreamFormat } from "../types.js";
 import { StreamBridge } from "./stream-bridge.js";
+import { aiPolicy } from "../agent/agent-manager.js";
 
 export interface StreamManagerOptions {
   state: StateStore;
@@ -59,13 +60,19 @@ export class StreamManager {
    * Called for every call update. Returns true when it took an incoming call (so the built-in
    * assistant leaves it alone).
    */
-  onCallEvent(call: CallRecord, event: DeviceEventName): boolean {
+  onCallEvent(call: CallRecord, event: DeviceEventName, payload?: Record<string, unknown>): boolean {
     let claimed = false;
-    if (event === "call.ringing" && call.direction === "incoming" && !call.stream) {
+    const policy = aiPolicy(payload);
+    if (event === "call.ringing" && call.direction === "incoming" && !call.stream && policy.mode !== "never") {
       const target = this.incomingTarget();
       if (target) {
         call = this.options.state.setCallStream(call.id, target) ?? call;
-        setTimeout(() => this.command(call, "answer"), 1_000); // let the phone settle before answering
+        const delay = policy.mode === "after" ? Math.max(1, policy.seconds) * 1000 : 1_000;
+        setTimeout(() => {
+          const latest = this.options.state.getCall(call.id);
+          if (latest?.state === "ringing") this.command(latest, "answer");
+          else if (latest && latest.state !== "active") this.options.state.setCallStream(call.id, undefined);
+        }, delay).unref?.();
         claimed = true;
       }
     }

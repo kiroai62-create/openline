@@ -88,8 +88,10 @@ kar sakte hain. Sab kuch **audit log** (Billing page) mein record hota hai.
 Customer `https://<aapka-server>/` pe apne email/password se login karta hai. Use ye dikhta hai:
 
 - **Overview:** apni calls, answered/missed, booking links, minutes, chart
-- **My business:** apni jaankari (website ka text), booking link, voice, apni Gemini key, apna
-  WhatsApp. Jo badlega wahi AI aur app mein lagu hoga.
+- **My business:** apni jaankari (website ka text), booking link, voice, apni Gemini key. Jo
+  badlega wahi AI, WhatsApp aur app mein lagu hoga.
+- **WhatsApp:** QR se apna number link, AI auto-replies, inbox (staff reply, AI pause), automation
+  settings.
 - **Phones:** apne phone ke liye QR nikaalkar apne app se scan karega. QR mein license bhi hoti
   hai, isliye app turant pehchaan leta hai ki ye kis customer ka hai.
 - **Plan & billing:** apna plan dekhega aur Razorpay se upgrade/renew karega.

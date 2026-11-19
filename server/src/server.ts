@@ -17,6 +17,8 @@ import { FallbackAudio } from "./ai/fallback-audio.js";
 import { SaasStore } from "./saas.js";
 import { Billing } from "./billing.js";
 import { HttpWebhookDispatcher, type WebhookDispatcher } from "./webhooks.js";
+import { WhatsAppStore } from "./whatsapp/store.js";
+import { WhatsAppManager, type WaSocketFactory } from "./whatsapp/manager.js";
 
 export interface GatewayServerOptions {
   /** Root API key from server/.env; also the one-time setup key for the console password. */
@@ -43,6 +45,9 @@ export interface GatewayServerOptions {
   bookingUrl?: string;
   /** Directory of the SQLite database. Without it everything is kept in memory (tests). */
   dataDir?: string;
+  /** Tests: a fake WhatsApp socket instead of Baileys, and no reply delay. */
+  whatsappSocketFactory?: WaSocketFactory;
+  whatsappDelayScale?: number;
 }
 
 export interface GatewayServer {
@@ -61,6 +66,7 @@ export interface GatewayServer {
   fallback: FallbackAudio;
   saas: SaasStore;
   billing: Billing;
+  whatsapp: WhatsAppManager;
 }
 
 export function createGatewayServer(options: GatewayServerOptions): GatewayServer {
@@ -115,6 +121,54 @@ export function createGatewayServer(options: GatewayServerOptions): GatewayServe
     setTimeout(() => void fallback.refresh(), 3_000).unref();
     setInterval(() => void fallback.refresh(), 6 * 60 * 60_000).unref();
   }
+  const entitledClient = (clientId: string | undefined) => {
+    if (!clientId) return { ok: true };
+    const customer = saas.customerByClient(clientId);
+    if (!customer) return { ok: true };
+    const ent = saas.entitlement(customer);
+    return { ok: ent.entitled, message: ent.message };
+  };
+  // Built-in WhatsApp: each business links its own number; the AI answers from its information.
+  let agentsRef: AgentManager | undefined;
+  const whatsapp: WhatsAppManager = new WhatsAppManager({
+    store: new WhatsAppStore(db),
+    settings,
+    router,
+    socketFactory: options.whatsappSocketFactory,
+    delayScale: options.whatsappDelayScale,
+    entitled: (scope) => {
+      if (scope === "default") return { ok: true };
+      const customer = saas.customerByClient(scope);
+      if (!customer) return { ok: true };
+      const ent = saas.entitlement(customer);
+      // Call minutes don't limit chat.
+      return { ok: ent.entitled || ent.reason === "minutes_exhausted", message: ent.message };
+    },
+    business: (scope) => {
+      const wa: { instructions: string } = whatsapp.settings(scope);
+      if (scope === "default") {
+        const a = agentsRef?.settings;
+        return {
+          name: a?.businessName || a?.ownerName || config.get("brandName") || "our team",
+          about: a?.about ?? "",
+          bookingUrl: a?.bookingUrl ?? "",
+          instructions: wa.instructions,
+          countryCode: config.get("whatsappCountryCode") || "91",
+        };
+      }
+      const client = clients.get(scope);
+      if (!client) return undefined;
+      return {
+        name: client.name,
+        about: client.about,
+        bookingUrl: client.bookingUrl,
+        instructions: wa.instructions,
+        countryCode: client.whatsappCountryCode || "91",
+        geminiApiKey: client.geminiApiKey || undefined,
+      };
+    },
+  });
+  if (options.dataDir && !options.whatsappSocketFactory) setTimeout(() => void whatsapp.resumeAll(), 1_500).unref();
   const agents = new AgentManager({
     state,
     deviceChannel: deviceHub,
@@ -127,17 +181,24 @@ export function createGatewayServer(options: GatewayServerOptions): GatewayServe
     clients,
     router,
     fallback,
-    entitled: (clientId) => {
-      if (!clientId) return { ok: true };
-      const customer = saas.customerByClient(clientId);
-      if (!customer) return { ok: true };
-      const ent = saas.entitlement(customer);
-      return { ok: ent.entitled, message: ent.message };
-    },
+    entitled: entitledClient,
+    whatsapp,
   });
-  events.onCallEvent = (call, event) => {
-    const streamed = streams.onCallEvent(call, event);
-    agents.onCallEvent(state.getCall(call.id) ?? call, event, streamed);
+  agentsRef = agents;
+  events.onAiRequest = (call, wanted) => {
+    if (wanted) {
+      try {
+        agents.takeOver(call.id);
+      } catch (error) {
+        console.warn(`call ${call.id}: AI hand-over refused: ${error instanceof Error ? error.message : error}`);
+      }
+    } else {
+      agents.release(call.id);
+    }
+  };
+  events.onCallEvent = (call, event, payload) => {
+    const streamed = streams.onCallEvent(call, event, payload);
+    agents.onCallEvent(state.getCall(call.id) ?? call, event, streamed, payload);
     // Central SaaS: bill a connected call's minutes to its customer, once, when it ends.
     const latest = state.getCall(call.id) ?? call;
     const ended = latest.state === "ended" || latest.state === "rejected" || latest.state === "failed";
@@ -151,9 +212,9 @@ export function createGatewayServer(options: GatewayServerOptions): GatewayServe
       }
     }
   };
-  const app = createApp({ auth, config, state, deviceChannel: deviceHub, events, media, agents, streams, clients, analytics: new Analytics(db), router, fallback, saas, billing, multiClient: options.multiClient || clients.list().length > 0 });
+  const app = createApp({ auth, config, state, deviceChannel: deviceHub, events, media, agents, streams, clients, analytics: new Analytics(db), router, fallback, saas, billing, whatsapp, multiClient: options.multiClient || clients.list().length > 0 });
   httpServer = createServer(app);
   deviceHub.attach(httpServer);
   media.attach(httpServer);
-  return { httpServer, db, state, config, auth, deviceHub, events, media, agents, streams, clients, router, fallback, saas, billing };
+  return { httpServer, db, state, config, auth, deviceHub, events, media, agents, streams, clients, router, fallback, saas, billing, whatsapp };
 }

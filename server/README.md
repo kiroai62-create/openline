@@ -1,6 +1,6 @@
-# OpenLine server
+# VaaniFlow server
 
-Node.js + TypeScript server for OpenLine: the REST API, the phone and media WebSockets, agent
+Node.js + TypeScript server for VaaniFlow: the REST API, the phone and media WebSockets, agent
 streams, webhooks, the web console and the SQLite database.
 
 ```bash

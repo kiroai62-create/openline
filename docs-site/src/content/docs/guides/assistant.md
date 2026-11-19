@@ -64,9 +64,9 @@ at `GET /v1/ai/providers`; save the list with `PUT /v1/ai/providers`. Keys are n
 ## On a single call
 
 ```bash
-curl -X POST $OPENLINE_URL/v1/calls/$CALL_ID/agent -H "Authorization: Bearer $OPENLINE_KEY"   # hand over
-curl -X DELETE $OPENLINE_URL/v1/calls/$CALL_ID/agent -H "Authorization: Bearer $OPENLINE_KEY" # take back
-curl $OPENLINE_URL/v1/calls/$CALL_ID/agent -H "Authorization: Bearer $OPENLINE_KEY"           # status + live transcript
+curl -X POST $VAANIFLOW_URL/v1/calls/$CALL_ID/agent -H "Authorization: Bearer $VAANIFLOW_KEY"   # hand over
+curl -X DELETE $VAANIFLOW_URL/v1/calls/$CALL_ID/agent -H "Authorization: Bearer $VAANIFLOW_KEY" # take back
+curl $VAANIFLOW_URL/v1/calls/$CALL_ID/agent -H "Authorization: Bearer $VAANIFLOW_KEY"           # status + live transcript
 ```
 
 ## Messages
@@ -74,7 +74,7 @@ curl $OPENLINE_URL/v1/calls/$CALL_ID/agent -H "Authorization: Bearer $OPENLINE_K
 When a caller leaves a message, it's saved with their name, reason, callback number and urgency:
 
 ```bash
-curl $OPENLINE_URL/v1/agent/messages -H "Authorization: Bearer $OPENLINE_KEY"
+curl $VAANIFLOW_URL/v1/agent/messages -H "Authorization: Bearer $VAANIFLOW_KEY"
 ```
 
 The full conversation is at `GET /v1/calls/{id}/transcript`.

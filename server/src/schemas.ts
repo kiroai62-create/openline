@@ -58,6 +58,8 @@ export const deviceEventSchema = z.object({
     "call.failed",
     "command.completed",
     "command.ack",
+    "call.ai_requested",
+    "call.ai_released",
   ]),
   timestamp: z.string().datetime({ offset: true }),
   payload: z.record(z.string(), z.unknown()).default({}),
@@ -225,6 +227,42 @@ export const analyticsQuerySchema = z.object({
 });
 
 export const whatsappTestSchema = z.object({ to: z.string().trim().min(5).max(32) });
+
+/** Built-in WhatsApp automation settings (per business). */
+export const waSettingsSchema = z
+  .object({
+    autoReply: z.boolean(),
+    replyDelayMinMs: z.number().int().min(0).max(60_000),
+    replyDelayMaxMs: z.number().int().min(0).max(120_000),
+    typingIndicator: z.boolean(),
+    markRead: z.boolean(),
+    ignoreGroups: z.boolean(),
+    pauseOnStaffReply: z.boolean(),
+    fallbackMessage: z.string().trim().max(1000),
+    instructions: z.string().trim().max(5000),
+    quickReplies: z.array(z.string().trim().min(1).max(1000)).max(30),
+    useForBookingLinks: z.boolean(),
+  })
+  .partial();
+
+export const waChatsQuerySchema = z.object({
+  filter: z.enum(["all", "unread", "human", "open", "resolved", "aioff"]).default("all"),
+  q: z.string().max(100).default(""),
+});
+
+export const waChatUpdateSchema = z
+  .object({
+    name: z.string().trim().max(150),
+    notes: z.string().max(5000),
+    tags: z.string().trim().max(255),
+    aiEnabled: z.boolean(),
+    needsHuman: z.boolean(),
+    status: z.enum(["open", "resolved"]),
+  })
+  .partial();
+
+export const waSendSchema = z.object({ text: z.string().trim().min(1).max(4000) });
+export const waNewChatSchema = z.object({ to: z.string().trim().min(5).max(32), text: z.string().trim().min(1).max(4000) });
 
 export const pairSchema = z.object({
   code: z.string().trim().min(4).max(32),

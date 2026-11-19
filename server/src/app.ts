@@ -49,6 +49,8 @@ import type { ClientStore } from "./clients.js";
 import { Analytics } from "./analytics.js";
 import { PRESETS, type AiRouter } from "./ai/router.js";
 import type { FallbackAudio } from "./ai/fallback-audio.js";
+import type { WhatsAppManager } from "./whatsapp/manager.js";
+import { registerWhatsAppRoutes } from "./whatsapp/routes.js";
 
 export interface AppDependencies {
   auth: AuthService;
@@ -68,6 +70,8 @@ export interface AppDependencies {
   billing?: Billing;
   /** Show the Clients page (several businesses on one server). Off for one deployment per client. */
   multiClient?: boolean;
+  /** Built-in WhatsApp automation (linked numbers, AI replies, inbox). */
+  whatsapp?: WhatsAppManager;
 }
 
 export function createApp(deps: AppDependencies) {
@@ -96,11 +100,15 @@ export function createApp(deps: AppDependencies) {
   // Web console (home, playground, connection, settings). The page is public; it signs in with the
   // console password and then uses a session cookie for the API.
   const consolePage = fileURLToPath(new URL("../public/console.html", import.meta.url));
+  const landingPage = fileURLToPath(new URL("../public/index.html", import.meta.url));
+  const assetsDir = fileURLToPath(new URL("../public/assets", import.meta.url));
   // dotfiles: "allow" — the install path itself may contain a hidden folder (e.g. ~/.apps/...).
-  app.get(["/", "/console"], (_request, response) => response.sendFile(consolePage, { dotfiles: "allow" }));
+  app.get("/", (_request, response) => response.sendFile(landingPage, { dotfiles: "allow" }));
+  app.get(["/console", "/app", "/login"], (_request, response) => response.sendFile(consolePage, { dotfiles: "allow" }));
+  app.use("/assets", express.static(assetsDir, { dotfiles: "allow", maxAge: "7d", index: false }));
 
   app.get("/health", (_request, response) => {
-    response.json({ ok: true, service: "openline-server" });
+    response.json({ ok: true, service: "vaaniflow-server" });
   });
 
   // REST fallback for device events. Device credentials are separate from the public API key.
@@ -418,6 +426,7 @@ export function createApp(deps: AppDependencies) {
           deps.deviceChannel.disconnect?.(deviceId);
           deps.state.removeDevice(deviceId);
         }
+        void deps.whatsapp?.removeScope(customer.clientId);
         deps.clients.remove(customer.clientId);
       }
       saas.deleteCustomer(customer.id);
@@ -583,6 +592,29 @@ export function createApp(deps: AppDependencies) {
       }
       return response.json({ transcript: deps.agents?.transcript(call.id) ?? [] });
     });
+
+    // Built-in WhatsApp for the customer's own business.
+    if (deps.whatsapp) {
+      registerWhatsAppRoutes(app, {
+        base: "/v1/me/whatsapp",
+        manager: deps.whatsapp,
+        scope: (request, response) => {
+          const ctx = meClient(request);
+          if (!ctx?.client) {
+            response.status(404).json(errorBody("NOT_FOUND", "no business for this account"));
+            return undefined;
+          }
+          return ctx.client.id;
+        },
+        actor: (request) => actingUser(request)?.email ?? "staff",
+        errorBody,
+        validationError,
+        audit: (request, action, _scope, detail) => {
+          const c = resolveCustomer(request);
+          if (c) saas.audit(actingUser(request)?.email ?? "customer", action, c.id, detail);
+        },
+      });
+    }
   }
 
 
@@ -840,10 +872,30 @@ export function createApp(deps: AppDependencies) {
       request,
       response,
       whatsappFromConfig(deps.config),
-      settings?.businessName || settings?.ownerName || "OpenLine",
+      settings?.businessName || settings?.ownerName || deps.config.get("brandName") || "VaaniFlow",
       settings?.bookingUrl ?? "",
     );
   });
+
+  // Built-in WhatsApp of this deployment ("default"), or of a client with ?clientId= (admins).
+  if (deps.whatsapp) {
+    registerWhatsAppRoutes(app, {
+      base: "/v1/whatsapp",
+      manager: deps.whatsapp,
+      scope: (request, response) => {
+        const clientId = typeof request.query.clientId === "string" && request.query.clientId ? request.query.clientId : undefined;
+        if (!clientId) return "default";
+        if (!deps.clients?.get(clientId)) {
+          response.status(404).json(errorBody("NOT_FOUND", "client not found"));
+          return undefined;
+        }
+        return clientId;
+      },
+      actor: (request) => deps.auth.sessionUser(deps.auth.sessionToken(request))?.email ?? "admin",
+      errorBody,
+      validationError,
+    });
+  }
 
   // ---- Clients: businesses the receptionist answers for, each with its own phones ----
   const clientsOr404 = (response: Response) => {
@@ -895,6 +947,16 @@ export function createApp(deps: AppDependencies) {
     router.resetCooldowns();
     void deps.fallback?.refresh();
     return response.json({ ok: true, status: router.status(), pipelineReady: router.pipelineReady() });
+  });
+
+  // Sends one short request with a saved provider's key, so the console can show if it works.
+  app.post("/v1/ai/providers/:id/test", async (request, response) => {
+    if (!deps.router) return response.status(404).json(errorBody("NOT_FOUND", "routing unavailable"));
+    try {
+      return response.json(await deps.router.test(request.params.id));
+    } catch (error) {
+      return response.status(404).json(errorBody("NOT_FOUND", (error as Error).message));
+    }
   });
 
   // "Please hold" / "please call later" phrases played when the AI can't speak.
@@ -966,6 +1028,7 @@ export function createApp(deps: AppDependencies) {
     const clients = clientsOr404(response);
     if (!clients) return;
     if (!clients.remove(request.params.id)) return response.status(404).json(errorBody("NOT_FOUND", "client not found"));
+    void deps.whatsapp?.removeScope(request.params.id);
     return response.status(204).end();
   });
 

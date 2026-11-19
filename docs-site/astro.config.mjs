@@ -14,9 +14,9 @@ export default defineConfig({
 	base,
 	integrations: [
 		starlight({
-			title: 'OpenLine',
+			title: 'VaaniFlow',
 			description:
-				'OpenLine is an open-source, self-hosted voice API and Twilio alternative: an Android phone places and answers real calls on its SIM, and your code or AI voice agent controls them and streams the audio.',
+				'VaaniFlow is an open-source, self-hosted voice API and Twilio alternative: an Android phone places and answers real calls on its SIM, and your code or AI voice agent controls them and streams the audio.',
 			logo: { src: './src/assets/logo.svg', replacesTitle: false },
 			favicon: '/favicon.svg',
 			// Social previews and search engines. Starlight already adds canonical, og:title/description and the sitemap.
@@ -24,7 +24,7 @@ export default defineConfig({
 				{ tag: 'meta', attrs: { property: 'og:image', content: `${site}${base}/og.png` } },
 				{ tag: 'meta', attrs: { property: 'og:image:width', content: '1200' } },
 				{ tag: 'meta', attrs: { property: 'og:image:height', content: '630' } },
-				{ tag: 'meta', attrs: { property: 'og:image:alt', content: "OpenLine: your Android phone's SIM as a voice API for code and AI agents" } },
+				{ tag: 'meta', attrs: { property: 'og:image:alt', content: "VaaniFlow: your Android phone's SIM as a voice API for code and AI agents" } },
 				{ tag: 'meta', attrs: { name: 'twitter:card', content: 'summary_large_image' } },
 				{ tag: 'meta', attrs: { name: 'twitter:image', content: `${site}${base}/og.png` } },
 				{ tag: 'meta', attrs: { name: 'theme-color', content: '#141619' } },
@@ -43,9 +43,9 @@ export default defineConfig({
 					},
 				]),
 				starlightLlmsTxt({
-					projectName: 'OpenLine',
+					projectName: 'VaaniFlow',
 					description:
-						'OpenLine is a self-hosted voice API (a small Twilio Voice alternative). An Android phone with a SIM runs the OpenLine app and connects to your OpenLine server; your code places, answers and controls real phone calls over REST, gets call events by webhook, and streams call audio over WebSockets, either joining the audio itself or letting the gateway connect the call to an AI agent (raw 16 kHz PCM or Twilio Media Streams format).',
+						'VaaniFlow is a self-hosted voice API (a small Twilio Voice alternative). An Android phone with a SIM runs the VaaniFlow app and connects to your VaaniFlow server; your code places, answers and controls real phone calls over REST, gets call events by webhook, and streams call audio over WebSockets, either joining the audio itself or letting the gateway connect the call to an AI agent (raw 16 kHz PCM or Twilio Media Streams format).',
 					details: [
 						'Key facts:',
 						'',

@@ -1,6 +1,6 @@
 ---
 title: Run the server
-description: Install, configure and run the OpenLine server, and where its data lives.
+description: Install, configure and run the VaaniFlow server, and where its data lives.
 ---
 
 The server is a Node.js app in `server/`. It needs **Node.js 22.13+** (it uses the built-in

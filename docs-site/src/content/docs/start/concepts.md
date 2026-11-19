@@ -5,7 +5,7 @@ description: Phones, calls, events, streams and keys, in one page.
 
 ## Phones (devices)
 
-A phone is an Android handset running the OpenLine app and paired with your server. Each has an
+A phone is an Android handset running the VaaniFlow app and paired with your server. Each has an
 id like `phone-7f3a91c2`, which you pass as `deviceId` when placing a call. A phone holds a
 WebSocket to the server; while it's open the phone is `connected`. The server pings it every 20
 seconds and shows its response time and health (battery, network, signal, call-audio helper).

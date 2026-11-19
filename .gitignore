@@ -25,3 +25,6 @@ Thumbs.db
 
 # Server runtime data (paired devices, messages)
 server/data/
+
+# Docker deployment secrets
+deploy/docker/.env

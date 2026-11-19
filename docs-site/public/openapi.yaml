@@ -1,6 +1,6 @@
 openapi: 3.1.0
 info:
-  title: OpenLine API
+  title: VaaniFlow API
   version: 0.1.0
   summary: Your Android phone's SIM as a voice API.
   description: |
@@ -58,7 +58,7 @@ paths:
                 type: object
                 properties:
                   ok: { type: boolean, const: true }
-                  service: { type: string, example: openline-server }
+                  service: { type: string, example: vaaniflow-server }
 
   /v1/calls:
     post:
@@ -433,7 +433,7 @@ paths:
       tags: [Phones]
       operationId: createPairingCode
       summary: Create a pairing code
-      description: A one-time code (valid 10 minutes) and its QR code, which the OpenLine app scans.
+      description: A one-time code (valid 10 minutes) and its QR code, which the VaaniFlow app scans.
       requestBody:
         content:
           application/json:

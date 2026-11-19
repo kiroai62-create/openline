@@ -15,6 +15,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "HttpGatewayDialer"
+rootProject.name = "VaaniFlow"
 include(":app")
 include(":protocol")

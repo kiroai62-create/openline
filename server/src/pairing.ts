@@ -55,6 +55,6 @@ export class PairingService {
 }
 
 export function pairUri(publicUrl: string, code: string, license?: string): string {
-  const base = `httpgateway://pair?url=${encodeURIComponent(publicUrl)}&code=${code}`;
+  const base = `vaaniflow://pair?url=${encodeURIComponent(publicUrl)}&code=${code}`;
   return license ? `${base}&lic=${encodeURIComponent(license)}` : base;
 }

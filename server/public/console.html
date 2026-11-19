@@ -3,356 +3,552 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>OpenLine</title>
+<meta name="theme-color" content="#5B47FB">
+<title>VaaniFlow · Console</title>
+<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>
+  // Apply the saved theme before first paint (no flash).
+  (function () { try { var t = localStorage.getItem("vf-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {} })();
+</script>
 <style>
+  /* ============================================================================================
+     VaaniFlow design system
+     Brand: Vaani Indigo #5B47FB · Flow Teal #14C8B0
+     ============================================================================================ */
   :root {
-    --paper: #f4f5f6; --surface: #ffffff; --ink: #1b1d20; --muted: #6a6f75; --line: #dcdfe3;
-    --soft: #eceef0; --live: #2f7a4d; --ring: #9a6a12; --bad: #b3261e;
-    --radius: 6px;
-    --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+    --brand: #5B47FB; --brand-600: #4C37F0; --brand-700: #3F2BD6; --brand-50: #F1EFFF; --brand-100: #E4E0FF;
+    --flow: #14C8B0; --flow-600: #0FA894; --flow-50: #E7FAF7;
+    --grad: linear-gradient(135deg, #5B47FB 0%, #3E7BF6 52%, #14C8B0 100%);
+    --paper: #F6F7FB; --surface: #FFFFFF; --surface-2: #FAFBFD; --ink: #0F1222; --ink-2: #2A2F45; --muted: #667085;
+    --line: #E6E8F0; --line-2: #EEF0F5; --soft: #F2F4F8; --hover: #F5F6FA;
+    --live: #12A150; --live-bg: #E8F7EE; --ring: #C77700; --ring-bg: #FFF4E0; --bad: #E5484D; --bad-bg: #FDECEC;
+    --info: #3E7BF6; --info-bg: #EAF1FF;
+    --radius: 12px; --radius-sm: 8px; --radius-lg: 16px;
+    --shadow-sm: 0 1px 2px rgba(16, 24, 40, .05);
+    --shadow: 0 1px 2px rgba(16, 24, 40, .04), 0 4px 16px rgba(16, 24, 40, .06);
+    --shadow-lg: 0 12px 40px rgba(16, 24, 40, .16);
+    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+    --side: 260px;
     color-scheme: light;
   }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      --paper: #141619; --surface: #1c1f23; --ink: #e7e9ec; --muted: #969ca3; --line: #2d3136;
-      --soft: #24282d; --live: #6cc28f; --ring: #d6a54b; --bad: #f08a80;
-      color-scheme: dark;
-    }
+  :root[data-theme="dark"] {
+    --paper: #0B0D17; --surface: #121527; --surface-2: #151933; --ink: #ECEEF8; --ink-2: #C9CDE0; --muted: #8C93AE;
+    --line: #232843; --line-2: #1C2038; --soft: #1A1E36; --hover: #191D35;
+    --brand-50: #1D1A44; --brand-100: #282366; --flow-50: #0D2B2A;
+    --live: #3DD68C; --live-bg: #0F2A1E; --ring: #F5B544; --ring-bg: #2D2210; --bad: #FF6B6F; --bad-bg: #2E1416;
+    --info: #78A6FF; --info-bg: #142046;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 4px 16px rgba(0, 0, 0, .25);
+    color-scheme: dark;
   }
   * { box-sizing: border-box; }
   html { -webkit-text-size-adjust: 100%; }
-  body {
-    margin: 0; background: var(--paper); color: var(--ink);
-    font: 15px/1.5 "Public Sans", system-ui, sans-serif; font-variant-numeric: tabular-nums;
-  }
-  button, input, select, textarea { font: inherit; color: inherit; }
-  :focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 14px/1.55 Inter, system-ui, -apple-system, "Segoe UI", sans-serif; font-variant-numeric: tabular-nums; -webkit-font-smoothing: antialiased; }
+  a { color: var(--brand); text-decoration: none; }
+  a:hover { text-decoration: underline; }
   [hidden] { display: none !important; }
-  a { color: inherit; }
-  code, pre { font-family: var(--mono); font-size: 13px; }
-
-  /* Header */
-  .top { border-bottom: 1px solid var(--line); background: var(--surface); position: sticky; top: 0; z-index: 5; }
-  .top-inner { max-width: 1120px; margin: 0 auto; display: flex; align-items: center; gap: 20px; padding: 0 24px; min-height: 56px; flex-wrap: wrap; }
-  .brand { font-weight: 700; font-size: 17px; letter-spacing: -0.01em; text-decoration: none; }
-  .nav { display: flex; gap: 2px; margin-right: auto; flex-wrap: wrap; }
-  .nav a { text-decoration: none; color: var(--muted); padding: 17px 10px 15px; border-bottom: 2px solid transparent; font-size: 14px; font-weight: 500; }
-  .nav a:hover { color: var(--ink); }
-  .nav a[aria-current="page"] { color: var(--ink); border-bottom-color: var(--ink); }
-  .phone-status { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 14px; }
-  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); flex: none; display: inline-block; }
-  .dot.live { background: var(--live); } .dot.ring { background: var(--ring); } .dot.bad { background: var(--bad); }
-  @media (max-width: 700px) {
-    .top-inner { padding: 8px 16px; gap: 8px 16px; }
-    .nav { order: 3; width: 100%; margin: 0 -10px; overflow-x: auto; flex-wrap: nowrap; }
-    .nav a { padding: 8px 10px 10px; }
-    .brand { margin-right: auto; }
-  }
-
-  .page { max-width: 1120px; margin: 0 auto; padding: 28px 24px 48px; }
-  @media (max-width: 700px) { .page { padding: 18px 16px 40px; } }
-  .grid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 24px; align-items: start; }
-  .grid.even { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-  @media (max-width: 900px) { .grid, .grid.even { grid-template-columns: minmax(0, 1fr); } }
-
-  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
-  .panel + .panel { margin-top: 24px; }
-  .panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 14px 18px 0; }
-  .panel-head h2 { font-size: 15px; font-weight: 600; margin: 0; }
-  .panel-body { padding: 12px 18px 18px; }
-  .muted { color: var(--muted); }
-  .small { font-size: 13px; }
-  h1.title { font-size: 24px; font-weight: 600; letter-spacing: -0.015em; margin: 0 0 4px; }
-  .lede { color: var(--muted); margin: 0 0 24px; max-width: 640px; }
-
-  /* Buttons and fields */
-  .btn { border: 1px solid var(--line); background: var(--surface); padding: 8px 14px; border-radius: var(--radius); cursor: pointer; line-height: 1.2; white-space: nowrap; text-decoration: none; display: inline-block; }
-  .btn:hover:not(:disabled) { border-color: var(--ink); }
-  .btn:disabled { opacity: .4; cursor: default; }
-  .btn.solid { background: var(--ink); color: var(--surface); border-color: var(--ink); }
-  .btn.end { background: var(--bad); color: #fff; border-color: var(--bad); }
-  .btn.link { border: 0; padding: 4px 0; background: none; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
-  .btn.link:hover { color: var(--ink); }
-  .field { width: 100%; border: 1px solid var(--line); background: var(--surface); border-radius: var(--radius); padding: 8px 10px; }
-  .field:focus { border-color: var(--ink); outline: none; }
-  textarea.field { resize: vertical; min-height: 120px; line-height: 1.45; }
-  label.lbl { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 4px; }
-  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-  .hint { font-size: 13px; color: var(--muted); margin: 6px 0 0; }
-  .warn { color: var(--bad); font-size: 13px; margin-top: 6px; }
-
-  /* Sign-in */
-  .auth { min-height: 100vh; display: grid; place-items: center; padding: 16px; }
-  .auth .panel { width: min(400px, 100%); padding: 28px; }
-  .auth h1 { font-size: 20px; margin: 0 0 4px; font-weight: 600; }
-
-  /* Home */
-  .hero { padding: 24px 0 8px; max-width: 720px; }
-  .hero h1 { font-size: clamp(30px, 5vw, 44px); line-height: 1.1; letter-spacing: -0.025em; margin: 0 0 14px; font-weight: 700; }
-  .hero p { font-size: 17px; color: var(--muted); margin: 0; }
-  .flow { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 32px 0; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
-  .flow > div { padding: 18px; }
-  .flow > div + div { border-left: 1px solid var(--line); }
-  .flow .n { font-size: 13px; color: var(--muted); }
-  .flow h3 { margin: 2px 0 6px; font-size: 16px; font-weight: 600; }
-  .flow p { margin: 0; color: var(--muted); font-size: 14px; }
-  @media (max-width: 700px) { .flow { grid-template-columns: 1fr; } .flow > div + div { border-left: 0; border-top: 1px solid var(--line); } }
-  .checklist { list-style: none; margin: 0; padding: 0; }
-  .checklist li { display: flex; gap: 12px; align-items: flex-start; padding: 12px 18px; }
-  .checklist li + li { border-top: 1px solid var(--line); }
-  .checklist .mark { width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid var(--line); flex: none; display: grid; place-items: center; font-size: 12px; margin-top: 1px; }
-  .checklist .done .mark { background: var(--ink); border-color: var(--ink); color: var(--surface); }
-  .checklist .grow { flex: 1; }
-  .checklist b { font-weight: 600; }
-  .code-block { position: relative; background: var(--soft); border-radius: var(--radius); padding: 14px 16px; overflow-x: auto; margin: 0; line-height: 1.55; white-space: pre; }
-  .code-block + .code-block { margin-top: 12px; }
-  .copy { position: absolute; top: 8px; right: 8px; font-size: 12px; padding: 4px 8px; }
-  .endpoints { width: 100%; border-collapse: collapse; font-size: 14px; }
-  .endpoints td { padding: 8px 18px; border-top: 1px solid var(--line); vertical-align: top; }
-  .endpoints td:first-child { white-space: nowrap; font-family: var(--mono); font-size: 13px; width: 1%; }
-  .endpoints .verb { display: inline-block; min-width: 54px; color: var(--muted); }
-  @media (max-width: 640px) { .endpoints td { display: block; border-top: 0; padding: 2px 18px; } .endpoints tr { display: block; border-top: 1px solid var(--line); padding: 8px 0; } }
-
-  /* The line (playground) */
-  .line-panel { padding: 22px 24px 20px; }
-  .line-state { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 14px; min-height: 21px; }
-  .line-number { font-size: clamp(34px, 6vw, 54px); font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; margin: 6px 0 2px; overflow-wrap: anywhere; }
-  .line-sub { color: var(--muted); font-size: 14px; display: flex; gap: 14px; flex-wrap: wrap; }
-  .timer { font-weight: 500; color: var(--ink); }
-  .dial { display: flex; gap: 12px; margin-top: 10px; align-items: flex-end; }
-  .dial .btn { margin-bottom: 6px; padding: 10px 22px; }
-  .dial input { flex: 1; width: 0; min-width: 0; border: 0; border-bottom: 2px solid var(--line); background: none; padding: 4px 0; font-size: clamp(30px, 5vw, 46px); font-weight: 600; letter-spacing: -0.02em; }
-  .dial input:focus { outline: none; border-color: var(--ink); }
-  .dial input::placeholder { color: var(--muted); opacity: .45; }
-  .controls { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 18px; }
-  .controls .spacer { flex: 1; }
-  .keypad { display: grid; grid-template-columns: repeat(3, 52px); gap: 6px; margin-top: 12px; }
-  .keypad .btn { padding: 10px 0; font-weight: 600; }
-  details.api { margin-top: 14px; }
-  details.api summary { cursor: pointer; color: var(--muted); font-size: 13px; }
-  details.api .code-block { margin-top: 8px; }
-
-  .sub-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border-top: 1px solid var(--line); margin-top: 20px; }
-  .sub-row > div { padding: 14px 0 0; }
-  .sub-row > div + div { border-left: 1px solid var(--line); padding-left: 18px; }
-  .sub-row > div:first-child { padding-right: 18px; }
-  @media (max-width: 640px) { .sub-row { grid-template-columns: 1fr; } .sub-row > div + div { border-left: 0; padding-left: 0; border-top: 1px solid var(--line); margin-top: 14px; } }
-  .sub-title { font-size: 14px; font-weight: 600; margin: 0 0 6px; display: flex; align-items: center; gap: 8px; }
-  .meters { display: grid; grid-template-columns: 76px 1fr; gap: 6px 10px; align-items: center; font-size: 13px; color: var(--muted); margin: 10px 0; }
-  .meter { height: 4px; background: var(--soft); border-radius: 2px; overflow: hidden; }
-  .meter > div { height: 100%; width: 0; background: var(--ink); transition: width 80ms linear; }
-
-  .transcript { max-height: 300px; overflow: auto; margin-top: 10px; display: flex; flex-direction: column; gap: 10px; }
-  .turn { font-size: 14px; }
-  .turn .who { font-weight: 600; margin-right: 6px; }
-  .turn.agent .who { color: var(--muted); }
-
-  /* Lists */
-  .list { list-style: none; margin: 0; padding: 0; }
-  .list li + li { border-top: 1px solid var(--line); }
-  .call-row { width: 100%; display: grid; grid-template-columns: 18px 1fr auto; gap: 4px 10px; align-items: center; padding: 10px 18px; text-align: left; border: 0; background: none; cursor: pointer; }
-  .call-row:hover, .call-row[aria-current="true"] { background: var(--soft); }
-  .call-row .dir { color: var(--muted); }
-  .call-row .num { font-weight: 500; }
-  .call-row .when { color: var(--muted); font-size: 13px; }
-  .call-row .st { grid-column: 2 / -1; font-size: 13px; color: var(--muted); }
-  .empty { padding: 18px; color: var(--muted); font-size: 14px; }
-  /* Dashboard */
-  .dash-head { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; justify-content: space-between; margin-bottom: 14px; }
-  .dash-head .row { gap: 8px; }
-  .dash-head select { width: auto; min-width: 150px; }
-  .alerts { margin: 0 0 14px; padding: 0; list-style: none; display: grid; gap: 8px; }
-  .alerts li { padding: 10px 14px; border-radius: var(--radius); background: color-mix(in srgb, var(--bad) 10%, var(--surface)); border: 1px solid color-mix(in srgb, var(--bad) 30%, var(--line)); font-size: 14px; }
-  .alerts li.ok { background: color-mix(in srgb, var(--live) 10%, var(--surface)); border-color: color-mix(in srgb, var(--live) 30%, var(--line)); }
-  .kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
-  @media (max-width: 900px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-  .kpi { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; }
-  .kpi .k { font-size: 12.5px; color: var(--muted); }
-  .kpi .v { font-size: 26px; font-weight: 600; line-height: 1.2; margin-top: 4px; }
-  .kpi .d { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
-  .kpi .d .up { color: var(--live); } .kpi .d .down { color: var(--bad); }
-  .chart { display: flex; align-items: flex-end; gap: 3px; height: 170px; padding: 14px 18px 0; }
-  .chart .col { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; align-items: stretch; height: 100%; min-width: 0; }
-  .chart .seg { border-radius: 2px 2px 0 0; }
-  .chart .seg.answered { background: var(--live); }
-  .chart .seg.missed { background: var(--bad); border-radius: 0; }
-  .chart .seg.other { background: var(--line); border-radius: 0; }
-  .chart-axis { display: flex; gap: 3px; padding: 4px 18px 14px; font-size: 11px; color: var(--muted); }
-  .chart-axis span { flex: 1; text-align: center; min-width: 0; overflow: hidden; white-space: nowrap; }
-  .legend { display: flex; gap: 14px; font-size: 12.5px; color: var(--muted); padding: 0 18px 12px; }
-  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
-  table.data { width: 100%; border-collapse: collapse; font-size: 13.5px; }
-  table.data th { text-align: left; font-weight: 500; color: var(--muted); font-size: 12.5px; padding: 8px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
-  table.data td { padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
-  table.data tr.click { cursor: pointer; } table.data tr.click:hover td { background: var(--soft); }
-  table.data .num { text-align: right; font-variant-numeric: tabular-nums; }
-  .tag { display: inline-block; font-size: 11.5px; padding: 1px 7px; border-radius: 10px; background: var(--soft); color: var(--muted); margin: 1px 3px 1px 0; white-space: nowrap; }
-  .tag.live { background: color-mix(in srgb, var(--live) 15%, var(--surface)); color: var(--live); }
-  .tag.bad { background: color-mix(in srgb, var(--bad) 13%, var(--surface)); color: var(--bad); }
+  code, .mono { font-family: var(--mono); font-size: .92em; }
+  code { background: var(--soft); border: 1px solid var(--line-2); padding: 1px 6px; border-radius: 6px; }
+  h1, h2, h3 { letter-spacing: -.01em; }
+  svg.i { width: 18px; height: 18px; flex: none; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; vertical-align: -4px; }
+  .muted { color: var(--muted); } .small { font-size: 12.5px; } .ok { color: var(--live); } .warn { color: var(--ring); }
+  .up { color: var(--live); font-weight: 600; } .down { color: var(--bad); font-weight: 600; }
+  .grow { flex: 1; min-width: 0; } .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; } .spacer { flex: 1; }
   .scroll-x { overflow-x: auto; }
-  .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: grid; place-items: center; z-index: 50; padding: 20px; }
-  .modal { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; width: min(560px, 100%); max-height: 90vh; display: flex; flex-direction: column; }
-  .modal-head, .modal-foot { padding: 14px 18px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-  .modal-head { border-bottom: 1px solid var(--line); } .modal-foot { border-top: 1px solid var(--line); justify-content: flex-end; }
-  .modal-head h2 { margin: 0; font-size: 16px; } .modal-body { padding: 18px; overflow-y: auto; }
-  @media (max-width: 720px) {
-    .top .nav { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
-    .top .nav::-webkit-scrollbar { display: none; }
-    .top .nav a { white-space: nowrap; flex: 0 0 auto; }
-  }
-  .ok { color: var(--live); } .warn { color: var(--ring); } .mono { font-family: var(--mono); }
-  .price { font-size: 24px; font-weight: 600; } .price small { font-size: 13px; color: var(--muted); font-weight: 400; }
-  .prov { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; margin: 8px 0; }
-  .prov-head { display: flex; gap: 8px; align-items: center; }
-  .prov-head .grow { flex: 1; min-width: 0; }
-  .prov-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; margin-top: 8px; }
-  .prov-grid .field { margin: 0; }
-  .prov .mini { padding: 2px 8px; font-size: 12.5px; }
-  .kind-title { font-size: 13.5px; font-weight: 600; margin: 16px 0 2px; }
 
-  .msg { padding: 14px 18px; }
-  .msg .name { font-weight: 600; }
-  .msg .reason { margin: 2px 0 4px; }
-  .msg .meta { font-size: 13px; color: var(--muted); }
-  .msg .urgent { color: var(--bad); font-weight: 600; }
+  /* ---- brand ---- */
+  .logo { display: inline-flex; align-items: center; gap: 10px; color: var(--ink); font-weight: 800; font-size: 17px; letter-spacing: -.02em; text-decoration: none !important; }
+  .logo img { width: 32px; height: 32px; border-radius: 9px; box-shadow: 0 4px 14px rgba(91, 71, 251, .35); }
+  .wordmark b { font-weight: 800; }
+  .wordmark .g { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
 
-  .switch { display: flex; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer; }
-  .switch input { appearance: none; width: 36px; height: 20px; border-radius: 10px; background: var(--line); position: relative; cursor: pointer; flex: none; transition: background .15s; }
-  .switch input::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--surface); transition: transform .15s; }
-  .switch input:checked { background: var(--ink); }
-  .switch input:checked::after { transform: translateX(16px); }
+  /* ---- app shell ---- */
+  .shell { display: grid; grid-template-columns: var(--side) 1fr; min-height: 100vh; }
+  .side { position: sticky; top: 0; height: 100vh; background: var(--surface); border-right: 1px solid var(--line); display: flex; flex-direction: column; z-index: 40; }
+  .side-top { padding: 18px 18px 14px; display: flex; align-items: center; justify-content: space-between; }
+  .side-scroll { overflow-y: auto; padding: 4px 12px 12px; flex: 1; }
+  .nav-group { margin: 14px 8px 6px; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .nav { display: flex; flex-direction: column; gap: 2px; }
+  .nav a { display: flex; align-items: center; gap: 11px; padding: 8px 10px; border-radius: 9px; color: var(--ink-2); font-weight: 500; text-decoration: none; transition: background .12s, color .12s; }
+  .nav a:hover { background: var(--hover); color: var(--ink); }
+  .nav a[aria-current="page"] { background: var(--brand-50); color: var(--brand); font-weight: 600; }
+  :root[data-theme="dark"] .nav a[aria-current="page"] { color: #B3A9FF; }
+  .nav a .badge-n { margin-left: auto; background: var(--brand); color: #fff; font-size: 11px; font-weight: 700; border-radius: 99px; padding: 0 7px; line-height: 18px; }
+  .side-foot { border-top: 1px solid var(--line); padding: 12px; }
+  .me-card { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 10px; }
+  .avatar { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 13px; color: #fff; background: var(--grad); flex: none; }
+  .avatar.lg { width: 56px; height: 56px; font-size: 19px; }
+  .avatar.soft { background: var(--brand-50); color: var(--brand); }
+  .main { min-width: 0; display: flex; flex-direction: column; }
+  .topbar { position: sticky; top: 0; z-index: 30; display: flex; align-items: center; gap: 12px; height: 64px; padding: 0 28px; background: color-mix(in srgb, var(--paper) 82%, transparent); backdrop-filter: saturate(1.4) blur(10px); border-bottom: 1px solid var(--line); }
+  .topbar .crumb { font-weight: 650; font-size: 15px; }
+  .icon-btn { display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); cursor: pointer; }
+  .icon-btn:hover { background: var(--hover); }
+  .menu-btn { display: none; }
+  .pill { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 99px; border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); font-size: 13px; font-weight: 500; text-decoration: none !important; white-space: nowrap; max-width: 320px; overflow: hidden; text-overflow: ellipsis; }
+  .impersonate { background: var(--ring-bg); color: var(--ring); border-color: transparent; }
+  .content { padding: 28px; max-width: 1360px; width: 100%; margin: 0 auto; }
+  .scrim { display: none; }
 
-  /* Connection */
-  .pair { display: grid; grid-template-columns: 300px 1fr; }
-  @media (max-width: 700px) { .pair { grid-template-columns: 1fr; } }
-  .qr { padding: 24px; border-right: 1px solid var(--line); display: flex; flex-direction: column; align-items: center; gap: 12px; }
-  @media (max-width: 700px) { .qr { border-right: 0; border-bottom: 1px solid var(--line); } }
-  .qr-box { width: 252px; height: 252px; max-width: 100%; background: #fff; padding: 10px; border-radius: 4px; display: grid; place-items: center; color: #6a6f75; font-size: 13px; text-align: center; }
-  .qr-box svg { width: 100%; height: 100%; display: block; }
-  .code { font-size: 22px; font-weight: 600; letter-spacing: 0.12em; }
-  .steps { padding: 24px; }
-  .steps ol { margin: 0; padding-left: 20px; }
-  .steps li { margin-bottom: 10px; }
+  /* ---- page head ---- */
+  .page-head, .dash-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 22px; flex-wrap: wrap; }
+  .title { font-size: 26px; font-weight: 750; margin: 0 0 4px; letter-spacing: -.02em; }
+  .lede { color: var(--muted); margin: 0 0 22px; max-width: 760px; font-size: 14.5px; }
+  .page-head .lede { margin: 0; }
 
-  .device { padding: 16px 18px; }
-  .device + .device { border-top: 1px solid var(--line); }
-  .device-head { display: flex; align-items: center; gap: 10px; }
-  .device-head .grow { flex: 1; min-width: 0; }
-  .device-name { font-weight: 600; }
-  .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px 18px; margin-top: 14px; }
-  @media (max-width: 640px) { .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-  .stat .k { font-size: 12px; color: var(--muted); }
-  .stat .v { font-weight: 500; }
+  /* ---- panels / cards ---- */
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); margin-bottom: 20px; overflow: hidden; }
+  .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--line-2); }
+  .panel-head h2 { margin: 0; font-size: 15px; font-weight: 650; display: flex; align-items: center; gap: 8px; }
+  .panel-body { padding: 18px 20px 20px; }
+  .grid { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 20px; align-items: start; }
+  .grid.even { grid-template-columns: 1fr 1fr; }
+  .grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .grid > div > .panel:last-child, .grid > aside > .panel:last-child { margin-bottom: 0; }
+  .grid > div, .grid > aside { display: flex; flex-direction: column; gap: 20px; }
+  .grid > div > .panel, .grid > aside > .panel { margin-bottom: 0; }
+  .empty { padding: 28px 20px; text-align: center; color: var(--muted); font-size: 13.5px; }
+
+  /* ---- KPIs ---- */
+  .kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; margin-bottom: 20px; }
+  .kpi { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 16px 18px; box-shadow: var(--shadow-sm); position: relative; overflow: hidden; }
+  .kpi .k { color: var(--muted); font-size: 12.5px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .kpi .v { font-size: 26px; font-weight: 750; margin: 6px 0 2px; letter-spacing: -.02em; }
+  .kpi .d { font-size: 12.5px; color: var(--muted); }
+  .kpi .price { font-size: 30px; font-weight: 800; margin: 8px 0; }
+  .kpi .price small { font-size: 14px; color: var(--muted); font-weight: 500; }
+  .kpi.feature::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 3px; background: var(--grad); }
+  .kpi-ic { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; background: var(--brand-50); color: var(--brand); }
+  .kpi-ic.t { background: var(--flow-50); color: var(--flow-600); }
+  .price { font-weight: 750; font-size: 20px; } .price small { color: var(--muted); font-weight: 500; font-size: 13px; }
+
+  /* ---- buttons ---- */
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 36px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: 600 13.5px Inter, system-ui, sans-serif; cursor: pointer; white-space: nowrap; transition: background .12s, border-color .12s, box-shadow .12s, transform .05s; text-decoration: none !important; }
+  .btn:hover { background: var(--hover); border-color: #D6DAE6; }
+  .btn:active { transform: translateY(1px); }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .btn.solid, .btn.p { background: var(--brand); border-color: var(--brand); color: #fff; box-shadow: 0 1px 2px rgba(91, 71, 251, .3), inset 0 1px 0 rgba(255, 255, 255, .12); }
+  .btn.solid:hover, .btn.p:hover { background: var(--brand-600); border-color: var(--brand-600); }
+  .btn.grad { background: var(--grad); border: 0; color: #fff; }
+  .btn.end, .btn.d { background: var(--bad); border-color: var(--bad); color: #fff; }
+  .btn.end:hover, .btn.d:hover { filter: brightness(.95); background: var(--bad); }
+  .btn.link { background: transparent; border-color: transparent; color: var(--brand); padding: 0 8px; }
+  .btn.link:hover { background: var(--brand-50); }
+  .btn.mini { height: 28px; padding: 0 9px; font-size: 12.5px; border-radius: 8px; }
+  .btn.sm { height: 30px; padding: 0 11px; font-size: 12.5px; }
+  .btn.lg { height: 44px; padding: 0 18px; font-size: 14.5px; border-radius: 12px; }
+  .btn.copy { position: absolute; top: 8px; right: 8px; height: 26px; padding: 0 9px; font-size: 12px; }
+
+  /* ---- forms ---- */
+  .lbl { display: block; font-size: 13px; font-weight: 600; margin: 14px 0 6px; color: var(--ink-2); }
+  .field { width: 100%; height: 38px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: 14px Inter, system-ui, sans-serif; outline: none; transition: border-color .12s, box-shadow .12s; }
+  textarea.field { height: auto; padding: 10px 12px; line-height: 1.5; resize: vertical; }
+  select.field { padding-right: 30px; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23667085' stroke-width='2.5'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 11px center; }
+  .field:focus { border-color: var(--brand); box-shadow: 0 0 0 4px color-mix(in srgb, var(--brand) 16%, transparent); }
+  .field::placeholder { color: color-mix(in srgb, var(--muted) 75%, transparent); }
+  .hint { font-size: 12.5px; color: var(--muted); margin: 6px 0 0; }
+  .switch { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); cursor: pointer; font-weight: 500; }
+  .switch input { appearance: none; width: 40px; height: 22px; border-radius: 99px; background: #CBD1DE; position: relative; cursor: pointer; flex: none; transition: background .15s; margin: 0; }
+  .switch input::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.2); transition: transform .15s; }
+  .switch input:checked { background: var(--brand); }
+  .switch input:checked::after { transform: translateX(18px); }
+  .switch input:disabled { opacity: .5; }
+  .switch + .switch { margin-top: 8px; }
+  .warn { font-size: 13px; }
+  p.warn { background: var(--ring-bg); color: var(--ring); padding: 10px 12px; border-radius: 10px; margin: 12px 0 0; }
+
+  /* ---- status bits ---- */
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #B8BECC; display: inline-block; flex: none; }
+  .dot.live { background: var(--live); box-shadow: 0 0 0 3px color-mix(in srgb, var(--live) 18%, transparent); }
+  .dot.ring { background: var(--ring); animation: pulse 1.2s infinite; }
+  .dot.bad { background: var(--bad); }
+  @keyframes pulse { 50% { opacity: .35; } }
+  .tag, .badge { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border-radius: 99px; font-size: 11.5px; font-weight: 600; background: var(--soft); color: var(--ink-2); margin: 2px 4px 2px 0; white-space: nowrap; line-height: 18px; }
+  .tag.live, .badge.g { background: var(--live-bg); color: var(--live); }
+  .tag.bad, .badge.r { background: var(--bad-bg); color: var(--bad); }
+  .badge.y { background: var(--ring-bg); color: var(--ring); }
+  .badge.b { background: var(--info-bg); color: var(--info); }
+  .badge.v { background: var(--brand-50); color: var(--brand); }
+  .alerts { list-style: none; padding: 0; margin: 0 0 20px; display: flex; flex-direction: column; gap: 8px; }
+  .alerts li { padding: 12px 16px; border-radius: 12px; background: var(--ring-bg); color: var(--ink); border: 1px solid color-mix(in srgb, var(--ring) 22%, transparent); font-size: 13.5px; }
+  .alerts li.ok { background: var(--live-bg); border-color: color-mix(in srgb, var(--live) 22%, transparent); }
+  .alerts li::before { content: "●"; margin-right: 8px; color: var(--ring); }
+  .alerts li.ok::before { color: var(--live); }
+
+  /* ---- tables & lists ---- */
+  table.data { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  table.data th { text-align: left; font-size: 11.5px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; padding: 10px 20px; background: var(--surface-2); border-bottom: 1px solid var(--line); white-space: nowrap; }
+  table.data td { padding: 12px 20px; border-bottom: 1px solid var(--line-2); vertical-align: middle; }
+  table.data tr:last-child td { border-bottom: 0; }
+  table.data tr.click { cursor: pointer; } table.data tr.click:hover td { background: var(--hover); }
+  .num { text-align: right; }
+  .list { list-style: none; margin: 0; padding: 0; }
+  .list > li { border-bottom: 1px solid var(--line-2); } .list > li:last-child { border-bottom: 0; }
+  .call-row { display: grid; grid-template-columns: 26px 1fr auto; grid-template-areas: "dir num when" "dir st st"; gap: 0 10px; width: 100%; text-align: left; padding: 11px 20px; background: none; border: 0; color: inherit; font: inherit; cursor: pointer; align-items: center; }
+  .call-row:hover, .call-row[aria-current="true"] { background: var(--hover); }
+  .call-row .dir { grid-area: dir; width: 26px; height: 26px; border-radius: 8px; background: var(--brand-50); color: var(--brand); display: grid; place-items: center; font-weight: 700; }
+  .call-row .num { grid-area: num; font-weight: 600; text-align: left; }
+  .call-row .when { grid-area: when; color: var(--muted); font-size: 12px; }
+  .call-row .st { grid-area: st; color: var(--muted); font-size: 12.5px; }
+  .key-row { display: flex; align-items: center; gap: 12px; padding: 12px 20px; border-bottom: 1px solid var(--line-2); }
+  .key-row:last-child { border-bottom: 0; }
+  .kv { display: grid; grid-template-columns: 140px 1fr; gap: 8px 14px; margin: 0; font-size: 13.5px; }
+  .kv dt { color: var(--muted); } .kv dd { margin: 0; word-break: break-word; }
+  .checklist { list-style: none; margin: 0; padding: 6px 0; }
+  .checklist li { display: flex; align-items: center; gap: 12px; padding: 11px 20px; }
+  .checklist .mark { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--line); display: grid; place-items: center; font-size: 12px; color: #fff; flex: none; }
+  .checklist li.done .mark { background: var(--live); border-color: var(--live); }
+  .checklist li.done b { color: var(--muted); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--muted) 50%, transparent); }
+
+  /* ---- devices ---- */
+  .device { padding: 16px 20px; border-bottom: 1px solid var(--line-2); } .device:last-child { border-bottom: 0; }
+  .device-head { display: flex; align-items: center; gap: 12px; }
+  .device-name { font-weight: 650; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-top: 14px; }
+  .stat { background: var(--surface-2); border: 1px solid var(--line-2); border-radius: 10px; padding: 10px 12px; }
+  .stat .k { font-size: 11.5px; color: var(--muted); font-weight: 600; } .stat .v { font-weight: 650; margin-top: 2px; }
   .stat .v.bad { color: var(--bad); }
-  .bars { display: inline-flex; gap: 2px; align-items: flex-end; height: 12px; margin-right: 6px; vertical-align: -1px; }
-  .bars i { width: 3px; background: var(--line); border-radius: 1px; }
-  .bars i.on { background: var(--ink); }
-  .kv { display: grid; grid-template-columns: 140px 1fr; gap: 8px 14px; font-size: 14px; }
-  .kv dt { color: var(--muted); }
-  .kv dd { margin: 0; overflow-wrap: anywhere; }
+  .bars { display: inline-flex; align-items: flex-end; gap: 2px; margin-right: 6px; } .bars i { width: 3px; background: var(--line); border-radius: 1px; } .bars i.on { background: var(--live); }
 
-  /* Settings */
-  .settings-nav { position: sticky; top: 80px; }
-  .key-row { display: flex; align-items: center; gap: 12px; padding: 12px 18px; font-size: 14px; }
-  .key-row + .key-row { border-top: 1px solid var(--line); }
-  .key-row .grow { flex: 1; min-width: 0; }
-  .new-key { background: var(--soft); border-radius: var(--radius); padding: 12px 14px; margin-top: 12px; }
-  .new-key code { overflow-wrap: anywhere; font-size: 14px; }
+  /* ---- charts ---- */
+  .chart { display: flex; align-items: flex-end; gap: 4px; height: 180px; padding: 18px 20px 6px; }
+  .chart .col { flex: 1; height: 100%; display: flex; flex-direction: column-reverse; gap: 1px; min-width: 3px; border-radius: 4px; }
+  .chart .seg { width: 100%; border-radius: 3px; }
+  .chart .seg.answered { background: linear-gradient(180deg, #7A6BFF, var(--brand)); }
+  .chart .seg.missed { background: var(--bad); opacity: .85; }
+  .chart .seg.other { background: var(--line); }
+  .chart .col:hover .seg { filter: brightness(1.1); }
+  .chart-axis { display: flex; gap: 4px; padding: 0 20px 8px; font-size: 11px; color: var(--muted); }
+  .chart-axis span { flex: 1; min-width: 3px; white-space: nowrap; overflow: visible; }
+  .legend { display: flex; gap: 16px; padding: 4px 20px 16px; font-size: 12px; color: var(--muted); }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+  .meter-bar { height: 8px; background: var(--soft); border-radius: 99px; overflow: hidden; margin-top: 10px; }
+  .meter-bar > div { height: 100%; background: var(--grad); border-radius: 99px; }
 
-  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--ink); color: var(--surface); padding: 10px 16px; border-radius: var(--radius); font-size: 14px; max-width: calc(100vw - 32px); z-index: 10; }
-  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  /* ---- code ---- */
+  .code-block { position: relative; background: #0E1124; color: #D7DBF5; border-radius: 12px; padding: 16px 18px; font: 12.5px/1.6 var(--mono); overflow-x: auto; white-space: pre; margin: 0 0 12px; border: 1px solid #1E2340; }
+  .endpoints { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .endpoints td { padding: 10px 20px; border-bottom: 1px solid var(--line-2); font-family: var(--mono); font-size: 12.5px; }
+  .endpoints td.muted { font-family: Inter, system-ui, sans-serif; font-size: 13px; }
+  .verb { display: inline-block; min-width: 48px; font-weight: 700; color: var(--brand); margin-right: 8px; }
+  details.api { margin-top: 12px; } details.api summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+  details.api pre { margin-top: 10px; }
+
+  /* ---- playground (live calls) ---- */
+  .line-panel { padding: 22px; }
+  .line-state { display: flex; align-items: center; gap: 8px; font-weight: 600; color: var(--muted); margin-bottom: 14px; }
+  .dial { display: flex; gap: 10px; }
+  .dial input { flex: 1; height: 52px; font-size: 22px; font-weight: 600; letter-spacing: .02em; padding: 0 16px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); outline: none; }
+  .dial input:focus { border-color: var(--brand); box-shadow: 0 0 0 4px color-mix(in srgb, var(--brand) 16%, transparent); }
+  .dial .btn { height: 52px; padding: 0 24px; border-radius: 14px; font-size: 15px; }
+  .line-number { font-size: 30px; font-weight: 750; letter-spacing: -.01em; }
+  .line-sub { color: var(--muted); display: flex; gap: 12px; margin-bottom: 16px; }
+  .timer { font-family: var(--mono); color: var(--live); font-weight: 600; }
+  .controls { display: flex; gap: 8px; flex-wrap: wrap; }
+  .keypad { display: grid; grid-template-columns: repeat(3, 64px); gap: 8px; margin-top: 14px; }
+  .keypad .btn { height: 48px; font-size: 18px; }
+  .sub-row { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--line-2); }
+  .sub-title { font-weight: 650; margin: 0 0 6px; display: flex; align-items: center; gap: 8px; }
+  .meters { display: grid; grid-template-columns: 56px 1fr; gap: 6px 10px; align-items: center; font-size: 12px; color: var(--muted); margin: 10px 0; }
+  .meter { height: 6px; background: var(--soft); border-radius: 99px; overflow: hidden; } .meter div { height: 100%; width: 0; background: var(--grad); transition: width .08s; }
+  .transcript { margin-top: 18px; max-height: 320px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+  .turn { max-width: 80%; padding: 9px 13px; border-radius: 14px; background: var(--soft); font-size: 13.5px; }
+  .turn.agent { align-self: flex-end; background: var(--brand-50); }
+  .turn .who { display: block; font-size: 11px; font-weight: 700; color: var(--muted); margin-bottom: 2px; text-transform: uppercase; letter-spacing: .04em; }
+  .msg { padding: 12px 20px; } .msg .name { font-weight: 650; } .msg .reason { margin: 2px 0; } .msg .meta { font-size: 12px; color: var(--muted); }
+  .urgent { color: var(--bad); font-weight: 700; }
+
+  /* ---- pairing ---- */
+  .pair { display: grid; grid-template-columns: 260px 1fr; gap: 28px; padding: 24px; align-items: start; }
+  .qr { text-align: center; }
+  .qr-box { width: 240px; height: 240px; margin: 0 auto; padding: 14px; background: #fff; border-radius: 16px; border: 1px solid var(--line); display: grid; place-items: center; color: #667085; font-size: 13px; box-shadow: var(--shadow); }
+  .qr-box svg { width: 100%; height: 100%; }
+  .code { font: 700 22px var(--mono); letter-spacing: .12em; margin: 14px 0 2px; }
+  .steps ol { margin: 0 0 6px; padding-left: 20px; } .steps li { margin: 6px 0; }
+
+  /* ---- AI providers ---- */
+  .kind-title { font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 22px 0 8px; display: flex; align-items: center; gap: 8px; }
+  .prov { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin: 8px 0; background: var(--surface-2); }
+  .prov-head { display: flex; align-items: center; gap: 8px; }
+  .prov-head .field { height: 32px; font-weight: 600; }
+  .prov-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; margin-top: 8px; }
+  .prov-grid .lbl { margin-top: 6px; }
+  .prov-test { font-size: 12.5px; margin-top: 6px; }
+  .provider-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+  .pcard { border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; background: var(--surface); display: flex; flex-direction: column; gap: 6px; }
+  .pcard .pt { display: flex; align-items: center; gap: 10px; font-weight: 650; }
+  .plogo { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 13px; }
+
+  /* ---- WhatsApp inbox ---- */
+  .tabs { display: inline-flex; gap: 4px; padding: 4px; background: var(--soft); border-radius: 12px; margin-bottom: 18px; }
+  .tabs button { border: 0; background: transparent; padding: 7px 14px; border-radius: 9px; font: 600 13px Inter, system-ui, sans-serif; color: var(--muted); cursor: pointer; display: inline-flex; gap: 7px; align-items: center; }
+  .tabs button[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-sm); }
+  .inbox { display: grid; grid-template-columns: 330px minmax(0, 1fr) 300px; height: calc(100vh - 64px - 56px - 140px); min-height: 520px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-sm); }
+  .inbox > section, .inbox > aside { min-height: 0; min-width: 0; display: flex; flex-direction: column; }
+  .ib-list { border-right: 1px solid var(--line); }
+  .ib-tools { padding: 12px; border-bottom: 1px solid var(--line-2); display: flex; flex-direction: column; gap: 10px; }
+  .search { position: relative; } .search svg { position: absolute; left: 11px; top: 10px; color: var(--muted); width: 16px; height: 16px; } .search .field { padding-left: 34px; height: 36px; }
+  .chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+  .chips button { flex: none; border: 1px solid var(--line); background: var(--surface); border-radius: 99px; padding: 3px 10px; font: 600 12px Inter, system-ui, sans-serif; color: var(--ink-2); cursor: pointer; }
+  .chips button[aria-pressed="true"] { background: var(--brand); color: #fff; border-color: var(--brand); }
+  .ib-items { overflow-y: auto; flex: 1; }
+  .ci { display: flex; gap: 11px; padding: 12px 14px; border-bottom: 1px solid var(--line-2); cursor: pointer; }
+  .ci:hover { background: var(--hover); } .ci.on { background: var(--brand-50); }
+  .ci .t { min-width: 0; flex: 1; }
+  .ci .n { display: flex; justify-content: space-between; gap: 8px; } .ci .n b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 650; } .ci .n small { color: var(--muted); flex: none; font-size: 11.5px; }
+  .ci .pv { color: var(--muted); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ci .un { background: var(--flow); color: #fff; border-radius: 99px; padding: 0 7px; font-size: 11px; font-weight: 700; line-height: 18px; margin-right: 4px; }
+  .ib-conv { min-width: 0; background: var(--surface-2); }
+  .chd { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--surface); }
+  .msgs { flex: 1; overflow-y: auto; padding: 18px 22px; display: flex; flex-direction: column; gap: 6px; background-image: radial-gradient(color-mix(in srgb, var(--line) 70%, transparent) 1px, transparent 1px); background-size: 18px 18px; }
+  .bubble { max-width: 72%; padding: 8px 12px 6px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line-2); box-shadow: var(--shadow-sm); white-space: pre-wrap; word-wrap: break-word; font-size: 13.5px; align-self: flex-start; }
+  .bubble.out { align-self: flex-end; background: #E7F8F3; border-color: #CDEFE6; }
+  :root[data-theme="dark"] .bubble.out { background: #0F2D2A; border-color: #164A44; }
+  .bubble.out.ai { background: var(--brand-50); border-color: var(--brand-100); }
+  .bubble .meta { display: flex; gap: 8px; justify-content: flex-end; align-items: center; font-size: 11px; color: var(--muted); margin-top: 3px; }
+  .bubble .fail { color: var(--bad); font-weight: 600; } .bubble .tick { color: var(--flow-600); }
+  .daysep { align-self: center; font-size: 11.5px; font-weight: 600; color: var(--muted); background: var(--surface); border: 1px solid var(--line); border-radius: 99px; padding: 2px 10px; margin: 10px 0; }
+  .composer { border-top: 1px solid var(--line); background: var(--surface); padding: 10px 14px 12px; }
+  .quick { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 8px; scrollbar-width: thin; }
+  .quick button { flex: none; border: 1px dashed var(--line); background: var(--surface-2); border-radius: 99px; padding: 3px 10px; font: 500 12px Inter, system-ui, sans-serif; color: var(--ink-2); cursor: pointer; max-width: 260px; overflow: hidden; text-overflow: ellipsis; }
+  .composer form { display: flex; gap: 8px; align-items: flex-end; }
+  .composer textarea { flex: 1; height: 42px; min-height: 42px; max-height: 140px; resize: none; }
+  .composer .note { font-size: 12px; color: var(--muted); margin-top: 6px; display: flex; gap: 10px; flex-wrap: wrap; }
+  .ib-info { border-left: 1px solid var(--line); overflow-y: auto; padding: 18px; }
+  .ib-info h4 { margin: 18px 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .ib-info .statline { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px dashed var(--line-2); font-size: 13px; }
+  .pholder { flex: 1; display: grid; place-items: center; text-align: center; color: var(--muted); padding: 24px; }
+  .wa-status { display: grid; grid-template-columns: 280px 1fr; gap: 28px; padding: 24px; align-items: center; }
+  .wa-hero { display: flex; align-items: center; gap: 14px; }
+  .wa-ic { width: 48px; height: 48px; border-radius: 14px; display: grid; place-items: center; background: #25D366; color: #fff; }
+
+  /* ---- modal & toast ---- */
+  .modal-backdrop { position: fixed; inset: 0; background: rgba(10, 12, 28, .48); backdrop-filter: blur(3px); z-index: 100; display: grid; place-items: center; padding: 20px; animation: fade .12s; }
+  .modal { background: var(--surface); border-radius: 18px; width: min(620px, 100%); max-height: calc(100vh - 40px); display: flex; flex-direction: column; box-shadow: var(--shadow-lg); border: 1px solid var(--line); animation: pop .16s; }
+  .modal-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--line-2); } .modal-head h2 { margin: 0; font-size: 17px; }
+  .modal-body { padding: 18px 20px; overflow-y: auto; }
+  .modal-foot { display: flex; gap: 8px; justify-content: flex-end; padding: 14px 20px; border-top: 1px solid var(--line-2); background: var(--surface-2); border-radius: 0 0 18px 18px; }
+  .modal-foot .btn.d { margin-right: auto; }
+  @keyframes fade { from { opacity: 0; } } @keyframes pop { from { transform: translateY(8px) scale(.98); opacity: 0; } }
+  .toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); background: #11142A; color: #fff; padding: 11px 18px; border-radius: 12px; box-shadow: var(--shadow-lg); z-index: 200; font-weight: 500; max-width: calc(100vw - 40px); animation: pop .16s; }
+  .new-key { margin-top: 12px; padding: 12px; border-radius: 12px; background: var(--live-bg); }
+  .new-key code { word-break: break-all; }
+
+  /* ---- sign in ---- */
+  .auth { min-height: 100vh; display: grid; grid-template-columns: 1.05fr 1fr; }
+  .auth-art { position: relative; overflow: hidden; background: #0C0B24; color: #fff; padding: 48px 56px; display: flex; flex-direction: column; justify-content: space-between; }
+  .auth-art::before { content: ""; position: absolute; inset: -20%; background: radial-gradient(40% 40% at 20% 20%, rgba(91, 71, 251, .75), transparent 70%), radial-gradient(35% 35% at 80% 70%, rgba(20, 200, 176, .6), transparent 70%), radial-gradient(30% 30% at 60% 10%, rgba(62, 123, 246, .5), transparent 70%); filter: blur(10px); }
+  .auth-art > * { position: relative; }
+  .auth-art .logo { color: #fff; }
+  .auth-art h2 { font-size: 40px; line-height: 1.12; letter-spacing: -.03em; margin: 0 0 16px; font-weight: 800; max-width: 520px; }
+  .auth-art p { color: rgba(255, 255, 255, .78); font-size: 16px; max-width: 480px; margin: 0; }
+  .auth-feats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; max-width: 520px; margin-top: 32px; }
+  .auth-feats div { background: rgba(255, 255, 255, .07); border: 1px solid rgba(255, 255, 255, .12); border-radius: 14px; padding: 14px; font-size: 13.5px; backdrop-filter: blur(6px); }
+  .auth-feats b { display: block; font-size: 14px; margin-bottom: 2px; }
+  .auth-side { display: grid; place-items: center; padding: 40px 24px; background: var(--surface); }
+  .auth-card { width: min(400px, 100%); }
+  .auth-card h1 { font-size: 26px; margin: 22px 0 6px; letter-spacing: -.02em; }
+  .auth-card .btn.solid { width: 100%; height: 44px; margin-top: 22px; font-size: 14.5px; }
+  .auth-foot { color: var(--muted); font-size: 12.5px; margin-top: 28px; text-align: center; }
+
+  /* ---- responsive ---- */
+  @media (max-width: 1180px) { .grid { grid-template-columns: 1fr; } .inbox { grid-template-columns: 300px minmax(0, 1fr); } .ib-info { display: none !important; } }
+  @media (max-width: 960px) {
+    .shell { grid-template-columns: 1fr; }
+    .side { position: fixed; left: 0; top: 0; bottom: 0; width: var(--side); transform: translateX(-100%); transition: transform .2s; box-shadow: var(--shadow-lg); }
+    body.side-open .side { transform: none; }
+    body.side-open .scrim { display: block; position: fixed; inset: 0; background: rgba(10, 12, 28, .4); z-index: 35; }
+    .menu-btn { display: inline-grid; }
+    .content { padding: 18px; } .topbar { padding: 0 14px; }
+    .auth { grid-template-columns: 1fr; } .auth-art { display: none; }
+    .grid.even, .grid.three, .sub-row, .pair, .wa-status { grid-template-columns: 1fr; }
+    .inbox { grid-template-columns: 1fr; height: calc(100vh - 160px); }
+    .inbox.open .ib-list { display: none; } .inbox:not(.open) .ib-conv { display: none; }
+  }
+  @media (max-width: 560px) { .pill.phone-status span:last-child { display: none; } .title { font-size: 22px; } .kpis { grid-template-columns: 1fr 1fr; } }
 </style>
-  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script src="https://checkout.razorpay.com/v1/checkout.js" async></script>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 2 10 5-10 5L2 7l10-5z"/><path d="m2 17 10 5 10-5M2 12l10 5 10-5"/></symbol>
+  <symbol id="i-card" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/></symbol>
+  <symbol id="i-code" viewBox="0 0 24 24"><path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22z"/><path d="M8.5 12h.01M12 12h.01M15.5 12h.01"/></symbol>
+  <symbol id="i-building" viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4M8 6h.01M12 6h.01M16 6h.01M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M16 14h.01"/></symbol>
+  <symbol id="i-mobile" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2.5"/><path d="M11 18h2"/></symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3l1.9 5.8L20 11l-6.1 2.2L12 19l-1.9-5.8L4 11l6.1-2.2z"/><path d="M19 3v4M21 5h-4"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5v14z"/><path d="M20 17v4H6.5a2.5 2.5 0 0 1 0-5"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></symbol>
+  <symbol id="i-brief" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2M2 13h20"/></symbol>
+  <symbol id="i-logout" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="m6 3 14 9-14 9z"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.6-6.4L21 8"/><path d="M21 3v5h-5"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-ext" viewBox="0 0 24 24"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></symbol>
+  <symbol id="i-bot" viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="12" rx="3"/><path d="M12 8V4M9 4h6"/><circle cx="9" cy="14" r="1"/><circle cx="15" cy="14" r="1"/></symbol>
+  <symbol id="i-zap" viewBox="0 0 24 24"><path d="M13 2 3 14h9l-1 8 10-12h-9z"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-qr" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6M15.5 7.5l3 3L22 7l-3-3"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></symbol>
+  <symbol id="i-hand" viewBox="0 0 24 24"><path d="M18 11V6a2 2 0 0 0-4 0M14 10V4a2 2 0 0 0-4 0v2M10 10.5V6a2 2 0 0 0-4 0v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.9-6-2.4l-3.6-3.6a2 2 0 0 1 2.8-2.8L7 15"/></symbol>
+</svg>
 
-<!-- Sign-in ---------------------------------------------------------------------------------->
+<!-- Sign in ------------------------------------------------------------------------------------>
 <div class="auth" id="authView" hidden>
-  <form class="panel" id="authForm">
-    <h1 id="authTitle">Sign in</h1>
-    <p class="muted small" id="authLede" style="margin:0 0 8px">OpenLine console</p>
-    <label class="lbl" for="email">Email</label>
-    <input class="field" id="email" type="email" autocomplete="username" required>
-    <label class="lbl" for="password" id="passwordLabel">Password</label>
-    <input class="field" id="password" type="password" autocomplete="current-password" required>
-    <div id="confirmFields" hidden>
-      <label class="lbl" for="password2">Repeat password</label>
-      <input class="field" id="password2" type="password" autocomplete="new-password">
-      <p class="hint">At least 8 characters.</p>
+  <div class="auth-art">
+    <a class="logo" href="/"><img src="/assets/logo.svg" alt=""><span class="wordmark" data-brand></span></a>
+    <div>
+      <h2>Every call and chat, answered by AI that sounds like your team.</h2>
+      <p>Your business number answers calls 24/7, replies on WhatsApp in Hindi, Hinglish and English, books appointments and hands over to staff when it matters.</p>
+      <div class="auth-feats">
+        <div><b>AI receptionist</b>Real SIM calls, answered in seconds.</div>
+        <div><b>WhatsApp automation</b>Inbox, AI replies and human hand-off.</div>
+        <div><b>Multi-provider AI</b>Gemini, Groq, Cloudflare with failover.</div>
+        <div><b>Your own phone</b>Personal calls stay personal.</div>
+      </div>
     </div>
-    <div id="setupFields" hidden>
-      <label class="lbl" for="setupKey">Setup key</label>
-      <input class="field" id="setupKey" type="password" autocomplete="off">
-      <p class="hint">You're opening this through the public address, so prove it's your server: paste
-        <code>HTTP_GATEWAY_API_KEY</code> from <code>server\.env</code>. Not needed on the server's own PC.</p>
-    </div>
-    <p class="warn" id="authError" hidden></p>
-    <button class="btn solid" type="submit" style="width:100%; margin-top:18px; padding:10px">Continue</button>
-  </form>
+    <p class="small" style="opacity:.6">© VaaniFlow</p>
+  </div>
+  <div class="auth-side">
+    <form class="auth-card" id="authForm">
+      <a class="logo" href="/" style="display:none" id="authMobileLogo"><img src="/assets/logo.svg" alt=""><span class="wordmark" data-brand></span></a>
+      <h1 id="authTitle">Sign in</h1>
+      <p class="muted" id="authLede" style="margin:0 0 6px">Sign in to your workspace</p>
+      <label class="lbl" for="email">Work email</label>
+      <input class="field" id="email" type="email" autocomplete="username" required placeholder="you@company.com">
+      <label class="lbl" for="password" id="passwordLabel">Password</label>
+      <input class="field" id="password" type="password" autocomplete="current-password" required placeholder="••••••••">
+      <div id="confirmFields" hidden>
+        <label class="lbl" for="password2">Repeat password</label>
+        <input class="field" id="password2" type="password" autocomplete="new-password">
+        <p class="hint">At least 8 characters.</p>
+      </div>
+      <div id="setupFields" hidden>
+        <label class="lbl" for="setupKey">Setup key</label>
+        <input class="field" id="setupKey" type="password" autocomplete="off">
+        <p class="hint">You're opening this through the public address, so prove it's your server: paste
+          <code>HTTP_GATEWAY_API_KEY</code> from <code>server/.env</code>. Not needed on the server itself.</p>
+      </div>
+      <p class="warn" id="authError" hidden></p>
+      <button class="btn solid" type="submit">Continue</button>
+      <p class="auth-foot"><svg class="i" style="width:14px;height:14px"><use href="#i-shield"/></svg> Encrypted session · Your data stays on your server</p>
+    </form>
+  </div>
 </div>
 
 <div id="appView" hidden>
-<header class="top"><div class="top-inner">
-  <a class="brand" href="#/dashboard" id="brandName">OpenLine</a>
-  <nav class="nav" aria-label="Main">
-    <a href="#/dashboard" data-route="dashboard" data-role="admin">Dashboard</a>
-    <a href="#/customers" data-route="customers" data-role="admin">Customers</a>
-    <a href="#/plans" data-route="plans" data-role="admin">Plans</a>
-    <a href="#/billing" data-route="billing" data-role="admin">Billing</a>
-    <a href="#/home" data-route="home" data-role="admin">Get started</a>
-    <a href="#/playground" data-route="playground" data-role="admin">Playground</a>
-    <a href="#/clients" data-route="clients" data-role="admin">Clients</a>
-    <a href="#/connection" data-route="connection" data-role="admin">Connection</a>
-    <a href="#/settings" data-route="settings" data-role="admin">Settings</a>
-    <a href="#/overview" data-route="overview" data-role="customer">Overview</a>
-    <a href="#/business" data-route="business" data-role="customer">My business</a>
-    <a href="#/phones" data-route="phones" data-role="customer">Phones</a>
-    <a href="#/plan" data-route="plan" data-role="customer">Plan &amp; billing</a>
-    <a href="#/docs" data-route="docs" id="docsLink" data-role="admin">Docs</a>
-    <a href="#/account" data-route="account" data-role="both">Account</a>
-  </nav>
-  <span id="impersonateBar" hidden style="font-size:13px;color:var(--warn)"></span>
-  <a class="phone-status" id="phoneStatus" href="#/connection" style="text-decoration:none" data-role="admin"><span class="dot"></span><span>Checking phone…</span></a>
-</div></header>
+<div class="shell">
+  <aside class="side" id="side">
+    <div class="side-top">
+      <a class="logo" href="#/"><img src="/assets/logo.svg" alt=""><span class="wordmark" data-brand></span></a>
+      <span id="brandName" hidden>VaaniFlow</span>
+    </div>
+    <div class="side-scroll">
+      <nav class="nav" aria-label="Main">
+        <div class="nav-group" data-role="admin">Overview</div>
+        <a href="#/dashboard" data-route="dashboard" data-role="admin"><svg class="i"><use href="#i-grid"/></svg>Dashboard</a>
+        <a href="#/playground" data-route="playground" data-role="admin"><svg class="i"><use href="#i-phone"/></svg>Live calls</a>
+        <div class="nav-group" data-role="customer">Overview</div>
+        <a href="#/overview" data-route="overview" data-role="customer"><svg class="i"><use href="#i-home"/></svg>Overview</a>
 
-<!-- Customers (admin) ------------------------------------------------------------------------>
+        <div class="nav-group" data-role="both">Engage</div>
+        <a href="#/whatsapp" data-route="whatsapp" data-role="both"><svg class="i"><use href="#i-chat"/></svg>WhatsApp<span class="badge-n" id="navWaBadge" hidden></span></a>
+        <a href="#/business" data-route="business" data-role="customer"><svg class="i"><use href="#i-brief"/></svg>My business</a>
+        <a href="#/phones" data-route="phones" data-role="customer"><svg class="i"><use href="#i-mobile"/></svg>Phones</a>
+
+        <div class="nav-group" data-role="admin">Business</div>
+        <a href="#/customers" data-route="customers" data-role="admin"><svg class="i"><use href="#i-users"/></svg>Customers</a>
+        <a href="#/plans" data-route="plans" data-role="admin"><svg class="i"><use href="#i-layers"/></svg>Plans</a>
+        <a href="#/billing" data-route="billing" data-role="admin"><svg class="i"><use href="#i-card"/></svg>Billing</a>
+        <a href="#/clients" data-route="clients" data-role="admin"><svg class="i"><use href="#i-building"/></svg>Clients</a>
+
+        <div class="nav-group" data-role="admin">Platform</div>
+        <a href="#/connection" data-route="connection" data-role="admin"><svg class="i"><use href="#i-mobile"/></svg>Phones</a>
+        <a href="#/ai" data-route="ai" data-role="admin"><svg class="i"><use href="#i-spark"/></svg>AI providers</a>
+        <a href="#/home" data-route="home" data-role="admin"><svg class="i"><use href="#i-code"/></svg>Developers</a>
+        <a href="#/settings" data-route="settings" data-role="admin"><svg class="i"><use href="#i-gear"/></svg>Settings</a>
+        <a href="#/docs" data-route="docs" id="docsLink" data-role="admin"><svg class="i"><use href="#i-book"/></svg>Docs</a>
+
+        <div class="nav-group" data-role="both">Account</div>
+        <a href="#/plan" data-route="plan" data-role="customer"><svg class="i"><use href="#i-card"/></svg>Plan &amp; billing</a>
+        <a href="#/account" data-route="account" data-role="both"><svg class="i"><use href="#i-user"/></svg>Account</a>
+      </nav>
+    </div>
+    <div class="side-foot">
+      <div class="me-card">
+        <span class="avatar" id="meAvatar">V</span>
+        <span class="grow"><b id="meEmail" style="display:block;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Signed in</b><span class="muted small" id="meRole">Admin</span></span>
+        <button class="icon-btn" id="signOut" title="Sign out" aria-label="Sign out"><svg class="i"><use href="#i-logout"/></svg></button>
+      </div>
+    </div>
+  </aside>
+  <div class="scrim" id="scrim"></div>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="icon-btn menu-btn" id="menuBtn" aria-label="Menu"><svg class="i"><use href="#i-menu"/></svg></button>
+      <span class="crumb" id="crumb">Dashboard</span>
+      <span class="spacer"></span>
+      <span class="pill impersonate" id="impersonateBar" hidden></span>
+      <a class="pill phone-status" id="phoneStatus" href="#/connection" data-role="admin"><span class="dot"></span><span>Checking phone…</span></a>
+      <button class="icon-btn" id="themeToggle" title="Switch theme" aria-label="Switch theme"><svg class="i"><use href="#i-moon"/></svg></button>
+    </header>
+    <div class="content">
+
+<!-- Customers (admin) -------------------------------------------------------------------------->
 <main class="page" data-page="customers" hidden>
-  <div class="dash-head">
-    <div><h1 class="title" style="margin-bottom:2px">Customers</h1><p class="muted small" style="margin:0" id="custSummary"></p></div>
-    <button class="btn solid" id="newCustomer">New customer</button>
+  <div class="page-head">
+    <div><h1 class="title">Customers</h1><p class="lede" id="custSummary"></p></div>
+    <button class="btn solid" id="newCustomer"><svg class="i"><use href="#i-plus"/></svg>New customer</button>
   </div>
-  <div class="scroll-x"><table class="data"><thead><tr>
-    <th>Business</th><th>Email</th><th>Plan</th><th>Status</th><th>Minutes</th><th>Phones</th><th>License</th><th></th>
-  </tr></thead><tbody id="customerRows"></tbody></table></div>
+  <section class="panel"><div class="scroll-x"><table class="data"><thead><tr>
+    <th>Business</th><th>Email</th><th>Plan</th><th>Status</th><th class="num">Minutes</th><th class="num">Phones</th><th>Licence</th><th></th>
+  </tr></thead><tbody id="customerRows"></tbody></table></div></section>
 </main>
 
-<!-- Plans (admin) ---------------------------------------------------------------------------->
+<!-- Plans (admin) ------------------------------------------------------------------------------>
 <main class="page" data-page="plans" hidden>
-  <div class="dash-head">
-    <div><h1 class="title" style="margin-bottom:2px">Plans</h1><p class="muted small" style="margin:0">What customers can buy. Prices in ₹. Edit anytime; changes apply to new purchases.</p></div>
-    <button class="btn solid" id="newPlan">New plan</button>
+  <div class="page-head">
+    <div><h1 class="title">Plans</h1><p class="lede">What customers can buy. Prices in ₹. Changes apply to new purchases.</p></div>
+    <button class="btn solid" id="newPlan"><svg class="i"><use href="#i-plus"/></svg>New plan</button>
   </div>
   <div id="planList"></div>
 </main>
 
-<!-- Billing (admin) -------------------------------------------------------------------------->
+<!-- Billing (admin) ---------------------------------------------------------------------------->
 <main class="page" data-page="billing" hidden>
-  <h1 class="title">Billing &amp; activity</h1>
+  <div class="page-head"><div><h1 class="title">Billing &amp; activity</h1><p class="lede">Payments from Razorpay and everything admins and customers changed.</p></div></div>
   <div class="grid">
-    <div><section class="panel"><div class="panel-head"><h2>Payments</h2></div>
-      <div class="scroll-x"><table class="data"><thead><tr><th>When</th><th>Customer</th><th>Amount</th><th>Kind</th><th>Status</th></tr></thead><tbody id="paymentRows"></tbody></table></div></section></div>
-    <aside><section class="panel"><div class="panel-head"><h2>Audit log</h2></div>
-      <ul class="list" id="auditRows" style="margin-top:6px"></ul></section></aside>
+    <div><section class="panel"><div class="panel-head"><h2><svg class="i"><use href="#i-card"/></svg>Payments</h2></div>
+      <div class="scroll-x"><table class="data"><thead><tr><th>When</th><th>Customer</th><th class="num">Amount</th><th>Kind</th><th>Status</th></tr></thead><tbody id="paymentRows"></tbody></table></div></section></div>
+    <aside><section class="panel"><div class="panel-head"><h2><svg class="i"><use href="#i-clock"/></svg>Audit log</h2></div>
+      <ul class="list" id="auditRows"></ul></section></aside>
   </div>
 </main>
 
-<!-- Customer: Overview ----------------------------------------------------------------------->
+<!-- Customer: Overview ------------------------------------------------------------------------->
 <main class="page" data-page="overview" hidden>
-  <div class="dash-head">
-    <div><h1 class="title" style="margin-bottom:2px" id="ovTitle">Overview</h1><p class="muted small" style="margin:0" id="ovUpdated"></p></div>
+  <div class="page-head">
+    <div><h1 class="title" id="ovTitle">Overview</h1><p class="lede" id="ovUpdated"></p></div>
     <select class="field" id="ovDays" aria-label="Period" style="width:auto">
       <option value="1">Today</option><option value="7" selected>Last 7 days</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option>
     </select>
@@ -362,98 +558,97 @@
   <div class="grid">
     <div><section class="panel"><div class="panel-head"><h2>Calls per day</h2></div>
       <div class="chart" id="ovDaily"></div><div class="chart-axis" id="ovDailyAxis"></div>
-      <div class="legend"><span><i style="background:var(--live)"></i>Answered</span><span><i style="background:var(--bad)"></i>Missed</span></div></section>
+      <div class="legend"><span><i style="background:var(--brand)"></i>Answered</span><span><i style="background:var(--bad)"></i>Missed</span></div></section>
       <section class="panel"><div class="panel-head"><h2>Recent calls</h2></div>
         <div class="scroll-x"><table class="data"><thead><tr><th>Time</th><th>Caller</th><th>Result</th><th class="num">Length</th><th>AI</th></tr></thead><tbody id="ovCalls"></tbody></table></div></section></div>
-    <aside><section class="panel"><div class="panel-head"><h2>This month</h2></div><div class="panel-body" id="ovUsage"></div></section>
-      <section class="panel"><div class="panel-head"><h2>Phones</h2></div><div id="ovPhones"></div></section></aside>
+    <aside>
+      <section class="panel"><div class="panel-head"><h2><svg class="i"><use href="#i-chat"/></svg>WhatsApp</h2><a class="btn link sm" href="#/whatsapp">Open inbox</a></div><div class="panel-body" id="ovWa"><p class="muted small" style="margin:0">Loading…</p></div></section>
+      <section class="panel"><div class="panel-head"><h2>This month</h2></div><div class="panel-body" id="ovUsage"></div></section>
+      <section class="panel"><div class="panel-head"><h2>Phones</h2></div><div id="ovPhones"></div></section>
+    </aside>
   </div>
 </main>
 
-<!-- Customer: My business -------------------------------------------------------------------->
+<!-- Customer: My business ---------------------------------------------------------------------->
 <main class="page" data-page="business" hidden>
-  <h1 class="title">My business</h1>
-  <p class="lede">What the AI receptionist knows and how it books appointments. Changes apply from the next call.</p>
+  <div class="page-head"><div><h1 class="title">My business</h1><p class="lede">What the AI knows and how it books appointments, on calls and on WhatsApp. Changes apply from the next call or message.</p></div>
+    <button class="btn solid" id="bizSave"><svg class="i"><use href="#i-check"/></svg>Save changes</button></div>
   <div class="grid">
-    <div><section class="panel"><div class="panel-head"><h2>Receptionist</h2></div><div class="panel-body">
-      <label class="lbl" for="bizName" style="margin-top:0">Business name</label><input class="field" id="bizName" maxlength="120">
-      <label class="lbl" for="bizVoice">Voice</label>
-      <select class="field" id="bizVoice"><option>Kore</option><option>Puck</option><option>Charon</option><option>Fenrir</option><option>Aoede</option><option>Leda</option><option>Orus</option><option>Zephyr</option></select>
+    <div><section class="panel"><div class="panel-head"><h2><svg class="i"><use href="#i-bot"/></svg>AI receptionist</h2></div><div class="panel-body">
+      <div class="grid even" style="gap:14px">
+        <div><label class="lbl" for="bizName" style="margin-top:0">Business name</label><input class="field" id="bizName" maxlength="120"></div>
+        <div><label class="lbl" for="bizVoice" style="margin-top:0">Voice on calls</label>
+        <select class="field" id="bizVoice"><option>Kore</option><option>Puck</option><option>Charon</option><option>Fenrir</option><option>Aoede</option><option>Leda</option><option>Orus</option><option>Zephyr</option></select></div>
+      </div>
       <label class="lbl" for="bizBooking">Booking link</label><input class="field" id="bizBooking" placeholder="https://wa.me/9188... or your website booking page">
-      <label class="lbl" for="bizAbout">Everything the receptionist should know</label>
-      <textarea class="field" id="bizAbout" rows="12" maxlength="20000" placeholder="Services and fees, timings, address and landmark, doctors and their days, emergency number, FAQs. Paste the text of your website here."></textarea>
-      <p class="hint"><span id="bizAboutCount"></span> The receptionist answers only from this; anything else it says staff will confirm.</p>
+      <label class="lbl" for="bizAbout">Everything the AI should know</label>
+      <textarea class="field" id="bizAbout" rows="14" maxlength="20000" placeholder="Services and fees, timings, address and landmark, doctors and their days, emergency number, FAQs. Paste the text of your website here."></textarea>
+      <p class="hint"><span id="bizAboutCount"></span> The AI answers only from this. Anything else, it says the team will confirm.</p>
     </div></section></div>
     <aside>
-      <section class="panel"><div class="panel-head"><h2>AI key (Gemini)</h2></div><div class="panel-body">
-        <p class="hint" style="margin-top:0">Your own Gemini key from aistudio.google.com. Your calls run on your account.</p>
+      <section class="panel"><div class="panel-head"><h2><svg class="i"><use href="#i-key"/></svg>Your Gemini key</h2></div><div class="panel-body">
+        <p class="hint" style="margin-top:0">Optional. From aistudio.google.com. Your calls and chats then run on your own Google account first.</p>
         <input class="field" id="bizGemini" type="password" autocomplete="off"><p class="hint" id="bizGeminiState"></p>
       </div></section>
-      <section class="panel"><div class="panel-head"><h2>WhatsApp</h2></div><div class="panel-body">
-        <p class="hint" style="margin-top:0">Your WhatsApp gateway, so the booking link comes from your number.</p>
-        <label class="lbl" for="bizWaUrl">Gateway address</label><input class="field" id="bizWaUrl" placeholder="https://your-gateway.hf.space">
-        <label class="lbl" for="bizWaSecret">Gateway API secret</label><input class="field" id="bizWaSecret" type="password" autocomplete="off"><p class="hint" id="bizWaState"></p>
-        <label class="lbl" for="bizWaCountry">Country code</label><input class="field" id="bizWaCountry" maxlength="4" placeholder="91">
-        <label class="lbl" for="bizWaMessage">Message</label><textarea class="field" id="bizWaMessage" rows="4" maxlength="1000"></textarea>
+      <section class="panel"><div class="panel-head"><h2><svg class="i"><use href="#i-chat"/></svg>Booking message</h2></div><div class="panel-body">
+        <p class="hint" style="margin-top:0">Sent on your WhatsApp after a call when the caller wants to book. Link your number on the <a href="#/whatsapp">WhatsApp</a> page.</p>
+        <label class="lbl" for="bizWaMessage">Message</label><textarea class="field" id="bizWaMessage" rows="5" maxlength="1000"></textarea>
         <p class="hint"><code>{name}</code>, <code>{business}</code>, <code>{link}</code> are filled in.</p>
+        <label class="lbl" for="bizWaCountry">Country code</label><input class="field" id="bizWaCountry" maxlength="4" placeholder="91">
+        <details class="api"><summary>External WhatsApp gateway (advanced)</summary>
+          <label class="lbl" for="bizWaUrl">Gateway address</label><input class="field" id="bizWaUrl" placeholder="https://your-gateway.example.com">
+          <label class="lbl" for="bizWaSecret">Gateway API secret</label><input class="field" id="bizWaSecret" type="password" autocomplete="off"><p class="hint" id="bizWaState"></p>
+        </details>
       </div></section>
     </aside>
   </div>
-  <div class="row" style="justify-content:flex-end; margin-top:14px"><button class="btn solid" id="bizSave">Save</button></div>
 </main>
 
-<!-- Customer: Phones ------------------------------------------------------------------------->
+<!-- Customer: Phones --------------------------------------------------------------------------->
 <main class="page" data-page="phones" hidden>
-  <h1 class="title">Phones</h1>
-  <p class="lede">Connect the Android phone with your SIM. Install your app, open it, and scan this code.</p>
+  <div class="page-head"><div><h1 class="title">Phones</h1><p class="lede">Connect the Android phone with your SIM. Install the VaaniFlow app, set it as the phone app, then scan the code.</p></div></div>
   <div class="grid">
-    <div><section class="panel"><div class="panel-head"><h2>Add a phone</h2></div><div class="panel-body">
+    <div><section class="panel"><div class="panel-head"><h2><svg class="i"><use href="#i-qr"/></svg>Add a phone</h2></div><div class="panel-body">
       <div id="phonePair"></div>
-      <button class="btn" id="phoneNewCode" style="margin-top:10px">Show pairing code</button>
+      <button class="btn solid" id="phoneNewCode" style="margin-top:14px"><svg class="i"><use href="#i-qr"/></svg>Show pairing code</button>
     </div></section></div>
-    <aside><section class="panel"><div class="panel-head"><h2>Your phones</h2></div><div id="phoneList" style="margin-top:6px"></div></section></aside>
+    <aside><section class="panel"><div class="panel-head"><h2>Your phones</h2></div><div id="phoneList"></div></section></aside>
   </div>
 </main>
 
-<!-- Customer: Plan & billing ----------------------------------------------------------------->
+<!-- Customer: Plan & billing ------------------------------------------------------------------->
 <main class="page" data-page="plan" hidden>
-  <h1 class="title">Plan &amp; billing</h1>
-  <div id="planStatus"></div>
-  <div class="row" style="gap:8px;margin:14px 0"><button class="btn" id="cycleMonthly" data-cycle="monthly">Monthly</button><button class="btn" id="cycleYearly" data-cycle="yearly">Yearly (2 months free)</button></div>
+  <div class="page-head"><div><h1 class="title">Plan &amp; billing</h1><p class="lede">Upgrade or renew any time. Payments are processed by Razorpay.</p></div>
+    <div class="tabs" style="margin:0"><button id="cycleMonthly" data-cycle="monthly">Monthly</button><button id="cycleYearly" data-cycle="yearly">Yearly · 2 months free</button></div></div>
+  <div id="planStatus" style="margin-bottom:18px"></div>
   <div class="kpis" id="planCards"></div>
   <p class="hint" id="planNote"></p>
 </main>
 
-<!-- Account (both) --------------------------------------------------------------------------->
+<!-- Account (both) ----------------------------------------------------------------------------->
 <main class="page" data-page="account" hidden>
-  <h1 class="title">Account</h1>
+  <div class="page-head"><div><h1 class="title">Account</h1><p class="lede" id="accountWho"></p></div></div>
   <div class="grid"><div>
-    <section class="panel"><div class="panel-head"><h2>Change password</h2></div><div class="panel-body">
+    <section class="panel"><div class="panel-head"><h2><svg class="i"><use href="#i-key"/></svg>Change password</h2></div><div class="panel-body">
       <label class="lbl" for="pwCurrent" style="margin-top:0">Current password</label><input class="field" id="pwCurrent" type="password" autocomplete="off">
       <label class="lbl" for="pwNew">New password</label><input class="field" id="pwNew" type="password" autocomplete="off">
-      <div class="row" style="justify-content:flex-end;margin-top:12px"><button class="btn solid" id="pwSave">Change</button></div>
+      <div class="row" style="justify-content:flex-end;margin-top:14px"><button class="btn solid" id="pwSave">Change password</button></div>
     </div></section>
-  </div><aside><section class="panel"><div class="panel-body"><p class="muted small" id="accountWho" style="margin:0"></p>
-    <button class="btn" id="signOut2" style="margin-top:12px">Sign out</button></div></section></aside></div>
+  </div><aside><section class="panel"><div class="panel-body">
+    <p class="muted small" style="margin:0 0 12px">Signing out ends this session in this browser.</p>
+    <button class="btn" id="signOut2"><svg class="i"><use href="#i-logout"/></svg>Sign out</button></div></section></aside></div>
 </main>
 
-<!-- Dashboard -------------------------------------------------------------------------------->
+<!-- Dashboard (admin) -------------------------------------------------------------------------->
 <main class="page" data-page="dashboard" hidden>
   <div class="dash-head">
-    <div>
-      <h1 class="title" style="margin-bottom:2px">Dashboard</h1>
-      <p class="muted small" style="margin:0" id="dashUpdated">Loading…</p>
-    </div>
+    <div><h1 class="title">Dashboard</h1><p class="lede" id="dashUpdated">Loading…</p></div>
     <div class="row">
-      <select class="field" id="dashClient" aria-label="Client"><option value="all">All clients</option></select>
-      <select class="field" id="dashDays" aria-label="Period">
-        <option value="1">Today</option>
-        <option value="7" selected>Last 7 days</option>
-        <option value="30">Last 30 days</option>
-        <option value="90">Last 90 days</option>
-        <option value="365">Last 12 months</option>
+      <select class="field" id="dashClient" aria-label="Client" style="width:auto"><option value="all">All clients</option></select>
+      <select class="field" id="dashDays" aria-label="Period" style="width:auto">
+        <option value="1">Today</option><option value="7" selected>Last 7 days</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option><option value="365">Last 12 months</option>
       </select>
-      <button class="btn" id="dashCsv">Export CSV</button>
+      <button class="btn" id="dashCsv"><svg class="i"><use href="#i-ext"/></svg>Export CSV</button>
     </div>
   </div>
   <ul class="alerts" id="dashAlerts"></ul>
@@ -462,102 +657,65 @@
     <div>
       <section class="panel">
         <div class="panel-head"><h2>Calls per day</h2><span class="muted small" id="dashDailyNote"></span></div>
-        <div class="chart" id="dashDaily"></div>
-        <div class="chart-axis" id="dashDailyAxis"></div>
-        <div class="legend"><span><i style="background:var(--live)"></i>Answered</span><span><i style="background:var(--bad)"></i>Missed</span><span><i style="background:var(--line)"></i>Other</span></div>
+        <div class="chart" id="dashDaily"></div><div class="chart-axis" id="dashDailyAxis"></div>
+        <div class="legend"><span><i style="background:var(--brand)"></i>Answered</span><span><i style="background:var(--bad)"></i>Missed</span><span><i style="background:var(--line)"></i>Other</span></div>
       </section>
       <section class="panel">
         <div class="panel-head"><h2>Calls</h2><span class="muted small" id="dashCallCount"></span></div>
-        <div class="scroll-x"><table class="data"><thead><tr>
-          <th>Time</th><th>Caller</th><th>Client</th><th>Result</th><th class="num">Length</th><th>AI</th>
-        </tr></thead><tbody id="dashCalls"></tbody></table></div>
-        <p class="hint" style="padding:0 18px 14px">Click a call to open it with its transcript.</p>
+        <div class="scroll-x"><table class="data"><thead><tr><th>Time</th><th>Caller</th><th>Client</th><th>Result</th><th class="num">Length</th><th>AI</th></tr></thead><tbody id="dashCalls"></tbody></table></div>
+        <p class="hint" style="padding:10px 20px 14px;margin:0">Click a call to open it with its transcript.</p>
       </section>
     </div>
     <aside>
-      <section class="panel">
-        <div class="panel-head"><h2>Phones</h2><span class="muted small" id="dashPhoneCount"></span></div>
-        <div id="dashPhones"></div>
-      </section>
-      <section class="panel">
-        <div class="panel-head"><h2>Busiest hours</h2></div>
-        <div class="chart" id="dashHourly" style="height:110px"></div>
-        <div class="chart-axis" id="dashHourlyAxis"></div>
-      </section>
-      <section class="panel">
-        <div class="panel-head"><h2>AI providers</h2><a class="btn link" href="#/settings">Manage</a></div>
-        <div id="dashAi"></div>
-      </section>
-      <section class="panel" id="dashClientsPanel">
-        <div class="panel-head"><h2>By client</h2></div>
-        <div class="scroll-x"><table class="data"><thead><tr>
-          <th>Client</th><th class="num">Calls</th><th class="num">Missed</th><th class="num">Links</th><th class="num">Min</th>
-        </tr></thead><tbody id="dashByClient"></tbody></table></div>
-      </section>
+      <section class="panel"><div class="panel-head"><h2><svg class="i"><use href="#i-chat"/></svg>WhatsApp</h2><a class="btn link sm" href="#/whatsapp">Inbox</a></div><div class="panel-body" id="dashWa"><p class="muted small" style="margin:0">Loading…</p></div></section>
+      <section class="panel"><div class="panel-head"><h2>Phones</h2><span class="muted small" id="dashPhoneCount"></span></div><div id="dashPhones"></div></section>
+      <section class="panel"><div class="panel-head"><h2>Busiest hours</h2></div><div class="chart" id="dashHourly" style="height:120px"></div><div class="chart-axis" id="dashHourlyAxis"></div></section>
+      <section class="panel"><div class="panel-head"><h2>AI providers</h2><a class="btn link sm" href="#/ai">Manage</a></div><div id="dashAi"></div></section>
+      <section class="panel" id="dashClientsPanel"><div class="panel-head"><h2>By client</h2></div>
+        <div class="scroll-x"><table class="data"><thead><tr><th>Client</th><th class="num">Calls</th><th class="num">Missed</th><th class="num">Links</th><th class="num">Min</th></tr></thead><tbody id="dashByClient"></tbody></table></div></section>
     </aside>
   </div>
 </main>
 
-<!-- Home ------------------------------------------------------------------------------------->
+<!-- Developers (admin) ------------------------------------------------------------------------->
 <main class="page" data-page="home" hidden>
-  <section class="hero">
-    <h1>Your phone's SIM, as a voice API.</h1>
-    <p>A self-hosted alternative to Twilio Voice. An Android phone places and answers real calls on its SIM, and your apps and AI agents control them over HTTP and stream the audio over WebSockets.</p>
-  </section>
-
-  <div class="flow">
-    <div><div class="n">1</div><h3>Phone</h3><p>Runs the OpenLine app. Dials, answers and routes call audio. It stays silent: the conversation happens on the server.</p></div>
-    <div><div class="n">2</div><h3>Server</h3><p>This machine. Exposes the REST API, relays audio, sends webhooks and keeps every call in a local SQLite database.</p></div>
-    <div><div class="n">3</div><h3>Your agent</h3><p>Any app or voice AI. Start calls with a POST, get status by webhook, and talk through 16 kHz PCM on a WebSocket.</p></div>
+  <div class="page-head"><div><h1 class="title">Developers</h1><p class="lede">The phone's SIM as a voice API. Place and answer real calls over HTTP and stream the audio to your own agents over WebSockets.</p></div>
+    <a class="btn" href="#/settings"><svg class="i"><use href="#i-key"/></svg>API keys</a></div>
+  <div class="grid three" style="margin-bottom:20px">
+    <div class="kpi feature"><div class="k"><span class="kpi-ic"><svg class="i"><use href="#i-mobile"/></svg></span>1 · Phone</div><p class="small muted" style="margin:10px 0 0">Runs the VaaniFlow app. Dials, answers and routes call audio. AI calls stay silent on the handset.</p></div>
+    <div class="kpi feature"><div class="k"><span class="kpi-ic t"><svg class="i"><use href="#i-zap"/></svg></span>2 · Server</div><p class="small muted" style="margin:10px 0 0">This server. REST API, audio relay, signed webhooks, and every call in its SQLite database.</p></div>
+    <div class="kpi feature"><div class="k"><span class="kpi-ic"><svg class="i"><use href="#i-bot"/></svg></span>3 · Your agent</div><p class="small muted" style="margin:10px 0 0">Any app or voice AI. Start calls with a POST, get events by webhook, talk over 16 kHz PCM.</p></div>
   </div>
-
   <div class="grid">
     <div>
-      <section class="panel">
-        <div class="panel-head"><h2>Make a call from code</h2></div>
-        <div class="panel-body">
-          <p class="muted small" style="margin:0 0 10px">Create an API key in Settings, then place a call that talks to your agent:</p>
-          <pre class="code-block" id="curlCall"></pre>
-          <pre class="code-block" id="wsSnippet"></pre>
-          <p class="hint">Send <code>clear</code> to cut off queued speech when the caller interrupts. Incoming calls can go to your agent too: set the URL in Settings.</p>
-        </div>
-      </section>
-
-      <section class="panel">
-        <div class="panel-head"><h2>API</h2><a class="btn link" href="#/docs">Full docs</a></div>
-        <table class="endpoints" style="margin-top:8px">
-          <tbody id="endpointRows"></tbody>
-        </table>
-      </section>
+      <section class="panel"><div class="panel-head"><h2><svg class="i"><use href="#i-code"/></svg>Make a call from code</h2></div><div class="panel-body">
+        <p class="muted small" style="margin:0 0 12px">Create an API key in Settings, then place a call that talks to your agent:</p>
+        <pre class="code-block" id="curlCall"></pre>
+        <pre class="code-block" id="wsSnippet"></pre>
+        <p class="hint">Send <code>clear</code> to cut off queued speech when the caller interrupts. Incoming calls can go to your agent too: set the URL in Settings.</p>
+      </div></section>
+      <section class="panel"><div class="panel-head"><h2>API</h2><a class="btn link sm" href="#/docs">Full docs</a></div>
+        <table class="endpoints"><tbody id="endpointRows"></tbody></table></section>
     </div>
-
-    <aside>
-      <section class="panel">
-        <div class="panel-head"><h2>Getting started</h2></div>
-        <ul class="checklist" id="checklist" style="margin-top:6px"></ul>
-      </section>
-    </aside>
+    <aside><section class="panel"><div class="panel-head"><h2>Getting started</h2></div><ul class="checklist" id="checklist"></ul></section></aside>
   </div>
 </main>
 
-<!-- Playground ------------------------------------------------------------------------------->
+<!-- Live calls (admin) ------------------------------------------------------------------------->
 <main class="page" data-page="playground" hidden>
-  <h1 class="title">Playground</h1>
-  <p class="lede">Try the API by hand: place a call, talk from this laptop, listen in, or hand the call to the built-in AI assistant.</p>
+  <div class="page-head"><div><h1 class="title">Live calls</h1><p class="lede">Place a call, talk from this browser, listen in, or hand the call to the AI assistant.</p></div></div>
   <div class="grid">
     <div>
       <section class="panel line-panel" aria-live="polite">
         <div class="line-state"><span class="dot" id="lineDot"></span><span id="lineState">No call</span></div>
-
         <div id="idle">
           <form class="dial" id="dialForm">
-            <input id="number" inputmode="tel" autocomplete="off" placeholder="Number to call" aria-label="Number to call">
-            <button class="btn solid" type="submit">Call</button>
+            <input id="number" inputmode="tel" autocomplete="off" placeholder="Enter a number" aria-label="Number to call">
+            <button class="btn solid" type="submit"><svg class="i"><use href="#i-phone"/></svg>Call</button>
           </form>
           <p class="muted small" id="idleHint" style="margin:10px 0 0">Incoming calls appear here.</p>
           <details class="api"><summary>Same thing over the API</summary><pre class="code-block" id="dialCurl"></pre></details>
         </div>
-
         <div id="active" hidden>
           <div class="line-number" id="lineNumber"></div>
           <div class="line-sub"><span class="timer" id="timer"></span><span id="lineMeta"></span></div>
@@ -571,357 +729,315 @@
             <button class="btn end" data-action="hangup">End call</button>
           </div>
           <div class="keypad" id="keypad" hidden></div>
-
           <div class="sub-row">
             <div>
-              <p class="sub-title"><span class="dot" id="aiDot"></span>Assistant</p>
+              <p class="sub-title"><span class="dot" id="aiDot"></span>AI assistant</p>
               <p class="muted small" id="aiState" style="margin:0">Not on this call.</p>
-              <div class="row" style="margin-top:10px"><button class="btn" id="aiToggle">Hand to assistant</button></div>
+              <div class="row" style="margin-top:10px"><button class="btn" id="aiToggle"><svg class="i"><use href="#i-bot"/></svg>Hand to assistant</button></div>
             </div>
             <div>
-              <p class="sub-title"><span class="dot" id="audioDot"></span>Laptop audio</p>
+              <p class="sub-title"><span class="dot" id="audioDot"></span>Browser audio</p>
               <p class="muted small" id="audioState" style="margin:0">Off. Use headphones to avoid echo.</p>
-              <div class="meters">
-                <span>Caller</span><div class="meter"><div id="outMeter"></div></div>
-                <span id="inLabel">You</span><div class="meter"><div id="inMeter"></div></div>
-              </div>
-              <div class="row">
-                <button class="btn" id="listenToggle">Listen in</button>
-                <button class="btn" id="audioToggle">Talk from laptop</button>
-                <button class="btn" id="micToggle" disabled>Mute</button>
-              </div>
+              <div class="meters"><span>Caller</span><div class="meter"><div id="outMeter"></div></div><span id="inLabel">You</span><div class="meter"><div id="inMeter"></div></div></div>
+              <div class="row"><button class="btn" id="listenToggle">Listen in</button><button class="btn" id="audioToggle">Talk from browser</button><button class="btn" id="micToggle" disabled>Mute</button></div>
             </div>
           </div>
-
           <div class="transcript" id="transcript"></div>
           <div id="callMessage"></div>
           <details class="api"><summary>Call events</summary><pre class="code-block" id="callEvents"></pre></details>
         </div>
       </section>
-
-      <section class="panel">
-        <div class="panel-head"><h2>Recent calls</h2></div>
-        <ul class="list" id="calls" style="margin-top:8px"></ul>
-      </section>
+      <section class="panel"><div class="panel-head"><h2>Recent calls</h2></div><ul class="list" id="calls"></ul></section>
     </div>
-
     <aside>
-      <section class="panel">
-        <div class="panel-head"><h2>Assistant</h2></div>
-        <div class="panel-body">
-          <p class="muted small" id="agentInfo" style="margin:0 0 12px">Checking…</p>
-          <label class="switch"><span>Answer incoming calls for me</span><input type="checkbox" id="autoAnswer"></label>
-          <label class="lbl" for="agentMode">Role</label>
-          <select class="field" id="agentMode">
-            <option value="message">Personal assistant: takes a message for you</option>
-            <option value="receptionist">Receptionist: answers for your business, sends the booking link</option>
-          </select>
-          <div id="receptionistFields" hidden>
-            <label class="lbl" for="businessName">Business name</label>
-            <input class="field" id="businessName" maxlength="120" placeholder="32 Teeth Hospital">
-            <label class="lbl" for="bookingUrl">Booking link</label>
-            <input class="field" id="bookingUrl" placeholder="https://example.com/book">
-            <p class="hint" id="bookingHint">Sent to the caller on WhatsApp when they want an appointment. Set up WhatsApp in <a href="#/settings">Settings</a>.</p>
-          </div>
-          <label class="lbl" for="ownerName" id="ownerNameLabel">Answers on behalf of</label>
-          <input class="field" id="ownerName" placeholder="Your name">
-          <label class="lbl" for="voice">Voice</label>
-          <select class="field" id="voice">
-            <option>Kore</option><option>Puck</option><option>Charon</option><option>Fenrir</option>
-            <option>Aoede</option><option>Leda</option><option>Orus</option><option>Zephyr</option>
-          </select>
-          <label class="lbl" for="about" id="aboutLabel">About you</label>
-          <textarea class="field" id="about" rows="6" maxlength="20000"
-            placeholder="Alex is a software developer. If someone calls about the bike service, he'll pick it up on Saturday. Family can text him if it's urgent. Don't book meetings for him."></textarea>
-          <p class="hint" id="aboutHint">The assistant uses this on calls and shares only what's written here. Applies from the next call.</p>
-          <div class="row" style="margin-top:12px; justify-content:space-between">
-            <span class="muted small" id="aboutCount"></span>
-            <button class="btn" id="saveOwner">Save</button>
-          </div>
+      <section class="panel"><div class="panel-head"><h2><svg class="i"><use href="#i-bot"/></svg>Assistant</h2></div><div class="panel-body">
+        <p class="muted small" id="agentInfo" style="margin:0 0 12px">Checking…</p>
+        <label class="switch"><span>Answer incoming calls with AI</span><input type="checkbox" id="autoAnswer"></label>
+        <label class="lbl" for="agentMode">Role</label>
+        <select class="field" id="agentMode">
+          <option value="message">Personal assistant: takes a message</option>
+          <option value="receptionist">Receptionist: answers for your business</option>
+        </select>
+        <div id="receptionistFields" hidden>
+          <label class="lbl" for="businessName">Business name</label><input class="field" id="businessName" maxlength="120" placeholder="Smile Dental Clinic">
+          <label class="lbl" for="bookingUrl">Booking link</label><input class="field" id="bookingUrl" placeholder="https://example.com/book">
+          <p class="hint" id="bookingHint"></p>
         </div>
-      </section>
-
-      <section class="panel">
-        <div class="panel-head"><h2>Messages</h2><span class="muted small" id="msgCount"></span></div>
-        <ul class="list" id="messages" style="margin-top:8px"></ul>
-      </section>
+        <label class="lbl" for="ownerName" id="ownerNameLabel">Answers on behalf of</label><input class="field" id="ownerName" placeholder="Your name">
+        <label class="lbl" for="voice">Voice</label>
+        <select class="field" id="voice"><option>Kore</option><option>Puck</option><option>Charon</option><option>Fenrir</option><option>Aoede</option><option>Leda</option><option>Orus</option><option>Zephyr</option></select>
+        <label class="lbl" for="about" id="aboutLabel">About you</label>
+        <textarea class="field" id="about" rows="7" maxlength="20000"></textarea>
+        <p class="hint" id="aboutHint">Used on calls and on WhatsApp. Applies from the next call.</p>
+        <div class="row" style="margin-top:12px; justify-content:space-between"><span class="muted small" id="aboutCount"></span><button class="btn solid" id="saveOwner">Save</button></div>
+      </div></section>
+      <section class="panel"><div class="panel-head"><h2>Messages</h2><span class="badge v" id="msgCount"></span></div><ul class="list" id="messages"></ul></section>
     </aside>
   </div>
 </main>
 
-<!-- Clients ---------------------------------------------------------------------------------->
-<main class="page" data-page="clients" hidden>
-  <h1 class="title">Clients</h1>
-  <p class="lede">Each client is a business the AI receptionist answers for: its own phone and SIM, its own knowledge, booking link and WhatsApp number. Add a client, assign its phone, and its calls are answered from then on.</p>
-  <div class="grid">
-    <div>
-      <section class="panel">
-        <div class="panel-head"><h2>Businesses</h2><button class="btn" id="newClient">New client</button></div>
-        <ul class="list" id="clientList" style="margin-top:8px"></ul>
-      </section>
+<!-- WhatsApp (both) ---------------------------------------------------------------------------->
+<main class="page" data-page="whatsapp" hidden>
+  <div class="page-head">
+    <div><h1 class="title">WhatsApp</h1><p class="lede">Your business WhatsApp, answered by AI from your information. Take over any chat with one click.</p></div>
+    <div class="row">
+      <select class="field" id="waScope" data-role="admin" style="width:auto" aria-label="Business"></select>
+      <span class="pill" id="waStatePill"><span class="dot"></span><span>Checking…</span></span>
     </div>
+  </div>
+  <div class="tabs" role="tablist">
+    <button data-watab="inbox" aria-selected="true"><svg class="i"><use href="#i-chat"/></svg>Inbox <span class="badge v" id="waUnread" hidden></span></button>
+    <button data-watab="connect"><svg class="i"><use href="#i-qr"/></svg>Connection</button>
+    <button data-watab="automation"><svg class="i"><use href="#i-bot"/></svg>Automation</button>
+  </div>
+
+  <div data-wapane="inbox">
+    <div class="kpis" id="waKpis"></div>
+    <div class="inbox" id="inbox">
+      <section class="ib-list">
+        <div class="ib-tools">
+          <div class="row" style="flex-wrap:nowrap"><div class="search grow"><svg class="i"><use href="#i-search"/></svg><input class="field" id="waSearch" placeholder="Search name, number or message"></div>
+            <button class="icon-btn" id="waNewChat" title="New chat"><svg class="i"><use href="#i-plus"/></svg></button></div>
+          <div class="chips" id="waChips"></div>
+        </div>
+        <div class="ib-items" id="waItems"></div>
+      </section>
+      <section class="ib-conv" id="waConv"><div class="pholder"><div><div class="wa-ic" style="margin:0 auto 12px"><svg class="i" style="width:24px;height:24px"><use href="#i-chat"/></svg></div><h3 style="margin:0 0 4px">Select a conversation</h3><p class="small" style="margin:0">Chats appear here as customers message your number.</p></div></div></section>
+      <aside class="ib-info" id="waInfo"><div class="pholder small">Customer details appear here.</div></aside>
+    </div>
+  </div>
+
+  <div data-wapane="connect" hidden>
+    <section class="panel">
+      <div class="wa-status">
+        <div class="qr"><div class="qr-box" id="waQr">—</div><p class="muted small" id="waQrHint" style="margin:12px 0 0"></p></div>
+        <div>
+          <div class="wa-hero"><span class="wa-ic"><svg class="i" style="width:24px;height:24px"><use href="#i-chat"/></svg></span>
+            <div><h2 style="margin:0;font-size:20px" id="waStateTitle">WhatsApp</h2><p class="muted" style="margin:2px 0 0" id="waStateText"></p></div></div>
+          <ol class="small" style="margin:20px 0;padding-left:20px;line-height:1.9">
+            <li>Click <b>Connect</b> to get a QR code.</li>
+            <li>On the business phone open WhatsApp, then <b>Settings › Linked devices › Link a device</b>.</li>
+            <li>Scan the code. Chats start arriving in the Inbox within seconds.</li>
+          </ol>
+          <div class="row">
+            <button class="btn solid" id="waConnect"><svg class="i"><use href="#i-qr"/></svg>Connect</button>
+            <button class="btn" id="waRestart"><svg class="i"><use href="#i-refresh"/></svg>Reconnect</button>
+            <button class="btn link" id="waLogout" style="color:var(--bad)">Unlink number</button>
+          </div>
+          <p class="hint" style="margin-top:16px">Works with WhatsApp and WhatsApp Business. The phone can stay offline after linking. Keep message volume natural: WhatsApp may restrict numbers that send bulk or unsolicited messages.</p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div data-wapane="automation" hidden>
+    <div class="grid even">
+      <div>
+        <section class="panel"><div class="panel-head"><h2><svg class="i"><use href="#i-bot"/></svg>AI replies</h2></div><div class="panel-body">
+          <label class="switch"><span>Reply to customers with AI<br><span class="muted small">Answers from the business information on calls settings.</span></span><input type="checkbox" id="waAutoReply"></label>
+          <label class="switch"><span>Pause AI when staff replies from the phone</span><input type="checkbox" id="waPauseOnStaff"></label>
+          <label class="switch"><span>Send booking links after calls on this WhatsApp</span><input type="checkbox" id="waUseBooking"></label>
+          <label class="switch"><span>Show "typing…" before replying</span><input type="checkbox" id="waTyping"></label>
+          <label class="switch"><span>Mark messages as read</span><input type="checkbox" id="waMarkRead"></label>
+          <label class="switch"><span>Ignore group chats</span><input type="checkbox" id="waIgnoreGroups"></label>
+          <div class="grid even" style="gap:12px">
+            <div><label class="lbl" for="waDelayMin">Reply delay from (seconds)</label><input class="field" id="waDelayMin" type="number" min="0" max="60" step="0.5"></div>
+            <div><label class="lbl" for="waDelayMax">to (seconds)</label><input class="field" id="waDelayMax" type="number" min="0" max="120" step="0.5"></div>
+          </div>
+          <p class="hint">A small random wait makes replies feel human.</p>
+        </div></section>
+      </div>
+      <div>
+        <section class="panel"><div class="panel-head"><h2>Instructions &amp; messages</h2></div><div class="panel-body">
+          <label class="lbl" for="waInstructions" style="margin-top:0">Extra rules for the AI</label>
+          <textarea class="field" id="waInstructions" rows="5" maxlength="5000" placeholder="Never quote prices on WhatsApp. Always ask for the patient's age. Reply in Hindi unless they write in English."></textarea>
+          <label class="lbl" for="waFallback">When no AI can answer</label>
+          <textarea class="field" id="waFallback" rows="2" maxlength="1000" placeholder="Thank you! Our team will reply shortly."></textarea>
+          <p class="hint">Sent at most once every 30 minutes per chat. Leave empty to stay silent; the chat is flagged for staff either way.</p>
+          <label class="lbl" for="waQuick">Quick replies (one per line)</label>
+          <textarea class="field" id="waQuick" rows="5" placeholder="Namaste! Hum aapki kya madad kar sakte hain?"></textarea>
+        </div></section>
+      </div>
+    </div>
+    <div class="row" style="justify-content:flex-end;margin-top:20px"><button class="btn solid" id="waSaveSettings"><svg class="i"><use href="#i-check"/></svg>Save automation</button></div>
+  </div>
+</main>
+
+<!-- Clients (admin, multi-client) -------------------------------------------------------------->
+<main class="page" data-page="clients" hidden>
+  <div class="page-head"><div><h1 class="title">Clients</h1><p class="lede">Each client is a business the AI answers for: its own phone and SIM, its own knowledge, booking link and WhatsApp.</p></div>
+    <button class="btn solid" id="newClient"><svg class="i"><use href="#i-plus"/></svg>New client</button></div>
+  <div class="grid">
+    <div><section class="panel"><div class="panel-head"><h2>Businesses</h2></div><ul class="list" id="clientList"></ul></section></div>
     <aside>
       <section class="panel" id="clientEditor" hidden>
         <div class="panel-head"><h2 id="clientTitle">New client</h2><span class="muted small" id="clientUpdated"></span></div>
         <div class="panel-body">
-          <label class="switch"><span>Answer this client's calls with the AI receptionist</span><input type="checkbox" id="cEnabled" checked></label>
-          <label class="lbl" for="cName">Business name</label>
-          <input class="field" id="cName" maxlength="120" placeholder="32 Teeth Hospital">
-          <label class="lbl">Phones (SIMs) that answer for this client</label>
-          <div id="cDevices" class="small"></div>
+          <label class="switch"><span>Answer this client's calls with AI</span><input type="checkbox" id="cEnabled" checked></label>
+          <label class="lbl" for="cName">Business name</label><input class="field" id="cName" maxlength="120">
+          <label class="lbl">Phones (SIMs) for this client</label><div id="cDevices" class="small"></div>
           <label class="lbl" for="cVoice">Voice</label>
-          <select class="field" id="cVoice">
-            <option>Kore</option><option>Puck</option><option>Charon</option><option>Fenrir</option>
-            <option>Aoede</option><option>Leda</option><option>Orus</option><option>Zephyr</option>
-          </select>
-          <label class="lbl" for="cBooking">Booking link</label>
-          <input class="field" id="cBooking" placeholder="https://wa.me/918789354445 or https://example.com/book">
-          <label class="lbl" for="cAbout">Everything the receptionist should know</label>
-          <textarea class="field" id="cAbout" rows="12" maxlength="20000"
-            placeholder="Services and fees, timings, address and landmark, doctors and their days, emergency number, FAQs. Paste the text of the client's website here."></textarea>
-          <p class="hint"><span id="cAboutCount"></span> The receptionist answers only from this text and says the staff will confirm anything else.</p>
-
-          <h3 style="font-size:15px; margin:22px 0 4px">WhatsApp</h3>
-          <p class="hint" style="margin-top:0">The client's own WhatsApp gateway. The booking link is sent from this number.</p>
-          <label class="lbl" for="cWaUrl">Gateway address</label>
-          <input class="field" id="cWaUrl" placeholder="https://client-whatsapp.hf.space">
-          <label class="lbl" for="cWaSecret">Gateway API secret</label>
-          <input class="field" id="cWaSecret" type="password" autocomplete="off">
-          <label class="lbl" for="cWaCountry">Country code for local numbers</label>
-          <input class="field" id="cWaCountry" maxlength="4" placeholder="91">
-          <label class="lbl" for="cWaMessage">Message</label>
-          <textarea class="field" id="cWaMessage" rows="5" maxlength="1000"></textarea>
-          <p class="hint"><code>{name}</code>, <code>{business}</code> and <code>{link}</code> are filled in.</p>
+          <select class="field" id="cVoice"><option>Kore</option><option>Puck</option><option>Charon</option><option>Fenrir</option><option>Aoede</option><option>Leda</option><option>Orus</option><option>Zephyr</option></select>
+          <label class="lbl" for="cBooking">Booking link</label><input class="field" id="cBooking" placeholder="https://example.com/book">
+          <label class="lbl" for="cAbout">Everything the AI should know</label><textarea class="field" id="cAbout" rows="10" maxlength="20000"></textarea>
+          <p class="hint"><span id="cAboutCount"></span></p>
+          <label class="lbl" for="cWaMessage">Booking message</label><textarea class="field" id="cWaMessage" rows="4" maxlength="1000"></textarea>
+          <label class="lbl" for="cWaCountry">Country code</label><input class="field" id="cWaCountry" maxlength="4" placeholder="91">
+          <details class="api"><summary>External WhatsApp gateway (advanced)</summary>
+            <label class="lbl" for="cWaUrl">Gateway address</label><input class="field" id="cWaUrl">
+            <label class="lbl" for="cWaSecret">Gateway API secret</label><input class="field" id="cWaSecret" type="password" autocomplete="off">
+          </details>
           <div class="row" style="margin-top:16px; justify-content:space-between">
-            <button class="btn link" id="cDelete">Delete client</button>
-            <span class="row">
-              <button class="btn" id="cTestWa">Send test</button>
-              <button class="btn solid" id="cSave">Save</button>
-            </span>
+            <button class="btn link" id="cDelete" style="color:var(--bad)">Delete client</button>
+            <span class="row"><button class="btn" id="cTestWa">Send test</button><button class="btn solid" id="cSave">Save</button></span>
           </div>
         </div>
       </section>
-      <section class="panel" id="clientEmpty">
-        <div class="panel-body"><p class="muted small" style="margin:0">Select a client, or create one. You need a Gemini API key in Settings, and the client's phone paired under Connection.</p></div>
-      </section>
+      <section class="panel" id="clientEmpty"><div class="panel-body"><p class="muted small" style="margin:0">Select a client, or create one. Pair the client's phone under Phones first.</p></div></section>
     </aside>
   </div>
 </main>
 
-<!-- Connection ------------------------------------------------------------------------------->
+<!-- Phones / connection (admin) ---------------------------------------------------------------->
 <main class="page" data-page="connection" hidden>
-  <h1 class="title">Connection</h1>
-  <p class="lede">Link an Android phone to this server and keep an eye on it. The phone connects out to the server, so it works on Wi-Fi or mobile data from anywhere.</p>
-
+  <div class="page-head"><div><h1 class="title">Phones</h1><p class="lede">Link Android phones to this server and watch their health. Phones connect out to the server, on Wi-Fi or mobile data.</p></div></div>
   <section class="panel">
     <div class="pair">
-      <div class="qr">
-        <div class="qr-box" id="qr" aria-label="Pairing QR code">Creating code…</div>
-        <div class="code" id="pairCode"></div>
-        <div class="muted small" id="pairExpiry"></div>
-      </div>
+      <div class="qr"><div class="qr-box" id="qr" aria-label="Pairing QR code">Creating code…</div><div class="code" id="pairCode"></div><div class="muted small" id="pairExpiry"></div></div>
       <div class="steps">
-        <h2 style="margin:0 0 12px; font-size:17px; font-weight:600">Connect a phone</h2>
+        <h2 style="margin:0 0 12px; font-size:18px">Connect a phone</h2>
         <ol>
-          <li>Install the OpenLine app on the Android phone and make it the default phone app.</li>
-          <li>Open the app and tap <b>Scan QR</b>, or scan this code with the phone's camera.</li>
-          <li>Finish the setup steps in the app. The phone shows up below when it connects.</li>
+          <li>Install the VaaniFlow app on the Android phone and make it the default phone app.</li>
+          <li>Open the app, go to the <b>VaaniFlow AI</b> tab → <b>Scan QR</b>, and scan this code.</li>
+          <li>Finish the setup steps in the app. The phone appears below when it connects.</li>
         </ol>
         <label class="lbl" for="publicUrl">Address the phone uses to reach this server</label>
-        <div class="row" style="flex-wrap:nowrap">
-          <input class="field" id="publicUrl" placeholder="https://your-machine.ts.net">
-          <button class="btn" id="regenerate">New code</button>
-        </div>
-        <p class="warn" id="urlWarn" hidden>Phones can't reach localhost. Use your Tailscale Funnel or Cloudflare Tunnel address (save it in Settings).</p>
+        <div class="row" style="flex-wrap:nowrap"><input class="field" id="publicUrl" placeholder="https://voice.example.com"><button class="btn" id="regenerate"><svg class="i"><use href="#i-refresh"/></svg>New code</button></div>
+        <p class="warn" id="urlWarn" hidden>Phones can't reach localhost. Use your public address (save it in Settings).</p>
       </div>
     </div>
   </section>
-
-  <section class="panel">
-    <div class="panel-head"><h2>Phones</h2><span class="muted small" id="phoneCount"></span></div>
-    <div id="devices" style="margin-top:6px"></div>
-  </section>
-
-  <section class="panel">
-    <div class="panel-head"><h2>Endpoints</h2></div>
-    <div class="panel-body">
-      <dl class="kv" id="serverInfo"></dl>
-    </div>
-  </section>
+  <section class="panel"><div class="panel-head"><h2>Phones</h2><span class="muted small" id="phoneCount"></span></div><div id="devices"></div></section>
+  <section class="panel"><div class="panel-head"><h2>Endpoints</h2></div><div class="panel-body"><dl class="kv" id="serverInfo"></dl></div></section>
 </main>
 
-<!-- Docs ------------------------------------------------------------------------------------->
+<!-- Docs ------------------------------------------------------------------------------------------>
 <main class="page" data-page="docs" hidden>
-  <h1 class="title">Docs</h1>
-  <p class="lede" id="docsText">The documentation site isn't published yet. Once it is, set its address in Settings and this link opens it.</p>
+  <div class="page-head"><div><h1 class="title">Docs</h1><p class="lede" id="docsText">The documentation site isn't set yet. Set its address in Settings and this link opens it.</p></div></div>
   <a class="btn" href="#/settings">Set docs address</a>
 </main>
 
-<!-- Settings --------------------------------------------------------------------------------->
+<!-- AI providers (admin) ----------------------------------------------------------------------->
+<main class="page" data-page="ai" hidden>
+  <div class="page-head"><div><h1 class="title">AI providers</h1><p class="lede">Calls use Gemini Live first. WhatsApp and the speech pipeline use chat models. When a provider hits a limit or fails, the next one takes over automatically.</p></div></div>
+  <div class="provider-cards" style="margin-bottom:20px">
+    <div class="pcard"><div class="pt"><span class="plogo" style="background:linear-gradient(135deg,#4285F4,#9B72CB)">G</span>Google Gemini</div><p class="small muted" style="margin:0">Live voice for calls, chat and TTS. Best Hindi quality.</p><button class="btn sm" data-quick="gemini:llm">Add Gemini chat</button></div>
+    <div class="pcard"><div class="pt"><span class="plogo" style="background:#F55036">Gq</span>Groq</div><p class="small muted" style="margin:0">Very fast Llama chat and Whisper speech-to-text.</p><button class="btn sm" data-quick="groq:llm">Add Groq chat</button></div>
+    <div class="pcard"><div class="pt"><span class="plogo" style="background:#F38020">CF</span>Cloudflare Workers AI</div><p class="small muted" style="margin:0">Free daily quota. Needs the account ID and an API token.</p><button class="btn sm" data-quick="cloudflare:llm">Add Cloudflare chat</button></div>
+    <div class="pcard"><div class="pt"><span class="plogo" style="background:#111">+</span>More</div><p class="small muted" style="margin:0">OpenRouter, Cerebras, Mistral, Sarvam, any OpenAI-compatible API.</p><a class="btn sm" href="#aiAddType" onclick="document.getElementById('aiAddType').focus()">Choose below</a></div>
+  </div>
+  <div class="grid">
+    <div>
+      <section class="panel"><div class="panel-head"><h2><svg class="i"><use href="#i-spark"/></svg>Providers &amp; failover order</h2><button class="btn solid sm" id="aiSave">Save</button></div><div class="panel-body">
+        <label class="lbl" for="aiMode" style="margin-top:0">Routing for calls</label>
+        <select class="field" id="aiMode">
+          <option value="auto">Automatic: Gemini Live, then the speech pipeline</option>
+          <option value="live">Gemini Live keys only</option>
+          <option value="pipeline">Speech pipeline only</option>
+        </select>
+        <div id="aiProviders"></div>
+        <div class="row" style="margin-top:14px; flex-wrap:nowrap"><select class="field" id="aiAddType"></select><button class="btn" id="aiAdd"><svg class="i"><use href="#i-plus"/></svg>Add</button></div>
+        <p class="hint" id="aiReady"></p>
+      </div></section>
+    </div>
+    <aside>
+      <section class="panel"><div class="panel-head"><h2><svg class="i"><use href="#i-key"/></svg>Primary Gemini key</h2></div><div class="panel-body">
+        <label class="lbl" for="geminiKey" style="margin-top:0">Gemini API key</label>
+        <input class="field" id="geminiKey" type="password" autocomplete="off" placeholder="AIza…">
+        <p class="hint" id="geminiKeyState"></p>
+        <label class="lbl" for="geminiModel">Live model</label><input class="field" id="geminiModel" placeholder="gemini-3.8-live">
+        <p class="hint">Used for calls and as the last chat fallback for WhatsApp. Get a key at aistudio.google.com.</p>
+        <div class="row" style="margin-top:14px; justify-content:flex-end"><button class="btn link" id="clearGemini">Remove key</button><button class="btn solid" id="saveGemini">Save</button></div>
+      </div></section>
+      <section class="panel"><div class="panel-head"><h2>If the AI can't speak</h2></div><div class="panel-body">
+        <p class="hint" style="margin-top:0">A call is never dropped in silence. Both phrases are recorded in advance, so they play even when every AI is down.</p>
+        <label class="lbl" for="fbHold">While switching provider</label><input class="field" id="fbHold" maxlength="300">
+        <label class="lbl" for="fbSorry">When nothing works</label><textarea class="field" id="fbSorry" rows="3" maxlength="500"></textarea>
+        <p class="hint" id="fbState"></p>
+        <div class="row" style="margin-top:12px; justify-content:flex-end"><button class="btn solid" id="fbSave">Save and record</button></div>
+      </div></section>
+    </aside>
+  </div>
+</main>
+
+<!-- Settings (admin) --------------------------------------------------------------------------->
 <main class="page" data-page="settings" hidden>
-  <h1 class="title">Settings</h1>
-  <p class="lede">Saved in the server's database. Values here override <code>server\.env</code>.</p>
+  <div class="page-head"><div><h1 class="title">Settings</h1><p class="lede">Saved in the server's database. Values here override <code>server/.env</code>.</p></div></div>
   <div class="grid even">
     <div>
-      <section class="panel">
-        <div class="panel-head"><h2>AI assistant</h2></div>
-        <div class="panel-body">
-          <label class="lbl" for="geminiKey">Gemini API key</label>
-          <input class="field" id="geminiKey" type="password" autocomplete="off" placeholder="AIza…">
-          <p class="hint" id="geminiKeyState"></p>
-          <label class="lbl" for="geminiModel">Live model</label>
-          <input class="field" id="geminiModel" placeholder="gemini-3.8-live">
-          <p class="hint">Get a key at aistudio.google.com. It never leaves this server.</p>
-          <div class="row" style="margin-top:14px; justify-content:flex-end">
-            <button class="btn link" id="clearGemini">Remove key</button>
-            <button class="btn solid" id="saveGemini">Save</button>
-          </div>
-        </div>
-      </section>
-
-      <section class="panel">
-        <div class="panel-head"><h2>AI providers &amp; failover</h2></div>
-        <div class="panel-body">
-          <p class="hint" style="margin-top:0">Calls use Gemini Live first. When a provider hits its limit or fails, the next one in the list takes over automatically, even in the middle of a call. Without any Live key, calls run on the speech pipeline: speech-to-text, then a chat model, then text-to-speech.</p>
-          <label class="lbl" for="aiMode">Routing</label>
-          <select class="field" id="aiMode">
-            <option value="auto">Automatic: Gemini Live, then the speech pipeline</option>
-            <option value="live">Gemini Live keys only</option>
-            <option value="pipeline">Speech pipeline only</option>
-          </select>
-          <div id="aiProviders"></div>
-          <div class="row" style="margin-top:12px; flex-wrap:nowrap">
-            <select class="field" id="aiAddType"></select>
-            <button class="btn" id="aiAdd">Add</button>
-          </div>
-          <p class="hint" id="aiReady"></p>
-          <div class="row" style="margin-top:12px; justify-content:flex-end"><button class="btn solid" id="aiSave">Save</button></div>
-        </div>
-      </section>
-
-      <section class="panel">
-        <div class="panel-head"><h2>If the AI can't speak</h2></div>
-        <div class="panel-body">
-          <p class="hint" style="margin-top:0">A call is never dropped in silence. While the call switches to another AI provider the caller hears the first message; if no provider works, the second one plays and the call ends. Both are recorded in advance, so they play even when every AI is down.</p>
-          <label class="lbl" for="fbHold">While switching</label>
-          <input class="field" id="fbHold" maxlength="300">
-          <label class="lbl" for="fbSorry">When nothing works</label>
-          <textarea class="field" id="fbSorry" rows="3" maxlength="500"></textarea>
-          <p class="hint" id="fbState"></p>
-          <div class="row" style="margin-top:12px; justify-content:flex-end"><button class="btn solid" id="fbSave">Save and record</button></div>
-        </div>
-      </section>
-
-      <section class="panel">
-        <div class="panel-head"><h2>Incoming calls</h2></div>
-        <div class="panel-body">
-          <label class="lbl" for="setIncomingUrl" style="margin-top:0">Stream to your agent</label>
-          <input class="field" id="setIncomingUrl" placeholder="wss://my-agent.example.com/ws">
-          <label class="lbl" for="setIncomingFormat">Audio format</label>
-          <select class="field" id="setIncomingFormat">
-            <option value="raw">Raw: 16 kHz PCM, binary frames</option>
-            <option value="twilio">Twilio Media Streams: 8 kHz mu-law JSON (Pipecat and others)</option>
-          </select>
-          <p class="hint">When set, every incoming call is answered and connected to this WebSocket. Your agent ends the call by closing the socket. Leave empty to handle calls yourself or with the built-in assistant.</p>
-          <div class="row" style="margin-top:14px; justify-content:flex-end">
-            <button class="btn solid" id="saveIncoming">Save</button>
-          </div>
-        </div>
-      </section>
-
-      <section class="panel">
-        <div class="panel-head"><h2>WhatsApp</h2></div>
-        <div class="panel-body">
-          <label class="lbl" for="setWaUrl" style="margin-top:0">WhatsApp gateway address</label>
-          <input class="field" id="setWaUrl" placeholder="https://your-whatsapp-gateway.hf.space">
-          <label class="lbl" for="setWaSecret">Gateway API secret</label>
-          <input class="field" id="setWaSecret" type="password" autocomplete="off">
-          <p class="hint" id="waSecretState"></p>
-          <label class="lbl" for="setWaCountry">Country code for local numbers</label>
-          <input class="field" id="setWaCountry" placeholder="91" maxlength="4">
-          <label class="lbl" for="setWaMessage">Message</label>
-          <textarea class="field" id="setWaMessage" rows="5" maxlength="1000"></textarea>
-          <p class="hint">The receptionist sends this after the caller agrees. <code>{name}</code>, <code>{business}</code> and <code>{link}</code> are filled in. Your gateway needs <code>POST /send</code> with <code>X-API-KEY</code>.</p>
-          <div class="row" style="margin-top:14px; justify-content:flex-end">
-            <button class="btn link" id="testWa">Send test</button>
-            <button class="btn solid" id="saveWa">Save</button>
-          </div>
-        </div>
-      </section>
-
-      <section class="panel">
-        <div class="panel-head"><h2>Server</h2></div>
-        <div class="panel-body">
-          <label class="lbl" for="setPublicUrl">Public address</label>
-          <input class="field" id="setPublicUrl" placeholder="https://your-machine.ts.net">
-          <p class="hint">Your Tailscale Funnel or Cloudflare Tunnel URL. Phones and webhooks use it.</p>
-          <label class="lbl" for="setWebhookUrl">Default webhook</label>
-          <input class="field" id="setWebhookUrl" placeholder="https://example.com/gateway/events">
-          <p class="hint">Gets every call event, signed with HMAC-SHA256. A call's own <code>webhookUrl</code> takes priority.</p>
-          <label class="lbl" for="setBrandName">Product name</label>
-          <input class="field" id="setBrandName" maxlength="60" placeholder="OpenLine">
-          <p class="hint">Shown in this console's header and title, so you can run it under your own brand.</p>
-          <label class="lbl" for="setDocsUrl">Docs address</label>
-          <input class="field" id="setDocsUrl" placeholder="https://docs.example.com">
-          <div class="row" style="margin-top:14px; justify-content:flex-end">
-            <button class="btn solid" id="saveServer">Save</button>
-          </div>
-        </div>
-      </section>
+      <section class="panel"><div class="panel-head"><h2><svg class="i"><use href="#i-gear"/></svg>Server</h2></div><div class="panel-body">
+        <label class="lbl" for="setPublicUrl" style="margin-top:0">Public address</label><input class="field" id="setPublicUrl" placeholder="https://voice.example.com">
+        <p class="hint">The HTTPS address of this server. Phones and webhooks use it.</p>
+        <label class="lbl" for="setWebhookUrl">Default webhook</label><input class="field" id="setWebhookUrl" placeholder="https://example.com/events">
+        <p class="hint">Gets every call event, signed with HMAC-SHA256.</p>
+        <label class="lbl" for="setBrandName">Product name</label><input class="field" id="setBrandName" maxlength="60" placeholder="VaaniFlow">
+        <p class="hint">Shown in the console, sign-in page and website (white label).</p>
+        <label class="lbl" for="setDocsUrl">Docs address</label><input class="field" id="setDocsUrl" placeholder="https://docs.example.com">
+        <div class="row" style="margin-top:14px; justify-content:flex-end"><button class="btn solid" id="saveServer">Save</button></div>
+      </div></section>
+      <section class="panel"><div class="panel-head"><h2><svg class="i"><use href="#i-phone"/></svg>Stream incoming calls</h2></div><div class="panel-body">
+        <label class="lbl" for="setIncomingUrl" style="margin-top:0">Your agent's WebSocket</label><input class="field" id="setIncomingUrl" placeholder="wss://my-agent.example.com/ws">
+        <label class="lbl" for="setIncomingFormat">Audio format</label>
+        <select class="field" id="setIncomingFormat"><option value="raw">Raw: 16 kHz PCM, binary frames</option><option value="twilio">Twilio Media Streams: 8 kHz mu-law JSON</option></select>
+        <p class="hint">When set, incoming calls go to this WebSocket instead of the built-in assistant.</p>
+        <div class="row" style="margin-top:14px; justify-content:flex-end"><button class="btn solid" id="saveIncoming">Save</button></div>
+      </div></section>
+      <section class="panel"><div class="panel-head"><h2><svg class="i"><use href="#i-chat"/></svg>Booking message &amp; external gateway</h2></div><div class="panel-body">
+        <p class="hint" style="margin-top:0">The built-in WhatsApp (WhatsApp page) is used first. An external gateway with <code>POST /send</code> is optional.</p>
+        <label class="lbl" for="setWaMessage">Booking message</label><textarea class="field" id="setWaMessage" rows="4" maxlength="1000"></textarea>
+        <label class="lbl" for="setWaCountry">Country code for local numbers</label><input class="field" id="setWaCountry" placeholder="91" maxlength="4">
+        <label class="lbl" for="setWaUrl">External gateway address</label><input class="field" id="setWaUrl" placeholder="https://gateway.example.com">
+        <label class="lbl" for="setWaSecret">External gateway API secret</label><input class="field" id="setWaSecret" type="password" autocomplete="off">
+        <p class="hint" id="waSecretState"></p>
+        <div class="row" style="margin-top:14px; justify-content:flex-end"><button class="btn link" id="testWa">Send test</button><button class="btn solid" id="saveWa">Save</button></div>
+      </div></section>
     </div>
-
     <div>
-      <section class="panel">
-        <div class="panel-head"><h2>API keys</h2></div>
-        <div class="panel-body" style="padding-bottom:12px">
-          <p class="muted small" style="margin:0">Give each app or agent its own key, so you can revoke one without touching the rest. Send it as <code>Authorization: Bearer &lt;key&gt;</code>.</p>
-          <form class="row" id="newKeyForm" style="margin-top:12px; flex-wrap:nowrap">
-            <input class="field" id="newKeyName" placeholder="Name, e.g. sales agent" maxlength="80">
-            <button class="btn" type="submit">Create</button>
-          </form>
-          <div class="new-key" id="newKey" hidden>
-            <p class="small" style="margin:0 0 6px"><b>Copy this key now.</b> It won't be shown again.</p>
-            <div class="row" style="flex-wrap:nowrap"><code id="newKeyValue" style="flex:1"></code><button class="btn" id="copyKey">Copy</button></div>
-          </div>
+      <section class="panel"><div class="panel-head"><h2><svg class="i"><use href="#i-key"/></svg>API keys</h2></div>
+        <div class="panel-body" style="padding-bottom:14px">
+          <p class="muted small" style="margin:0">One key per app or agent, so you can revoke one alone. Send it as <code>Authorization: Bearer &lt;key&gt;</code>.</p>
+          <form class="row" id="newKeyForm" style="margin-top:12px; flex-wrap:nowrap"><input class="field" id="newKeyName" placeholder="Name, e.g. sales agent" maxlength="80"><button class="btn" type="submit">Create</button></form>
+          <div class="new-key" id="newKey" hidden><p class="small" style="margin:0 0 6px"><b>Copy this key now.</b> It won't be shown again.</p>
+            <div class="row" style="flex-wrap:nowrap"><code id="newKeyValue" style="flex:1"></code><button class="btn" id="copyKey">Copy</button></div></div>
         </div>
-        <div id="apiKeys" style="border-top:1px solid var(--line)"></div>
+        <div id="apiKeys" style="border-top:1px solid var(--line-2)"></div>
       </section>
-
-      <section class="panel">
-        <div class="panel-head"><h2>Account</h2><span class="muted small" id="accountEmail"></span></div>
+      <section class="panel"><div class="panel-head"><h2><svg class="i"><use href="#i-user"/></svg>Your account</h2><span class="muted small" id="accountEmail"></span></div>
         <form class="panel-body" id="passwordForm">
-          <label class="lbl" for="curPassword">Current password</label>
-          <input class="field" id="curPassword" type="password" autocomplete="current-password" required>
-          <label class="lbl" for="newPassword">New password</label>
-          <input class="field" id="newPassword" type="password" autocomplete="new-password" minlength="8" required>
+          <label class="lbl" for="curPassword" style="margin-top:0">Current password</label><input class="field" id="curPassword" type="password" autocomplete="current-password" required>
+          <label class="lbl" for="newPassword">New password</label><input class="field" id="newPassword" type="password" autocomplete="new-password" minlength="8" required>
           <p class="hint">Changing it signs you out in every other browser.</p>
-          <div class="row" style="margin-top:14px; justify-content:space-between">
-            <button class="btn link" type="button" id="signOut">Sign out</button>
-            <button class="btn solid" type="submit">Change password</button>
-          </div>
+          <div class="row" style="margin-top:14px; justify-content:flex-end"><button class="btn solid" type="submit">Change password</button></div>
         </form>
       </section>
-
-      <section class="panel">
-        <div class="panel-head"><h2>People with access</h2></div>
-        <div id="users" style="margin-top:6px"></div>
-        <form class="panel-body" id="newUserForm" style="border-top:1px solid var(--line)">
-          <label class="lbl" for="newUserEmail" style="margin-top:0">Add someone</label>
-          <div class="row" style="flex-wrap:nowrap">
-            <input class="field" id="newUserEmail" type="email" placeholder="Email" autocomplete="off" required>
-            <input class="field" id="newUserPassword" type="password" placeholder="Password" autocomplete="new-password" minlength="8" required>
-            <button class="btn" type="submit">Add</button>
-          </div>
+      <section class="panel"><div class="panel-head"><h2><svg class="i"><use href="#i-users"/></svg>Team access</h2></div>
+        <div id="users"></div>
+        <form class="panel-body" id="newUserForm" style="border-top:1px solid var(--line-2)">
+          <label class="lbl" for="newUserEmail" style="margin-top:0">Add an admin</label>
+          <div class="row" style="flex-wrap:nowrap"><input class="field" id="newUserEmail" type="email" placeholder="Email" autocomplete="off" required><input class="field" id="newUserPassword" type="password" placeholder="Password" autocomplete="new-password" minlength="8" required><button class="btn" type="submit">Add</button></div>
           <p class="hint">They sign in with this email and password. Share the password privately.</p>
         </form>
       </section>
     </div>
   </div>
 </main>
+
+    </div>
+  </div>
+</div>
 </div>
 
-<div class="modal-backdrop" id="modal" hidden><div class="modal"><div class="modal-head"><h2 id="modalTitle"></h2><button class="btn link" id="modalClose">Close</button></div><div class="modal-body" id="modalBody"></div><div class="modal-foot" id="modalFoot"></div></div></div>
-
+<div class="modal-backdrop" id="modal" hidden><div class="modal" role="dialog" aria-modal="true"><div class="modal-head"><h2 id="modalTitle"></h2><button class="icon-btn" id="modalClose" aria-label="Close"><svg class="i"><use href="#i-x"/></svg></button></div><div class="modal-body" id="modalBody"></div><div class="modal-foot" id="modalFoot"></div></div></div>
 <div class="toast" id="toast" role="status" hidden></div>
 
 <script>
@@ -983,7 +1099,7 @@ function showAuth() {
   $("setupFields").hidden = !(setupMode && setupKeyRequired);
   $("confirmFields").hidden = !setupMode;
   $("authTitle").textContent = setupMode ? "Create your account" : "Sign in";
-  $("authLede").textContent = setupMode ? "The first account owns this gateway." : `${$("brandName").textContent} console`;
+  $("authLede").textContent = setupMode ? "The first account is the platform admin." : `Sign in to your ${$("brandName").textContent} workspace`;
   $("passwordLabel").textContent = setupMode ? "Choose a password" : "Password";
   $("password").autocomplete = setupMode ? "new-password" : "current-password";
   ($("email").value ? $("password") : $("email")).focus();
@@ -1023,7 +1139,10 @@ async function showApp() {
   server = await api("/v1/server").catch(() => ({}));
   applyBrand(server.brandName);
   applyRole();
+  renderMe();
+  waTab = "inbox"; waChatId = null; waConvFor = null; waFilter = "all";
   renderDocsLink();
+  loadWaSummary(userRole === "customer" ? "ovWa" : "dashWa");
   if (!location.hash || location.hash === "#/") location.hash = userRole === "customer" ? "#/overview" : "#/dashboard";
   onRoute();
 }
@@ -1065,8 +1184,9 @@ function toast(text) {
 
 // ---- Routing -------------------------------------------------------------------------------
 
-const ROUTES = ["dashboard", "customers", "plans", "billing", "home", "playground", "clients", "connection", "docs", "settings", "overview", "business", "phones", "plan", "account"];
-const CUSTOMER_ROUTES = ["overview", "business", "phones", "plan", "account"];
+const ROUTES = ["dashboard", "customers", "plans", "billing", "home", "playground", "clients", "connection", "docs", "settings", "ai", "whatsapp", "overview", "business", "phones", "plan", "account"];
+const CUSTOMER_ROUTES = ["overview", "business", "phones", "plan", "account", "whatsapp"];
+const SHARED_ROUTES = ["account", "whatsapp"];
 window.addEventListener("hashchange", onRoute);
 
 function onRoute() {
@@ -1075,7 +1195,7 @@ function onRoute() {
   route = ROUTES.includes(name) ? name : fallback;
   // Keep customers out of admin pages and vice versa.
   if (userRole === "customer" && !CUSTOMER_ROUTES.includes(route)) route = "overview";
-  if (userRole === "admin" && CUSTOMER_ROUTES.includes(route) && route !== "account") route = "dashboard";
+  if (userRole === "admin" && CUSTOMER_ROUTES.includes(route) && !SHARED_ROUTES.includes(route)) route = "dashboard";
   if (route === "docs" && server.docsUrl) {
     window.open(server.docsUrl, "_blank", "noopener");
     history.replaceState(null, "", "#/");
@@ -1083,8 +1203,12 @@ function onRoute() {
   }
   document.querySelectorAll("[data-page]").forEach((el) => (el.hidden = el.dataset.page !== route));
   document.querySelectorAll(".nav a").forEach((a) => a.setAttribute("aria-current", a.dataset.route === route ? "page" : "false"));
+  setPageTitle(route);
+  closeSidebar();
   if (route === "connection") ensurePairingCode();
   if (route === "settings") loadSettings();
+  if (route === "ai") { loadSettings(); }
+  if (route === "whatsapp") loadWhatsApp();
   if (route === "clients") loadClients();
   if (route === "dashboard") loadDashboard();
   if (route === "home") renderHome();
@@ -1105,11 +1229,11 @@ function renderDocsLink() {
     link.href = server.docsUrl;
     link.target = "_blank";
     link.rel = "noopener";
-    link.textContent = "Docs ↗";
+    link.innerHTML = `<svg class="i"><use href="#i-book"/></svg>Docs <svg class="i" style="width:14px;height:14px;margin-left:auto"><use href="#i-ext"/></svg>`;
   } else {
     link.href = "#/docs";
     link.removeAttribute("target");
-    link.textContent = "Docs";
+    link.innerHTML = `<svg class="i"><use href="#i-book"/></svg>Docs`;
   }
 }
 
@@ -1167,7 +1291,7 @@ function renderHome() {
   const base = server.publicUrl || ORIGIN;
   const phone = devices.find((d) => d.connected) || devices[0];
   $("curlCall").innerHTML = copyable(`curl -X POST ${base}/v1/calls \\
-  -H "Authorization: Bearer $OPENLINE_KEY" \\
+  -H "Authorization: Bearer $VAANIFLOW_KEY" \\
   -H "content-type: application/json" \\
   -d '{"deviceId":"${phone?.id || "phone-xxxx"}","to":"+919876543210",
        "stream":{"url":"wss://my-agent.example.com/ws","format":"twilio"},
@@ -1191,9 +1315,9 @@ async function renderChecklist() {
   const items = [
     [true, "Create your account", me ? `Signed in as ${me.email}.` : "You're signed in.", null],
     [Boolean(checklistData.publicUrl), "Public address", "So the phone can reach this server from anywhere.", "#/settings"],
-    [devices.length > 0, "Connect a phone", devices.length ? `${devices.length} paired` : "Scan the QR code with the OpenLine app.", "#/connection"],
+    [devices.length > 0, "Connect a phone", devices.length ? `${devices.length} paired` : "Scan the QR code with the VaaniFlow app.", "#/connection"],
     [checklistData.keys > 0, "Create an API key", "For your apps and agents.", "#/settings"],
-    [checklistData.gemini, "Add a Gemini key", "Optional. Turns on the built-in AI assistant.", "#/settings"],
+    [checklistData.gemini, "Add an AI provider", "Gemini, Groq or Cloudflare. Turns on the AI receptionist.", "#/ai"],
   ];
   $("checklist").innerHTML = items.map(([done, title, text, href]) => `<li class="${done ? "done" : ""}">
       <span class="mark">${done ? "✓" : ""}</span>
@@ -1257,7 +1381,7 @@ function renderDialCurl() {
   const phone = devices.find((d) => d.connected) || devices[0];
   const to = $("number").value.trim() || "+919876543210";
   const text = `curl -X POST ${server.publicUrl || ORIGIN}/v1/calls \\
-  -H "Authorization: Bearer $OPENLINE_KEY" -H "content-type: application/json" \\
+  -H "Authorization: Bearer $VAANIFLOW_KEY" -H "content-type: application/json" \\
   -d '{"deviceId":"${phone?.id || "phone-xxxx"}","to":"${to}"}'`;
   if ($("dialCurl").dataset.text !== text) {
     $("dialCurl").dataset.text = text;
@@ -1392,11 +1516,9 @@ function renderAgentMode() {
   $("about").placeholder = receptionist
     ? "Services and fees, timings, address and landmark, doctors and their days, emergency number, offers, what to bring, parking, languages spoken. Paste the text of your website here."
     : "Alex is a software developer. If someone calls about the bike service, he'll pick it up on Saturday. Family can text him if it's urgent. Don't book meetings for him.";
-  $("bookingHint").innerHTML = agentConfig?.whatsapp
-    ? "Sent to the caller on WhatsApp when they want an appointment."
-    : `Sent to the caller on WhatsApp when they want an appointment. WhatsApp isn't set up yet: add it in <a href="#/settings">Settings</a>.`;
+  $("bookingHint").innerHTML = `Sent to the caller on WhatsApp when they want an appointment. Link your number on the <a href="#/whatsapp">WhatsApp</a> page.`;
   $("agentInfo").innerHTML = !agentConfig?.configured
-    ? `Off until you add a Gemini API key in <a href="#/settings">Settings</a>.`
+    ? `Off until you add an AI provider on the <a href="#/ai">AI providers</a> page.`
     : receptionist
       ? "Answers calls for your business, answers questions from your notes and sends the booking link on WhatsApp."
       : "Answers calls, asks who is calling and why, and leaves you a message.";
@@ -1545,7 +1667,7 @@ const NETWORK_TEXT = { wifi: "Wi-Fi", cellular: "Mobile data", ethernet: "Ethern
 function renderDevices() {
   $("phoneCount").textContent = devices.length ? `${devices.filter((d) => d.connected).length} of ${devices.length} online` : "";
   $("devices").innerHTML = devices.length ? devices.map(deviceHtml).join("")
-    : `<div class="empty">No phones yet. Scan the code above with the OpenLine app.</div>`;
+    : `<div class="empty">No phones yet. Scan the code above with the VaaniFlow app.</div>`;
   $("devices").querySelectorAll("[data-forget]").forEach((b) => b.onclick = async () => {
     if (!confirm("Remove this phone? It will need to scan a new code to reconnect.")) return;
     await api(`/v1/devices/${encodeURIComponent(b.dataset.forget)}`, { method: "DELETE" }).catch((e) => toast(e.message));
@@ -1576,7 +1698,7 @@ function deviceHtml(d) {
       ${stat("Call audio", audioText[0], audioText[1])}
       ${stat("Last report", h.reportedAt ? timeAgo(h.reportedAt) : "—")}
     </div>
-    ${h.audio === "stopped" ? `<p class="hint" style="margin-top:12px">Call audio needs the phone on Wi-Fi once to start. Open the OpenLine app on the phone.</p>` : ""}
+    ${h.audio === "stopped" ? `<p class="hint" style="margin-top:12px">Call audio needs the phone on Wi-Fi once to start. Open the VaaniFlow app on the phone.</p>` : ""}
     ${stale && d.health ? `<p class="hint" style="margin-top:12px">Shown values are from the last report before it went offline.</p>` : ""}
   </div>`;
 }
@@ -1743,6 +1865,7 @@ async function loadDashboard() {
       api("/v1/ai/providers").catch(() => null),
     ]);
     renderDashAi(ai);
+    loadWaSummary("dashWa");
     clients = clientList;
     devices = deviceList;
     dash = report;
@@ -2077,6 +2200,7 @@ async function loadOverview() {
     const tz = -new Date().getTimezoneOffset();
     const [me, rep] = await Promise.all([api("/v1/me"), api(`/v1/me/analytics?days=${days}&tzOffset=${tz}`)]);
     meData = me;
+    loadWaSummary("ovWa");
     $("ovTitle").textContent = me.customer.name;
     $("ovUpdated").textContent = `Updated ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
     const ent = rep.entitlement;
@@ -2138,7 +2262,7 @@ $("bizSave").onclick = async () => {
 
 // ---- customer: phones ----
 async function loadPhonesPage() {
-  $("phonePair").innerHTML = `<p class="muted small">Tap “Show pairing code”, then open the app on your phone and tap <b>Scan QR</b> (step 2).</p>`;
+  $("phonePair").innerHTML = `<p class="muted small">Tap “Show pairing code”, then open the VaaniFlow app, go to the <b>VaaniFlow AI</b> tab and tap <b>Scan QR</b>.</p>`;
   try {
     const { devices: ds } = await api("/v1/me/devices");
     $("phoneList").innerHTML = ds.length ? ds.map((d) => { const h = d.health || {}; return `<div class="device" style="padding:12px 18px"><div class="device-head"><span class="dot ${d.connected ? "live" : "bad"}"></span><span class="grow"><b>${esc(d.name || d.id)}</b><br><span class="muted small">${d.connected ? "Online" : "Offline, seen " + timeAgo(d.lastSeenAt)}</span></span><button class="btn link" data-rm="${esc(d.id)}">Remove</button></div></div>`; }).join("") : `<div class="empty">No phone connected yet.</div>`;
@@ -2162,15 +2286,15 @@ async function loadPlanPage() {
   } catch (error) { toast(error.message); }
 }
 function renderPlanCards(plans, currentId) {
-  $("cycleMonthly").className = "btn" + (planCycle === "monthly" ? " solid" : "");
-  $("cycleYearly").className = "btn" + (planCycle === "yearly" ? " solid" : "");
+  $("cycleMonthly").setAttribute("aria-selected", String(planCycle === "monthly"));
+  $("cycleYearly").setAttribute("aria-selected", String(planCycle === "yearly"));
   $("planCards").innerHTML = plans.map((p) => {
     const price = planCycle === "yearly" ? p.priceYearly : p.priceMonthly;
     const per = planCycle === "yearly" ? "/yr" : "/mo";
     const cur = p.id === currentId;
-    return `<div class="kpi"><div class="k">${esc(p.name)}</div><div class="price">${rupees(price)}<small>${per}</small></div>
+    return `<div class="kpi ${cur ? "feature" : ""}"><div class="k">${esc(p.name)}</div><div class="price">${rupees(price)}<small>${per}</small></div>
       <ul class="small muted" style="margin:8px 0 12px">${(p.features || []).map((f) => "<li>" + esc(f) + "</li>").join("")}</ul>
-      <button class="btn ${cur ? "" : "solid"}" ${cur ? "disabled" : ""} data-buy="${esc(p.id)}">${cur ? "Current plan" : "Choose"}</button></div>`;
+      <button class="btn ${cur ? "" : "solid"}" style="width:100%" ${cur ? "disabled" : ""} data-buy="${esc(p.id)}">${cur ? "Current plan" : "Choose " + esc(p.name)}</button></div>`;
   }).join("");
   $("planCards").querySelectorAll("[data-buy]").forEach((b) => b.onclick = () => startCheckout(b.dataset.buy, planCycle));
   $("planNote").textContent = "Payments are handled securely by Razorpay. After payment your plan activates automatically.";
@@ -2203,7 +2327,7 @@ function openRazorpay(order) {
     name: $("brandName").textContent, description: order.description,
     prefill: { email: meData?.email || "" },
     handler: async (res) => { try { await api("/v1/billing/confirm", { method: "POST", body: JSON.stringify(res) }); toast("Payment received. Activating…"); setTimeout(loadPlanPage, 1500); } catch (e) { toast(e.message); } },
-    theme: { color: "#0E6B5C" },
+    theme: { color: "#5B47FB" },
   });
   rzp.open();
 }
@@ -2222,7 +2346,7 @@ function renderDashAi(ai) {
     <span class="grow"><b>${esc(x.label)}</b> <span class="muted small">${esc(KIND_TEXT[x.kind])}</span><br>
     <span class="muted small">${x.state === "cooldown" ? `Limit hit or failing, back ${timeAgo(x.cooldownUntil).replace(" ago", "")}` : "Ready"} · ${x.ok} ok · ${x.failed} failed</span>
     ${x.lastError && x.state === "cooldown" ? `<br><span class="muted small">${esc(x.lastError.slice(0, 110))}</span>` : ""}</span></div>`).join("")
-    : `<div class="empty">No AI provider. Add a Gemini key in <a href="#/settings">Settings</a>.</div>`;
+    : `<div class="empty">No AI provider yet. <a href="#/ai">Add Gemini, Groq or Cloudflare</a>.</div>`;
 }
 
 async function loadAiProviders() {
@@ -2252,6 +2376,7 @@ function renderAiProviders() {
           <input class="field grow" data-f="label" value="${esc(p.label)}" maxlength="60" style="margin:0">
           <label class="small"><input type="checkbox" data-f="enabled" ${p.enabled ? "checked" : ""}> On</label>
           <button class="btn mini" data-move="-1" title="Try earlier">↑</button><button class="btn mini" data-move="1" title="Try later">↓</button>
+          <button class="btn mini" data-test ${p.keySet ? "" : "disabled title=\"Save the key first\""}>Test</button>
           <button class="btn link mini" data-remove>Remove</button></div>
         <div class="prov-grid">
           <input class="field" data-f="apiKey" type="password" autocomplete="off" placeholder="${p.keySet ? `Saved key ${esc(p.keyHint)}` : "API key"}">
@@ -2261,6 +2386,7 @@ function renderAiProviders() {
           ${kind === "tts" ? `<input class="field" data-f="voice" value="${esc(p.voice || "")}" placeholder="Voice">` : ""}
         </div>
         <p class="hint" style="margin:6px 0 0">${esc(TYPE_TEXT[p.type])}${preset.signup ? ` · <a href="${esc(preset.signup)}" target="_blank" rel="noopener">get a key</a>` : ""}${st ? ` · ${st.ok} ok, ${st.failed} failed${st.state === "cooldown" ? `, cooling down` : ""}` : ""}${st?.lastError ? `<br>Last error: ${esc(st.lastError.slice(0, 140))}` : ""}</p>
+        <div class="prov-test" data-test-out></div>
       </div>`;
     }).join("");
     return `<div class="kind-title">${KIND_TEXT[kind]}</div>${extra}${rows || `<p class="muted small" style="margin:4px 0">None added.</p>`}`;
@@ -2278,6 +2404,14 @@ function renderAiProviders() {
       p[f] = input.type === "checkbox" ? input.checked : input.value;
     });
     el.querySelector("[data-remove]").onclick = () => { aiState.providers.splice(aiState.providers.indexOf(p), 1); renderAiProviders(); };
+    el.querySelector("[data-test]").onclick = async () => {
+      const out = el.querySelector("[data-test-out]");
+      out.innerHTML = `<span class="muted">Testing…</span>`;
+      try {
+        const r = await api(`/v1/ai/providers/${encodeURIComponent(p.id)}/test`, { method: "POST" });
+        out.innerHTML = r.ok ? `<span class="ok">✓ Works · ${r.ms} ms${r.reply ? ` · “${esc(String(r.reply).slice(0, 60))}”` : ""}</span>` : `<span class="down">✕ ${esc(r.error || "failed")}</span>`;
+      } catch (error) { out.innerHTML = `<span class="down">✕ ${esc(error.message)}</span>`; }
+    };
     el.querySelectorAll("[data-move]").forEach((b) => b.onclick = () => {
       const same = aiState.providers.filter((x) => x.kind === p.kind);
       const swap = same[same.indexOf(p) + Number(b.dataset.move)];
@@ -2343,10 +2477,11 @@ $("fbSave").onclick = async () => {
 // ---- Brand (white label) -------------------------------------------------------------------
 
 function applyBrand(name) {
-  const brand = name || "OpenLine";
+  const brand = name || "VaaniFlow";
   $("brandName").textContent = brand;
-  document.title = brand;
-  if (!setupMode) $("authLede").textContent = `${brand} console`;
+  document.querySelectorAll("[data-brand]").forEach((el) => (el.innerHTML = wordmark(brand)));
+  document.title = `${brand} · Console`;
+  if (!setupMode) $("authLede").textContent = `Sign in to your ${brand} workspace`;
 }
 
 // ---- Clients -------------------------------------------------------------------------------
@@ -2726,6 +2861,455 @@ function timeAgo(iso) {
 function esc(value) {
   return String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 }
+
+
+// ============================================================================================
+//  VaaniFlow shell: brand, theme, sidebar, page titles, signed-in user
+// ============================================================================================
+
+const PAGE_TITLES = {
+  dashboard: "Dashboard", playground: "Live calls", overview: "Overview", whatsapp: "WhatsApp", business: "My business",
+  phones: "Phones", customers: "Customers", plans: "Plans", billing: "Billing", clients: "Clients", connection: "Phones",
+  ai: "AI providers", home: "Developers", settings: "Settings", docs: "Docs", plan: "Plan & billing", account: "Account",
+};
+function setPageTitle(name) { $("crumb").textContent = PAGE_TITLES[name] || ""; }
+
+function wordmark(brand) {
+  if (/^vaaniflow$/i.test(brand)) return `<b>Vaani</b><b class="g">Flow</b>`;
+  return `<b>${esc(brand)}</b>`;
+}
+
+function renderMe() {
+  const email = me?.email || "API key";
+  $("meEmail").textContent = email;
+  $("meRole").textContent = userRole === "customer" ? (sessionStorage.getItem("impersonating") ? "Customer (viewing as)" : "Customer") : "Platform admin";
+  $("meAvatar").textContent = (email[0] || "V").toUpperCase();
+}
+
+function setTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  try { localStorage.setItem("vf-theme", theme); } catch {}
+  $("themeToggle").innerHTML = `<svg class="i"><use href="#i-${theme === "dark" ? "sun" : "moon"}"/></svg>`;
+}
+setTheme(document.documentElement.dataset.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"));
+$("themeToggle").onclick = () => setTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
+
+function closeSidebar() { document.body.classList.remove("side-open"); }
+$("menuBtn").onclick = () => document.body.classList.toggle("side-open");
+$("scrim").onclick = closeSidebar;
+if (matchMedia("(max-width: 960px)").matches) $("authMobileLogo").style.display = "inline-flex";
+
+const svgIcon = (name, style = "") => `<svg class="i" ${style ? `style="${style}"` : ""}><use href="#i-${name}"/></svg>`;
+const initials = (name, fallback = "?") => {
+  const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
+  return parts.length ? (parts[0][0] + (parts[1]?.[0] || "")).toUpperCase() : fallback;
+};
+
+// ============================================================================================
+//  WhatsApp: connection, inbox, automation
+// ============================================================================================
+
+let waTab = "inbox";
+let waFilter = "all";
+let waSearchText = "";
+let waChatId = null;
+let waChats = [];
+let waStatus = null;
+let waTimer = null;
+let waOpenSig = "";
+let waConvFor = null;
+
+const waBase = () => (userRole === "customer" ? "/v1/me/whatsapp" : "/v1/whatsapp");
+function waUrl(path, query = "") {
+  const scope = userRole === "admin" ? ($("waScope").value || "default") : "default";
+  const parts = [scope !== "default" ? `clientId=${encodeURIComponent(scope)}` : "", query].filter(Boolean);
+  return `${waBase()}${path}${parts.length ? `?${parts.join("&")}` : ""}`;
+}
+
+async function fillWaScopes() {
+  const sel = $("waScope");
+  const current = sel.value || "default";
+  const list = await api("/v1/clients").then((r) => r.clients).catch(() => []);
+  const html = `<option value="default">This workspace</option>` + list.map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join("");
+  if (sel.dataset.html !== html) { sel.innerHTML = html; sel.dataset.html = html; }
+  sel.value = [...sel.options].some((o) => o.value === current) ? current : "default";
+  sel.hidden = list.length === 0;
+}
+$("waScope").onchange = () => { waChatId = null; waConvFor = null; loadWhatsApp(); };
+
+async function loadWhatsApp() {
+  // On phones the inbox starts at the chat list.
+  if (matchMedia("(max-width: 960px)").matches) $("inbox").classList.remove("open");
+  if (userRole === "admin") await fillWaScopes();
+  renderWaTabs();
+  await refreshWaStatus();
+  if (waTab === "inbox") await loadWaChats();
+  if (waTab === "automation") fillWaSettings();
+  clearInterval(waTimer);
+  waTimer = setInterval(waTick, 4000);
+}
+
+async function waTick() {
+  if (route !== "whatsapp" || document.hidden || !signedIn) return;
+  await refreshWaStatus();
+  if (waTab === "inbox") {
+    await loadWaChats(true);
+    if (waChatId) await openWaChat(waChatId, true);
+  }
+}
+
+document.querySelectorAll("[data-watab]").forEach((b) => (b.onclick = () => {
+  waTab = b.dataset.watab;
+  renderWaTabs();
+  if (waTab === "inbox") loadWaChats();
+  if (waTab === "automation") fillWaSettings();
+  if (waTab === "connect") renderWaConnection();
+}));
+function renderWaTabs() {
+  document.querySelectorAll("[data-watab]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.watab === waTab)));
+  document.querySelectorAll("[data-wapane]").forEach((p) => (p.hidden = p.dataset.wapane !== waTab));
+}
+
+const WA_STATE = {
+  connected: ["live", "Connected"],
+  qr: ["ring", "Waiting for QR scan"],
+  connecting: ["ring", "Connecting…"],
+  idle: ["bad", "Not connected"],
+  logged_out: ["", "Not linked"],
+  error: ["bad", "Connection problem"],
+};
+
+async function refreshWaStatus() {
+  try {
+    waStatus = await api(waUrl("/status"));
+  } catch (error) {
+    waStatus = null;
+    $("waStatePill").innerHTML = `<span class="dot bad"></span><span>${esc(error.message)}</span>`;
+    return;
+  }
+  const [dot, text] = WA_STATE[waStatus.state] || ["", waStatus.state];
+  const number = waStatus.me?.number ? ` · +${waStatus.me.number}` : "";
+  $("waStatePill").innerHTML = `<span class="dot ${dot}"></span><span>${esc(text)}${esc(number)}</span>`;
+  const unread = waStatus.stats?.unread || 0;
+  $("waUnread").hidden = !unread;
+  $("waUnread").textContent = unread;
+  setNavWaBadge(unread);
+  renderWaKpis();
+  if (waTab === "connect") renderWaConnection();
+}
+
+function setNavWaBadge(n) {
+  $("navWaBadge").hidden = !n;
+  $("navWaBadge").textContent = n > 99 ? "99+" : String(n);
+}
+
+function renderWaKpis() {
+  const s = waStatus?.stats;
+  if (!s) { $("waKpis").innerHTML = ""; return; }
+  const avg = s.avgReplyMs ? `${(s.avgReplyMs / 1000).toFixed(1)} s` : "—";
+  const kpi = (icon, k, v, d, teal) => `<div class="kpi"><div class="k"><span class="kpi-ic ${teal ? "t" : ""}">${svgIcon(icon)}</span>${k}</div><div class="v">${v}</div><div class="d">${d}</div></div>`;
+  $("waKpis").innerHTML = [
+    kpi("chat", "Messages received", s.received, `${s.chats} chats · last 7 days`),
+    kpi("bot", "AI replies", s.aiReplies, `Average ${avg} to reply`, true),
+    kpi("hand", "Needs staff", s.human, s.human ? "Waiting for a person" : "Nothing waiting"),
+    kpi("users", "New contacts", s.newContacts, `${s.staffReplies} staff replies`, true),
+  ].join("");
+}
+
+function renderWaConnection() {
+  const s = waStatus;
+  if (!s) return;
+  const [, text] = WA_STATE[s.state] || ["", s.state];
+  $("waStateTitle").textContent = s.connected ? `Connected${s.me?.number ? ` · +${s.me.number}` : ""}` : text;
+  $("waStateText").textContent = s.connected
+    ? `${s.me?.name ? `${s.me.name} · ` : ""}linked ${s.connectedAt ? timeAgo(s.connectedAt) : ""}. Messages are answered by ${waStatus.settings.autoReply ? "the AI" : "your team (AI replies are off)"}.`
+    : s.state === "qr" ? "Scan the code on the left with the business phone." : s.lastError || "Link your business number to start.";
+  if (s.qrSvg) $("waQr").innerHTML = s.qrSvg;
+  else $("waQr").innerHTML = s.connected
+    ? `<div style="text-align:center;color:var(--live)">${svgIcon("check", "width:56px;height:56px")}<div style="font-weight:700;margin-top:6px">Linked</div></div>`
+    : s.state === "connecting" ? "Getting a code…" : "Click Connect";
+  $("waQrHint").textContent = s.state === "qr" ? "The code refreshes every ~20 seconds." : "";
+  $("waConnect").hidden = s.connected || s.state === "qr" || s.state === "connecting";
+  $("waRestart").hidden = !s.connected && s.state !== "error";
+  $("waLogout").hidden = s.state === "logged_out";
+}
+
+$("waConnect").onclick = async () => {
+  $("waConnect").disabled = true;
+  try { waStatus = { ...waStatus, ...(await api(waUrl("/connect"), { method: "POST" })) }; renderWaConnection(); }
+  catch (error) { toast(error.message); }
+  finally { $("waConnect").disabled = false; refreshWaStatus(); }
+};
+$("waRestart").onclick = async () => { try { await api(waUrl("/restart"), { method: "POST" }); toast("Reconnecting…"); refreshWaStatus(); } catch (e) { toast(e.message); } };
+$("waLogout").onclick = async () => {
+  if (!confirm("Unlink this WhatsApp number? The AI stops replying until you scan a new code. Chats stay in the inbox.")) return;
+  try { await api(waUrl("/logout"), { method: "POST" }); toast("Number unlinked."); refreshWaStatus(); } catch (e) { toast(e.message); }
+};
+
+// ---- inbox list ----
+const WA_FILTERS = [["all", "All"], ["unread", "Unread"], ["human", "Needs staff"], ["open", "Open"], ["resolved", "Done"], ["aioff", "AI off"]];
+let waCounts = {};
+let waSearchTimer = null;
+$("waSearch").oninput = () => { clearTimeout(waSearchTimer); waSearchTimer = setTimeout(() => { waSearchText = $("waSearch").value.trim(); loadWaChats(); }, 250); };
+
+async function loadWaChats(quiet = false) {
+  try {
+    const r = await api(waUrl("/chats", `filter=${waFilter}&q=${encodeURIComponent(waSearchText)}`));
+    waChats = r.chats;
+    waCounts = r.counts;
+  } catch (error) {
+    if (!quiet) toast(error.message);
+    return;
+  }
+  $("waChips").innerHTML = WA_FILTERS.map(([k, l]) => `<button aria-pressed="${waFilter === k}" data-f="${k}">${l}${waCounts[k] !== undefined && k !== "open" && k !== "resolved" ? ` ${waCounts[k]}` : ""}</button>`).join("");
+  $("waChips").querySelectorAll("[data-f]").forEach((b) => (b.onclick = () => { waFilter = b.dataset.f; loadWaChats(); }));
+  const html = waChats.length ? waChats.map((c) => {
+    const flags = [
+      c.unread ? `<span class="un">${c.unread}</span>` : "",
+      c.needsHuman && c.status === "open" ? `<span class="badge y">Needs staff</span>` : "",
+      !c.aiEnabled ? `<span class="badge">AI off</span>` : "",
+      c.status === "resolved" ? `<span class="badge g">Done</span>` : "",
+    ].join("");
+    const who = c.previewSource && c.previewSource !== "patient" ? `<span class="muted">${c.previewSource === "ai" ? "AI: " : "You: "}</span>` : "";
+    return `<div class="ci ${c.id === waChatId ? "on" : ""}" data-chat="${c.id}">
+      <span class="avatar soft">${esc(initials(c.name, (c.phone || "").slice(-2)))}</span>
+      <div class="t"><div class="n"><b>${esc(c.name || formatWa(c.phone) || "Unknown")}</b><small>${c.lastMessageAt ? esc(shortTime(c.lastMessageAt)) : ""}</small></div>
+      <div class="pv">${who}${esc((c.preview || "").slice(0, 90))}</div>${flags ? `<div style="margin-top:4px">${flags}</div>` : ""}</div></div>`;
+  }).join("") : `<div class="empty">${waSearchText ? "Nothing found." : waStatus?.connected ? "No conversations yet." : "Link your WhatsApp number in the Connection tab to start."}</div>`;
+  if ($("waItems").dataset.html !== html) { $("waItems").innerHTML = html; $("waItems").dataset.html = html; }
+  $("waItems").querySelectorAll("[data-chat]").forEach((el) => (el.onclick = () => openWaChat(Number(el.dataset.chat))));
+}
+
+function formatWa(phone) {
+  if (!phone) return "";
+  const m = /^91(\d{5})(\d{5})$/.exec(phone);
+  return m ? `+91 ${m[1]} ${m[2]}` : `+${phone}`;
+}
+function shortTime(iso) {
+  const d = new Date(iso);
+  const today = new Date();
+  if (d.toDateString() === today.toDateString()) return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const y = new Date(Date.now() - 86_400_000);
+  if (d.toDateString() === y.toDateString()) return "Yesterday";
+  return d.toLocaleDateString([], { day: "numeric", month: "short" });
+}
+
+// ---- conversation ----
+async function openWaChat(id, quiet = false) {
+  let data;
+  try { data = await api(waUrl(`/chats/${id}`)); }
+  catch (error) { if (!quiet) toast(error.message); if (/not found/i.test(error.message)) { waChatId = null; waConvFor = null; } return; }
+  const switched = waChatId !== id;
+  waChatId = id;
+  $("inbox").classList.add("open");
+  const c = data.chat;
+  const sig = JSON.stringify([c, data.messages.length, data.messages.at(-1)?.id, data.messages.at(-1)?.status]);
+  if (!switched && sig === waOpenSig && waConvFor === id) return;
+  waOpenSig = sig;
+  if (switched || waConvFor !== id) buildWaConversation(c);
+  renderWaHeader(c);
+  renderWaMessages(data.messages, switched);
+  renderWaInfo(c, data.messages);
+  if (switched) loadWaChats(true);
+}
+
+function buildWaConversation(c) {
+  waConvFor = c.id;
+  const quick = waStatus?.settings?.quickReplies || [];
+  $("waConv").innerHTML = `
+    <div class="chd" id="waHead"></div>
+    <div class="msgs" id="waMsgs"></div>
+    <div class="composer">
+      ${quick.length ? `<div class="quick">${quick.map((q, i) => `<button type="button" data-q="${i}" title="${esc(q)}">${esc(q.slice(0, 40))}${q.length > 40 ? "…" : ""}</button>`).join("")}</div>` : ""}
+      <form id="waSend"><textarea class="field" id="waText" placeholder="Reply as staff…  (Enter to send, Shift+Enter for a new line)" required></textarea>
+        <button class="btn solid" style="height:42px">${svgIcon("send")}Send</button></form>
+      <div class="note" id="waNote"></div>
+    </div>`;
+  const tx = $("waText");
+  $("waConv").querySelectorAll("[data-q]").forEach((b) => (b.onclick = () => { tx.value = quick[Number(b.dataset.q)]; tx.focus(); }));
+  tx.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (tx.value.trim()) $("waSend").requestSubmit(); } });
+  tx.addEventListener("input", () => { tx.style.height = "42px"; tx.style.height = `${Math.min(140, tx.scrollHeight)}px`; });
+  $("waSend").onsubmit = async (e) => {
+    e.preventDefault();
+    const text = tx.value.trim();
+    if (!text) return;
+    tx.disabled = true;
+    try {
+      await api(waUrl(`/chats/${waChatId}/messages`), { method: "POST", body: JSON.stringify({ text }) });
+      tx.value = "";
+      tx.style.height = "42px";
+    } catch (error) { toast(error.message); }
+    finally { tx.disabled = false; tx.focus(); waOpenSig = ""; openWaChat(waChatId, true); loadWaChats(true); }
+  };
+}
+
+function renderWaHeader(c) {
+  $("waHead").innerHTML = `
+    <button class="icon-btn" id="waBack" title="Back" style="display:none">←</button>
+    <span class="avatar soft">${esc(initials(c.name, (c.phone || "").slice(-2)))}</span>
+    <div class="grow"><b style="display:block">${esc(c.name || formatWa(c.phone) || "Unknown")}</b>
+      <span class="muted small">${esc(formatWa(c.phone))}${c.phone ? " · " : ""}${c.aiEnabled ? `<span class="ok">AI on</span>` : `<span class="warn">AI off · handled by staff</span>`}${c.needsHuman && c.status === "open" ? ` · <span class="warn">needs staff</span>` : ""}</span></div>
+    <button class="btn sm" id="waToggleAi">${c.aiEnabled ? `${svgIcon("pause")}Pause AI` : `${svgIcon("play")}Resume AI`}</button>
+    <button class="btn sm" id="waResolve">${c.status === "open" ? `${svgIcon("check")}Mark done` : `${svgIcon("refresh")}Reopen`}</button>`;
+  if (matchMedia("(max-width: 960px)").matches) {
+    $("waBack").style.display = "inline-grid";
+    $("waBack").onclick = () => { $("inbox").classList.remove("open"); };
+  }
+  $("waToggleAi").onclick = () => updateWaChat({ aiEnabled: !c.aiEnabled }, c.aiEnabled ? "AI paused for this chat. You're handling it." : "AI resumed for this chat.");
+  $("waResolve").onclick = () => updateWaChat({ status: c.status === "open" ? "resolved" : "open" });
+  $("waNote").innerHTML = `<span>Sent from your WhatsApp as <b>staff</b>.</span>${c.aiEnabled ? `<span class="warn">Tip: pause the AI to handle this chat yourself.</span>` : ""}`;
+}
+
+async function updateWaChat(patch, done) {
+  try { await api(waUrl(`/chats/${waChatId}`), { method: "PUT", body: JSON.stringify(patch) }); if (done) toast(done); }
+  catch (error) { toast(error.message); }
+  waOpenSig = "";
+  openWaChat(waChatId, true);
+  loadWaChats(true);
+}
+
+const SOURCE_TEXT = { ai: ["v", "AI"], staff: ["b", "Staff"], phone: ["b", "Phone"], fallback: ["y", "Auto"], system: ["g", "Booking"] };
+function renderWaMessages(messages, forceBottom) {
+  const box = $("waMsgs");
+  const atBottom = forceBottom || box.scrollHeight - box.clientHeight - box.scrollTop < 80;
+  let day = "";
+  box.innerHTML = messages.map((m) => {
+    const d = new Date(m.createdAt);
+    const key = d.toDateString();
+    let sep = "";
+    if (key !== day) {
+      day = key;
+      const label = key === new Date().toDateString() ? "Today" : key === new Date(Date.now() - 86_400_000).toDateString() ? "Yesterday" : d.toLocaleDateString([], { day: "numeric", month: "short", year: "numeric" });
+      sep = `<div class="daysep">${label}</div>`;
+    }
+    const src = SOURCE_TEXT[m.source];
+    const meta = [
+      m.direction === "out" && src ? `<span class="badge ${src[0]}" style="margin:0">${m.source === "staff" && m.sentBy ? esc(m.sentBy.split("@")[0]) : src[1]}</span>` : "",
+      m.latencyMs && m.source === "ai" ? `<span>${(m.latencyMs / 1000).toFixed(1)}s</span>` : "",
+      `<span>${d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>`,
+      m.direction === "out" ? (m.status === "failed" ? `<span class="fail" title="${esc(m.error || "")}">✕ failed</span>` : m.status === "sent" ? `<span class="tick">✓✓</span>` : `<span>…</span>`) : "",
+    ].join("");
+    return `${sep}<div class="bubble ${m.direction === "out" ? "out" : ""} ${m.source === "ai" ? "ai" : ""}">${esc(m.body)}<div class="meta">${meta}</div></div>`;
+  }).join("") || `<div class="daysep">No messages</div>`;
+  if (atBottom) box.scrollTop = box.scrollHeight;
+}
+
+function renderWaInfo(c, messages) {
+  const ai = messages.filter((m) => m.source === "ai" && m.status === "sent").length;
+  const staff = messages.filter((m) => (m.source === "staff" || m.source === "phone") && m.status === "sent").length;
+  const editing = $("waInfo").contains(document.activeElement);
+  if (editing) return;
+  $("waInfo").innerHTML = `
+    <div style="text-align:center"><span class="avatar lg soft" style="margin:0 auto 8px">${esc(initials(c.name, (c.phone || "").slice(-2)))}</span>
+      <b style="display:block">${esc(c.name || "Unknown")}</b><span class="mono muted small">${esc(formatWa(c.phone))}</span>
+      <div class="row" style="justify-content:center;margin-top:10px">${c.phone ? `<a class="btn sm" href="https://wa.me/${esc(c.phone)}" target="_blank" rel="noopener">WhatsApp</a><a class="btn sm" href="tel:+${esc(c.phone)}">${svgIcon("phone")}Call</a>` : ""}</div></div>
+    <h4>Conversation</h4>
+    <div class="statline"><span class="muted">From customer</span><b>${c.msgIn}</b></div>
+    <div class="statline"><span class="muted">AI replies</span><b>${ai}</b></div>
+    <div class="statline"><span class="muted">Staff replies</span><b>${staff}</b></div>
+    <div class="statline"><span class="muted">First contact</span><b>${esc(new Date(c.createdAt).toLocaleDateString())}</b></div>
+    <form id="waInfoForm"><h4>Customer details</h4>
+      <label class="lbl" style="margin-top:0">Name</label><input class="field" name="name" value="${esc(c.name)}" maxlength="150">
+      <label class="lbl">Tags</label><input class="field" name="tags" value="${esc(c.tags)}" placeholder="implant, follow-up, vip" maxlength="255">
+      <label class="lbl">Staff notes <span class="muted">(the AI reads these)</span></label><textarea class="field" name="notes" rows="4" maxlength="5000">${esc(c.notes)}</textarea>
+      <button class="btn solid" style="width:100%;margin-top:12px">Save</button></form>
+    <button class="btn link" id="waDelete" style="width:100%;margin-top:10px;color:var(--bad)">${svgIcon("trash")}Delete conversation</button>`;
+  $("waInfoForm").onsubmit = async (e) => {
+    e.preventDefault();
+    const f = e.target;
+    await updateWaChat({ name: f.name.value.trim(), tags: f.tags.value.trim(), notes: f.notes.value }, "Saved.");
+    document.activeElement?.blur();
+  };
+  $("waDelete").onclick = async () => {
+    if (!confirm("Delete this whole conversation? This can't be undone.")) return;
+    try { await api(waUrl(`/chats/${c.id}`), { method: "DELETE" }); } catch (error) { return toast(error.message); }
+    waChatId = null; waConvFor = null;
+    $("waConv").innerHTML = `<div class="pholder"><div>Conversation deleted.</div></div>`;
+    $("waInfo").innerHTML = "";
+    $("inbox").classList.remove("open");
+    loadWaChats(true);
+  };
+}
+
+$("waNewChat").onclick = () => {
+  modal("New WhatsApp message", `
+    <label class="lbl" style="margin-top:0">WhatsApp number</label><input class="field" name="to" inputmode="tel" placeholder="98765 43210 or +44 7700 900123">
+    <label class="lbl">Message</label><textarea class="field" name="text" rows="4" maxlength="4000"></textarea>
+    <p class="hint">Message people who expect to hear from you. Unsolicited messages can get a number restricted by WhatsApp.</p>`,
+    [{ label: "Cancel", onClick: closeModal }, { label: "Send", primary: true, onClick: async () => {
+      try {
+        const r = await api(waUrl("/send"), { method: "POST", body: JSON.stringify({ to: mv("to").value.trim(), text: mv("text").value.trim() }) });
+        closeModal(); toast("Sent."); waFilter = "all"; await loadWaChats(); openWaChat(r.contact.id);
+      } catch (error) { toast(error.message); }
+    } }]);
+};
+
+// ---- automation settings ----
+function fillWaSettings() {
+  const s = waStatus?.settings;
+  if (!s) return refreshWaStatus().then(() => waStatus && fillWaSettings());
+  $("waAutoReply").checked = s.autoReply;
+  $("waPauseOnStaff").checked = s.pauseOnStaffReply;
+  $("waUseBooking").checked = s.useForBookingLinks;
+  $("waTyping").checked = s.typingIndicator;
+  $("waMarkRead").checked = s.markRead;
+  $("waIgnoreGroups").checked = s.ignoreGroups;
+  $("waDelayMin").value = s.replyDelayMinMs / 1000;
+  $("waDelayMax").value = s.replyDelayMaxMs / 1000;
+  $("waInstructions").value = s.instructions;
+  $("waFallback").value = s.fallbackMessage;
+  $("waQuick").value = (s.quickReplies || []).join("\n");
+}
+$("waSaveSettings").onclick = async () => {
+  const body = {
+    autoReply: $("waAutoReply").checked,
+    pauseOnStaffReply: $("waPauseOnStaff").checked,
+    useForBookingLinks: $("waUseBooking").checked,
+    typingIndicator: $("waTyping").checked,
+    markRead: $("waMarkRead").checked,
+    ignoreGroups: $("waIgnoreGroups").checked,
+    replyDelayMinMs: Math.round(Math.max(0, Number($("waDelayMin").value) || 0) * 1000),
+    replyDelayMaxMs: Math.round(Math.max(0, Number($("waDelayMax").value) || 0) * 1000),
+    instructions: $("waInstructions").value.trim(),
+    fallbackMessage: $("waFallback").value.trim(),
+    quickReplies: $("waQuick").value.split("\n").map((s) => s.trim()).filter(Boolean).slice(0, 30),
+  };
+  try {
+    const { settings } = await api(waUrl("/settings"), { method: "PUT", body: JSON.stringify(body) });
+    waStatus = { ...waStatus, settings };
+    waConvFor = null; // rebuild the composer with the new quick replies
+    toast("Saved. New messages use these settings.");
+  } catch (error) { toast(error.message); }
+};
+
+/** Small WhatsApp card on the overview / dashboard. */
+async function loadWaSummary(elId) {
+  const el = $(elId);
+  try {
+    const s = await api(`${userRole === "customer" ? "/v1/me/whatsapp" : "/v1/whatsapp"}/status`);
+    setNavWaBadge(s.stats?.unread || 0);
+    if (!s.connected && !(s.stats?.all)) {
+      el.innerHTML = `<p class="small muted" style="margin:0 0 12px">Link your business WhatsApp so the AI answers chats and sends booking links from your number.</p><a class="btn solid sm" href="#/whatsapp">${svgIcon("qr")}Link WhatsApp</a>`;
+      return;
+    }
+    const [dot, text] = WA_STATE[s.state] || ["", s.state];
+    el.innerHTML = `<div class="row" style="margin-bottom:10px"><span class="dot ${dot}"></span><b>${esc(text)}</b>${s.me?.number ? `<span class="muted small">+${esc(s.me.number)}</span>` : ""}</div>
+      <dl class="kv"><dt>Received (7 days)</dt><dd>${s.stats.received}</dd><dt>AI replies</dt><dd>${s.stats.aiReplies}${s.stats.avgReplyMs ? ` · ${(s.stats.avgReplyMs / 1000).toFixed(1)} s avg` : ""}</dd>
+      <dt>Needs staff</dt><dd>${s.stats.human ? `<span class="warn">${s.stats.human} waiting</span>` : "None"}</dd><dt>Unread</dt><dd>${s.stats.unread}</dd></dl>`;
+  } catch (error) {
+    el.innerHTML = `<p class="small muted" style="margin:0">${esc(error.message)}</p>`;
+  }
+}
+
+// ---- AI providers: quick add for the main providers ----
+document.querySelectorAll("[data-quick]").forEach((b) => (b.onclick = () => {
+  if (!aiState) return;
+  $("aiAddType").value = b.dataset.quick;
+  $("aiAdd").click();
+  toast("Added. Paste the API key, then press Save.");
+  const added = aiState.providers.at(-1);
+  setTimeout(() => $("aiProviders").querySelector(`.prov[data-id="${added.id}"] [data-f="apiKey"]`)?.focus(), 50);
+}));
 
 boot();
 </script>

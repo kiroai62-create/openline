@@ -1,6 +1,6 @@
 ---
 title: Connect an AI agent
-description: Connect AI voice agents (Pipecat, LiveKit workers, custom code) to real phone calls. OpenLine streams calls to your WebSocket in raw PCM or Twilio Media Streams format.
+description: Connect AI voice agents (Pipecat, LiveKit workers, custom code) to real phone calls. VaaniFlow streams calls to your WebSocket in raw PCM or Twilio Media Streams format.
 ---
 
 The simplest way to put an AI agent on a phone call: tell the gateway where your agent listens,
@@ -12,8 +12,8 @@ just like Twilio's `<Connect><Stream>`.
 Add `stream` when placing the call:
 
 ```bash
-curl -X POST $OPENLINE_URL/v1/calls \
-  -H "Authorization: Bearer $OPENLINE_KEY" -H "content-type: application/json" \
+curl -X POST $VAANIFLOW_URL/v1/calls \
+  -H "Authorization: Bearer $VAANIFLOW_KEY" -H "content-type: application/json" \
   -d '{
     "deviceId": "phone-7f3a91c2",
     "to": "+919876543210",
@@ -33,8 +33,8 @@ Nothing connects if nobody picks up.
 In the console, **Settings → Incoming calls → Stream to your agent**, or by API:
 
 ```bash
-curl -X PUT $OPENLINE_URL/v1/settings \
-  -H "Authorization: Bearer $OPENLINE_KEY" -H "content-type: application/json" \
+curl -X PUT $VAANIFLOW_URL/v1/settings \
+  -H "Authorization: Bearer $VAANIFLOW_KEY" -H "content-type: application/json" \
   -d '{"incomingStreamUrl":"wss://agent.example.com/ws","incomingStreamFormat":"twilio"}'
 ```
 
@@ -46,8 +46,8 @@ assistant stays out of these calls. Clear the URL (`""`) to stop.
 Attach an agent to any live call, for example one your code answered after a webhook:
 
 ```bash
-curl -X POST $OPENLINE_URL/v1/calls/$CALL_ID/stream \
-  -H "Authorization: Bearer $OPENLINE_KEY" -H "content-type: application/json" \
+curl -X POST $VAANIFLOW_URL/v1/calls/$CALL_ID/stream \
+  -H "Authorization: Bearer $VAANIFLOW_KEY" -H "content-type: application/json" \
   -d '{"url":"wss://agent.example.com/ws","format":"raw"}'
 ```
 

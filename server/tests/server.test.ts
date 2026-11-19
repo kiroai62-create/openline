@@ -296,8 +296,8 @@ describe("signed webhook dispatcher", () => {
       .update(`${timestamp}.${body}`)
       .digest("hex");
     expect(init.headers).toMatchObject({
-      "x-openline-timestamp": timestamp,
-      "x-openline-signature": `sha256=${expected}`,
+      "x-vaaniflow-timestamp": timestamp,
+      "x-vaaniflow-signature": `sha256=${expected}`,
     });
     expect(init.body).toBe(body);
   });

@@ -8,7 +8,7 @@ the call is answered. These are the messages on that socket.
 
 ## Raw format (`"format": "raw"`)
 
-**OpenLine → agent**
+**VaaniFlow → agent**
 
 ```json
 {"type":"start","callId":"8c1d…","direction":"outgoing","remoteNumber":"+919876543210",
@@ -32,7 +32,7 @@ voice, 16 kHz mono s16le, 640 bytes (20 ms) each. When the call ends:
 
 Matches Twilio Media Streams for a bidirectional `<Connect><Stream>`.
 
-**OpenLine → agent**
+**VaaniFlow → agent**
 
 ```json
 {"event":"connected","protocol":"Call","version":"1.0.0"}
@@ -75,11 +75,11 @@ Matches Twilio Media Streams for a bidirectional `<Connect><Stream>`.
 
 | Situation | What happens |
 |---|---|
-| Call answered | OpenLine connects, sends `start` (and `connected` first for Twilio). |
-| Other person hangs up | OpenLine sends `stop` and closes the socket. |
-| Agent closes the socket | OpenLine hangs up the call. |
-| Agent unreachable or socket errors | OpenLine hangs up the call; `GET /v1/calls/{id}/stream` shows the error. |
-| `DELETE /v1/calls/{id}/stream` | OpenLine closes the socket; the call continues. |
+| Call answered | VaaniFlow connects, sends `start` (and `connected` first for Twilio). |
+| Other person hangs up | VaaniFlow sends `stop` and closes the socket. |
+| Agent closes the socket | VaaniFlow hangs up the call. |
+| Agent unreachable or socket errors | VaaniFlow hangs up the call; `GET /v1/calls/{id}/stream` shows the error. |
+| `DELETE /v1/calls/{id}/stream` | VaaniFlow closes the socket; the call continues. |
 
 ## Audio conversion
 

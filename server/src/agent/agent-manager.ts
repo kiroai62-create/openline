@@ -9,6 +9,7 @@ import type { AiRouter, ProviderConfig } from "../ai/router.js";
 import { PipelineCallAgent } from "../ai/pipeline-agent.js";
 import type { FallbackAudio } from "../ai/fallback-audio.js";
 import {
+  DEFAULT_WHATSAPP_MESSAGE,
   renderTemplate,
   sendWhatsApp,
   toWhatsAppNumber,
@@ -51,6 +52,29 @@ export interface AgentManagerOptions {
   fallback?: FallbackAudio;
   /** Central SaaS: may this client's calls be answered now? (license, trial, minute limit). */
   entitled?(clientId: string | undefined): { ok: boolean; message?: string };
+  /** Built-in WhatsApp: booking links go out on the business's own linked number when it is connected. */
+  whatsapp?: BuiltInWhatsApp;
+}
+
+/** The part of the WhatsApp manager the call assistant needs. */
+export interface BuiltInWhatsApp {
+  isConnected(scope: string): boolean;
+  settings(scope: string): { useForBookingLinks: boolean };
+  sendText(scope: string, to: string, text: string, meta: { source: "system"; sentBy?: string }): Promise<unknown>;
+}
+
+/**
+ * What the phone asks for an incoming call (payload field "ai"): "now" (default), "after:<s>"
+ * (ring on the phone first, then the AI answers if nobody did), or "never" (a personal call).
+ */
+export type AiPolicy = { mode: "now" } | { mode: "after"; seconds: number } | { mode: "never" };
+
+export function aiPolicy(payload: Record<string, unknown> | undefined): AiPolicy {
+  const raw = typeof payload?.ai === "string" ? payload.ai.trim().toLowerCase() : "";
+  if (raw === "never" || raw === "off") return { mode: "never" };
+  const after = /^after:(\d{1,3})$/.exec(raw);
+  if (after) return { mode: "after", seconds: Math.min(Number(after[1]), 120) };
+  return { mode: "now" };
 }
 
 type CallAgent = GeminiCallAgent | PipelineCallAgent;
@@ -73,6 +97,9 @@ export interface CallProfile {
   clientId?: string;
   /** The client's own Gemini key (central SaaS), used for Gemini Live before the shared keys. */
   geminiApiKey?: string;
+  /** Country code and template for booking links on the built-in WhatsApp. */
+  whatsappCountryCode: string;
+  whatsappTemplate: string;
 }
 
 const LIVE_STATES = new Set<CallRecord["state"]>(["queued", "dialing", "ringing", "active", "held"]);
@@ -86,6 +113,8 @@ export class AgentManager {
   private readonly heldOnce = new Set<string>();
   private readonly givingUp = new Set<string>();
   private readonly requested = new Set<string>();
+  /** Incoming calls the assistant will answer when their ring delay is over. */
+  private readonly pendingAnswer = new Map<string, NodeJS.Timeout>();
 
   constructor(private readonly options: AgentManagerOptions) {
     this.settings = {
@@ -162,6 +191,8 @@ export class AgentManager {
 
   release(callId: string): void {
     this.requested.delete(callId);
+    clearTimeout(this.pendingAnswer.get(callId));
+    this.pendingAnswer.delete(callId);
     const agent = this.agents.get(callId);
     agent?.stop();
     if (agent) this.saveTranscript(callId, agent.transcript);
@@ -176,18 +207,30 @@ export class AgentManager {
    * Called for every device event after the call record is updated. `streamed` calls belong to an
    * external agent, so the assistant doesn't auto-answer them.
    */
-  onCallEvent(call: CallRecord, event: DeviceEventName, streamed = false): void {
+  onCallEvent(call: CallRecord, event: DeviceEventName, streamed = false, payload?: Record<string, unknown>): void {
+    const policy = aiPolicy(payload);
     if (
       event === "call.ringing" &&
       !streamed &&
       call.direction === "incoming" &&
+      policy.mode !== "never" &&
       this.profileFor(call).autoAnswer &&
       Boolean(this.pickEngine(this.profileFor(call).geminiApiKey, this.profileFor(call).clientId)) &&
       this.checkEntitled(call) &&
-      !this.requested.has(call.id)
+      !this.requested.has(call.id) &&
+      !this.pendingAnswer.has(call.id)
     ) {
-      this.requested.add(call.id);
-      setTimeout(() => this.command(call, "answer"), 1_000); // let the phone settle before answering
+      // "now": let the phone settle for a second. "after": the phone rings for the owner first.
+      const delay = policy.mode === "after" ? Math.max(1, policy.seconds) * 1000 : 1_000;
+      const timer = setTimeout(() => {
+        this.pendingAnswer.delete(call.id);
+        const latest = this.options.state.getCall(call.id);
+        if (latest?.state !== "ringing") return; // answered on the phone, declined or hung up
+        this.requested.add(call.id);
+        this.command(latest, "answer");
+      }, delay);
+      timer.unref?.();
+      this.pendingAnswer.set(call.id, timer);
     }
     if (call.state === "active" && this.requested.has(call.id)) this.startAgent(call);
     if (!LIVE_STATES.has(call.state)) this.release(call.id);
@@ -230,7 +273,7 @@ export class AgentManager {
       mode: profile.mode,
       businessName: profile.businessName,
       history,
-      sendBookingLink: receptionist && whatsapp ? (args: { phoneNumber?: string; patientName?: string }) => this.sendBookingLink(call, args) : undefined,
+      sendBookingLink: receptionist && (whatsapp || this.builtInScope(profile)) ? (args: { phoneNumber?: string; patientName?: string }) => this.sendBookingLink(call, args) : undefined,
       onMessage: (message: AgentMessage) => this.saveMessage(message),
       onHangup: () => this.command(call, "hangup"),
       onEnded: () => this.onAgentEnded(call, agent, engine.live),
@@ -324,23 +367,32 @@ export class AgentManager {
   }
 
   /** Sends the booking link to the caller (or the number they gave) and tells the model the outcome. */
+  /** The business's built-in WhatsApp scope, when it is linked and used for booking links. */
+  private builtInScope(profile: CallProfile): string | undefined {
+    const wa = this.options.whatsapp;
+    const scope = profile.clientId ?? "default";
+    return wa?.isConnected(scope) && wa.settings(scope).useForBookingLinks ? scope : undefined;
+  }
+
   private async sendBookingLink(call: CallRecord, args: { phoneNumber?: string; patientName?: string }): Promise<string> {
     const profile = this.profileFor(call);
     const whatsapp = profile.whatsapp;
-    if (!whatsapp) return "WhatsApp is not set up. Take a message instead.";
-    const number = toWhatsAppNumber(args.phoneNumber ?? call.remoteNumber, whatsapp.countryCode);
+    const builtIn = this.builtInScope(profile);
+    if (!whatsapp && !builtIn) return "WhatsApp is not set up. Take a message instead.";
+    const number = toWhatsAppNumber(args.phoneNumber ?? call.remoteNumber, whatsapp?.countryCode ?? profile.whatsappCountryCode);
     if (!number) {
       return args.phoneNumber
         ? "That number doesn't look valid. Ask the caller to say it again, digit by digit."
         : "The caller's number is hidden. Ask for their WhatsApp number, then call send_booking_link with phone_number.";
     }
-    const text = renderTemplate(whatsapp.message, {
+    const text = renderTemplate(whatsapp?.message ?? profile.whatsappTemplate, {
       name: args.patientName ?? "",
       business: profile.businessName || profile.ownerName,
       link: profile.bookingUrl,
     });
     try {
-      await sendWhatsApp(whatsapp, number, text);
+      if (builtIn) await this.options.whatsapp!.sendText(builtIn, number, text, { source: "system", sentBy: "call" });
+      else await sendWhatsApp(whatsapp!, number, text);
     } catch (error) {
       this.logSend(call, profile, number, error instanceof Error ? error.message : String(error));
       throw error;
@@ -371,6 +423,8 @@ export class AgentManager {
         whatsapp: whatsappFromClient(client),
         clientId: client.id,
         geminiApiKey: client.geminiApiKey || undefined,
+        whatsappCountryCode: client.whatsappCountryCode || "91",
+        whatsappTemplate: client.whatsappMessage?.trim() || DEFAULT_WHATSAPP_MESSAGE,
       };
     }
     const s = this.settings;
@@ -383,6 +437,8 @@ export class AgentManager {
       voice: s.voice,
       bookingUrl: s.bookingUrl,
       whatsapp: whatsappFromConfig(this.options.config),
+      whatsappCountryCode: this.options.config.get("whatsappCountryCode") || "91",
+      whatsappTemplate: this.options.config.get("whatsappMessage")?.trim() || DEFAULT_WHATSAPP_MESSAGE,
     };
   }
 

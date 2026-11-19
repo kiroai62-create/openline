@@ -31,9 +31,9 @@ app.post("/gateway/events", async (req, res) => {
 });
 
 const openline = (path, body) =>
-  fetch(process.env.OPENLINE_URL + path, {
+  fetch(process.env.VAANIFLOW_URL + path, {
     method: "POST",
-    headers: { authorization: `Bearer ${process.env.OPENLINE_KEY}`, "content-type": "application/json" },
+    headers: { authorization: `Bearer ${process.env.VAANIFLOW_KEY}`, "content-type": "application/json" },
     body: body ? JSON.stringify(body) : undefined,
   });
 ```

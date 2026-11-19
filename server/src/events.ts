@@ -20,7 +20,9 @@ export interface WebhookDelivery {
 
 export class DeviceEventService {
   /** In-process observer of call updates (used by the AI assistant). */
-  onCallEvent?: (call: CallRecord, event: DeviceEventName) => void;
+  onCallEvent?: (call: CallRecord, event: DeviceEventName, payload: Record<string, unknown>) => void;
+  /** The person on the phone handed a call to the AI ("call.ai_requested") or took it back ("call.ai_released"). */
+  onAiRequest?: (call: CallRecord, wanted: boolean) => void;
 
   constructor(
     private readonly state: StateStore,
@@ -43,10 +45,21 @@ export class DeviceEventService {
     if (!this.state.recordEvent(deviceId, event)) return; // duplicate
     this.state.touchDevice(deviceId);
 
+    if (event.event === "call.ai_requested" || event.event === "call.ai_released") {
+      const call = this.state.getCall(event.callId);
+      if (!call) return;
+      try {
+        this.onAiRequest?.(call, event.event === "call.ai_requested");
+      } catch (error) {
+        console.error("AI hand-over failed", error);
+      }
+      return;
+    }
+
     const call = this.state.applyDeviceEvent(deviceId, event);
     if (!call || event.event === "command.ack" || event.event === "command.completed") return;
     try {
-      this.onCallEvent?.(call, event.event);
+      this.onCallEvent?.(call, event.event, event.payload);
     } catch (error) {
       console.error("call event observer failed", error);
     }
