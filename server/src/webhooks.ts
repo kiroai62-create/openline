@@ -24,8 +24,8 @@ export class HttpWebhookDispatcher implements WebhookDispatcher {
         method: "POST",
         headers: {
           "content-type": "application/json",
-          "x-openline-timestamp": timestamp,
-          "x-openline-signature": `sha256=${signature}`,
+          "x-vaaniflow-timestamp": timestamp,
+          "x-vaaniflow-signature": `sha256=${signature}`,
         },
         body,
         signal: controller.signal,

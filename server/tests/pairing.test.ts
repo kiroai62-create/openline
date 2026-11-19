@@ -19,7 +19,7 @@ describe("QR pairing", () => {
     expect(pairing.status).toBe(201);
     expect(pairing.body.publicUrl).toBe("https://gw.example.ts.net");
     expect(pairing.body.pairUri).toBe(
-      `httpgateway://pair?url=${encodeURIComponent("https://gw.example.ts.net")}&code=${pairing.body.code}`,
+      `vaaniflow://pair?url=${encodeURIComponent("https://gw.example.ts.net")}&code=${pairing.body.code}`,
     );
     expect(pairing.body.qrSvg).toContain("<svg");
 

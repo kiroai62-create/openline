@@ -236,6 +236,53 @@ const MIGRATIONS: string[] = [
     at TEXT NOT NULL
   );
   `,
+  // Built-in WhatsApp automation: one linked WhatsApp per scope (a client id, or "default"),
+  // its contacts (one per chat) and the full message history shown in the inbox.
+  `
+  CREATE TABLE wa_sessions (
+    scope TEXT PRIMARY KEY,
+    data TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+  CREATE TABLE wa_contacts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    scope TEXT NOT NULL,
+    jid TEXT NOT NULL,
+    phone TEXT,
+    name TEXT NOT NULL DEFAULT '',
+    ai_enabled INTEGER NOT NULL DEFAULT 1,
+    needs_human INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'open',
+    unread INTEGER NOT NULL DEFAULT 0,
+    notes TEXT NOT NULL DEFAULT '',
+    tags TEXT NOT NULL DEFAULT '',
+    msg_in INTEGER NOT NULL DEFAULT 0,
+    msg_out INTEGER NOT NULL DEFAULT 0,
+    last_message_at TEXT,
+    last_fallback_at TEXT,
+    created_at TEXT NOT NULL,
+    UNIQUE (scope, jid)
+  );
+  CREATE INDEX wa_contacts_scope ON wa_contacts (scope, last_message_at DESC);
+  CREATE TABLE wa_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    contact_id INTEGER NOT NULL REFERENCES wa_contacts (id) ON DELETE CASCADE,
+    scope TEXT NOT NULL,
+    direction TEXT NOT NULL,
+    source TEXT NOT NULL,
+    body TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'sent',
+    error TEXT,
+    wa_id TEXT,
+    sent_by TEXT,
+    provider TEXT,
+    latency_ms INTEGER,
+    created_at TEXT NOT NULL
+  );
+  CREATE INDEX wa_messages_contact ON wa_messages (contact_id, id DESC);
+  CREATE INDEX wa_messages_scope ON wa_messages (scope, created_at);
+  CREATE UNIQUE INDEX wa_messages_wa_id ON wa_messages (scope, wa_id) WHERE wa_id IS NOT NULL;
+  `,
 ];
 
 function migrate(db: Database): void {

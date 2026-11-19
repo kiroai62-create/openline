@@ -254,7 +254,7 @@ export class StateStore {
   }
 
   applyDeviceEvent(deviceId: string, event: DeviceEvent): CallRecord | undefined {
-    if (event.event === "command.ack" || event.event === "command.completed") {
+    if (event.event === "command.ack" || event.event === "command.completed" || event.event === "call.ai_requested" || event.event === "call.ai_released") {
       return this.getCall(event.callId);
     }
 
@@ -334,7 +334,7 @@ function toCall(row: CallRow): CallRecord {
 }
 
 function eventToCallState(
-  event: Exclude<DeviceEvent["event"], "command.ack" | "command.completed">,
+  event: Exclude<DeviceEvent["event"], "command.ack" | "command.completed" | "call.ai_requested" | "call.ai_released">,
 ): CallState {
   switch (event) {
     case "call.new":

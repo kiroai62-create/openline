@@ -29,13 +29,22 @@ const gateway = createGatewayServer({
 });
 
 gateway.httpServer.listen(port, host, () => {
-  console.log(`OpenLine server listening on http://${host}:${port}`);
+  console.log(`VaaniFlow server listening on http://${host}:${port}`);
   console.log(
     gateway.agents.configured
       ? `AI assistant ready (${gateway.agents.model}); console: http://localhost:${port}/`
       : "AI assistant off until a Gemini API key is set (console Settings or GEMINI_API_KEY)",
   );
 });
+
+// Docker/systemd stop: close the WhatsApp sockets and the HTTP server cleanly.
+for (const signal of ["SIGTERM", "SIGINT"] as const) {
+  process.once(signal, () => {
+    gateway.whatsapp.stopAll();
+    gateway.httpServer.close(() => process.exit(0));
+    setTimeout(() => process.exit(0), 5_000).unref();
+  });
+}
 
 function parsePort(value: string): number {
   const parsed = Number(value);

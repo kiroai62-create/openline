@@ -230,6 +230,75 @@ export class AiRouter {
     });
   }
 
+  /**
+   * Plain text reply for chat channels (WhatsApp). Tries, in order: the caller's own providers
+   * (e.g. a customer's Gemini key), the chat models in the provider list, then the Gemini key in
+   * Settings. Every provider fails over to the next like calls do.
+   */
+  async chatText(
+    messages: ChatMessage[],
+    options: { extra?: ProviderConfig[]; maxTokens?: number; temperature?: number } = {},
+  ): Promise<{ text: string; provider: string }> {
+    const order = this.textProviders(options.extra ?? []);
+    if (!order.length) throw new Error("no chat model configured (add Gemini, Groq or Cloudflare in AI providers)");
+    const now = Date.now();
+    const ready = order.filter((p) => (this.cooldown.get(p.id) ?? 0) <= now);
+    let last: unknown;
+    for (const p of ready.length ? ready : order) {
+      try {
+        const body = { model: p.model, messages, temperature: options.temperature ?? 0.5, max_tokens: options.maxTokens ?? 500 };
+        const json = (await this.json(`${this.openAiBase(p)}/chat/completions`, p, body)) as {
+          choices?: { message?: { content?: string | null } }[];
+        };
+        const text = json.choices?.[0]?.message?.content?.trim();
+        if (!text) throw new ProviderError(`${p.label}: empty reply`);
+        this.succeed(p);
+        return { text, provider: p.label };
+      } catch (error) {
+        last = error;
+        this.fail(p, error);
+      }
+    }
+    throw last instanceof Error ? last : new Error(String(last));
+  }
+
+  /** Chat-capable providers for text replies (see chatText). */
+  textProviders(extra: ProviderConfig[] = []): ProviderConfig[] {
+    const own = this.list("llm");
+    const key = this.config.get("geminiApiKey");
+    const settingsGemini: ProviderConfig[] =
+      key && !own.some((p) => p.type === "gemini" && p.apiKey === key)
+        ? [{ id: "settings-gemini-llm", kind: "llm", type: "gemini", label: "Gemini (Settings)", enabled: true, apiKey: key, model: PRESETS.gemini!.models.llm! }]
+        : [];
+    return [...extra.filter((p) => p.apiKey), ...own, ...settingsGemini];
+  }
+
+  /** Sends one short request to a saved provider so the console can show whether its key works. */
+  async test(id: string): Promise<{ ok: boolean; ms: number; reply?: string; error?: string }> {
+    const p = this.routing().providers.find((x) => x.id === id);
+    if (!p) throw new Error("provider not found");
+    if (!p.apiKey) return { ok: false, ms: 0, error: "no API key saved" };
+    const started = Date.now();
+    try {
+      if (p.kind === "llm" || p.kind === "live") {
+        const model = p.kind === "live" ? PRESETS.gemini!.models.llm! : p.model;
+        const json = (await this.json(`${this.openAiBase({ ...p, kind: "llm" })}/chat/completions`, { ...p, kind: "llm" }, {
+          model,
+          messages: [{ role: "user", content: "Reply with the single word: ok" }],
+          max_tokens: 5,
+        })) as { choices?: { message?: { content?: string } }[] };
+        return { ok: true, ms: Date.now() - started, reply: json.choices?.[0]?.message?.content?.trim() ?? "" };
+      }
+      if (p.kind === "tts") {
+        const pcm = await this.synthesize(p, "Namaste");
+        return { ok: pcm.length > 0, ms: Date.now() - started, reply: `${Math.round(pcm.length / 32)} ms of audio` };
+      }
+      return { ok: true, ms: Date.now() - started, reply: "Key saved. Speech-to-text is checked on the next call." };
+    } catch (error) {
+      return { ok: false, ms: Date.now() - started, error: error instanceof Error ? error.message.slice(0, 300) : String(error) };
+    }
+  }
+
   /** 16 kHz PCM -> text. */
   async transcribe(pcm: Buffer): Promise<string> {
     const wav = pcmToWav(pcm);
