@@ -1,4 +1,4 @@
-package com.httpgateway.dialer.shell
+package com.vaaniflow.app.shell
 
 import android.content.Context
 import android.os.Build
@@ -37,11 +37,11 @@ class GatewayAdbManager private constructor(context: Context) : AbsAdbConnection
 
     override fun getCertificate(): Certificate = certificate
 
-    override fun getDeviceName(): String = "httpgateway"
+    override fun getDeviceName(): String = "vaaniflow"
 
     private fun generate() {
         val pair = KeyPairGenerator.getInstance("RSA").apply { initialize(2048) }.generateKeyPair()
-        val name = X500Name("CN=httpgateway")
+        val name = X500Name("CN=vaaniflow")
         val now = System.currentTimeMillis()
         val holder = JcaX509v3CertificateBuilder(
             name,

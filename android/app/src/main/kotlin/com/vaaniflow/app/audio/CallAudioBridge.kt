@@ -1,11 +1,11 @@
-package com.httpgateway.dialer.audio
+package com.vaaniflow.app.audio
 
 import android.content.Context
 import android.util.Log
-import com.httpgateway.dialer.config.GatewayConfigStore
-import com.httpgateway.dialer.shell.ShellClient
-import com.httpgateway.dialer.shell.ShellLauncher
-import com.httpgateway.protocol.MediaStream
+import com.vaaniflow.app.config.GatewayConfigStore
+import com.vaaniflow.app.shell.ShellClient
+import com.vaaniflow.app.shell.ShellLauncher
+import com.vaaniflow.protocol.MediaStream
 import java.util.concurrent.Executors
 
 /**

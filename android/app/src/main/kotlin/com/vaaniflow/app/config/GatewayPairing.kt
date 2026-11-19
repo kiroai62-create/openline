@@ -1,4 +1,4 @@
-package com.httpgateway.dialer.config
+package com.vaaniflow.app.config
 
 import android.content.Context
 import android.net.Uri
@@ -11,7 +11,7 @@ import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
 /**
- * QR pairing: the admin console shows `httpgateway://pair?url=<server>&code=<one-time code>`.
+ * QR pairing: the admin console shows `vaaniflow://pair?url=<server>&code=<one-time code>`.
  * The app exchanges the code for device credentials and derives the WebSocket endpoint from the
  * server URL (https -> wss), so nothing has to be typed.
  */
@@ -22,7 +22,7 @@ object GatewayPairing {
 
     fun parse(text: String): Invite? {
         val uri = runCatching { Uri.parse(text.trim()) }.getOrNull() ?: return null
-        if (uri.scheme != "httpgateway" || uri.host != "pair") return null
+        if ((uri.scheme != "vaaniflow" && uri.scheme != "httpgateway") || uri.host != "pair") return null
         val server = uri.getQueryParameter("url")?.trimEnd('/') ?: return null
         val code = uri.getQueryParameter("code") ?: return null
         if (!server.startsWith("http://") && !server.startsWith("https://")) return null
@@ -53,7 +53,7 @@ object GatewayPairing {
             deviceToken = json.getString("deviceToken"),
         )
         GatewayConfigStore(context).save(config)
-        invite.license?.let { com.httpgateway.dialer.license.LicenseManager.saveKey(context, it) }
+        invite.license?.let { com.vaaniflow.app.license.LicenseManager.saveKey(context, it) }
         return config
     }
 }

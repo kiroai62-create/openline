@@ -1,4 +1,4 @@
-package com.httpgateway.dialer.shell
+package com.vaaniflow.app.shell
 
 import android.Manifest
 import android.content.Context
@@ -8,7 +8,7 @@ import android.net.NetworkCapabilities
 import android.os.Build
 import android.provider.Settings
 import android.util.Log
-import com.httpgateway.dialer.BuildConfig
+import com.vaaniflow.app.BuildConfig
 import org.lsposed.hiddenapibypass.HiddenApiBypass
 
 /**
@@ -22,7 +22,7 @@ import org.lsposed.hiddenapibypass.HiddenApiBypass
 object ShellLauncher {
     private const val TAG = "ShellLauncher"
     private const val CONNECT_TIMEOUT_MS = 10_000L
-    private const val PROCESS_NAME = "httpgateway_shell"
+    private const val PROCESS_NAME = "vaaniflow_shell"
     private const val TCP_PORT = 5555
     private const val LOOPBACK_TIMEOUT_MS = 4_000L
 

@@ -1,4 +1,4 @@
-package com.httpgateway.dialer.transport
+package com.vaaniflow.app.transport
 
 interface GatewayTransport {
     interface Listener {

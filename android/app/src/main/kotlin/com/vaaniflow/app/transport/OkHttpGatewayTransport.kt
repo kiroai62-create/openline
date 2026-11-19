@@ -1,6 +1,6 @@
-package com.httpgateway.dialer.transport
+package com.vaaniflow.app.transport
 
-import com.httpgateway.dialer.config.GatewayConfig
+import com.vaaniflow.app.config.GatewayConfig
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response

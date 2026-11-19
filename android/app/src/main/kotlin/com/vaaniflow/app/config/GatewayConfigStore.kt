@@ -1,7 +1,7 @@
-package com.httpgateway.dialer.config
+package com.vaaniflow.app.config
 
 import android.content.Context
-import com.httpgateway.dialer.BuildConfig
+import com.vaaniflow.app.BuildConfig
 import java.util.UUID
 
 data class GatewayConfig(

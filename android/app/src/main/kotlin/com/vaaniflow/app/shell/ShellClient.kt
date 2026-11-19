@@ -1,4 +1,4 @@
-package com.httpgateway.dialer.shell
+package com.vaaniflow.app.shell
 
 import android.content.Context
 import org.json.JSONObject

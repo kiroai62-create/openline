@@ -1,9 +1,9 @@
-package com.httpgateway.dialer
+package com.vaaniflow.app
 
 import android.app.Application
-import com.httpgateway.dialer.audio.CallAudioBridge
-import com.httpgateway.dialer.transport.GatewayConnectionService
-import com.httpgateway.dialer.transport.GatewayRuntime
+import com.vaaniflow.app.audio.CallAudioBridge
+import com.vaaniflow.app.transport.GatewayConnectionService
+import com.vaaniflow.app.transport.GatewayRuntime
 
 class GatewayApplication : Application() {
     override fun onCreate() {

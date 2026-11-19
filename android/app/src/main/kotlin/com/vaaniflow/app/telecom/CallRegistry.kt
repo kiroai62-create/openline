@@ -1,8 +1,8 @@
-package com.httpgateway.dialer.telecom
+package com.vaaniflow.app.telecom
 
 import android.os.Build
 import android.telecom.Call
-import com.httpgateway.protocol.CallStateMapper
+import com.vaaniflow.protocol.CallStateMapper
 import java.util.ArrayDeque
 import java.util.IdentityHashMap
 import java.util.UUID
@@ -22,6 +22,13 @@ object CallRegistry {
     private val pendingOutgoing = ArrayDeque<PendingOutgoing>()
     private val rejectedCallIds = mutableSetOf<String>()
     private val listeners = CopyOnWriteArraySet<Listener>()
+    /** Calls the AI (or an API/console client) handles: their audio goes to the server, silently. */
+    private val aiOwned = mutableSetOf<String>()
+    /** Server-chosen ids of outgoing calls placed by the API, before Telecom registers them. */
+    private val aiOutgoing = mutableSetOf<String>()
+    private val decisions = mutableMapOf<String, String>()
+    private val decisionReasons = mutableMapOf<String, String>()
+    private val everActive = mutableSetOf<String>()
 
     @Synchronized
     fun reserveOutgoing(callId: String, number: String) {
@@ -58,9 +65,50 @@ object CallRegistry {
         val callId = idsByCall.remove(call) ?: return null
         callsById.remove(callId)
         rejectedCallIds.remove(callId)
+        aiOwned.remove(callId)
+        aiOutgoing.remove(callId)
+        decisions.remove(callId)
+        decisionReasons.remove(callId)
+        everActive.remove(callId)
         notifyListeners()
         return callId
     }
+
+    @Synchronized
+    fun markAiOwned(callId: String, owned: Boolean) {
+        if (owned) aiOwned.add(callId) else aiOwned.remove(callId)
+        if (callsById.containsKey(callId)) notifyListeners()
+    }
+
+    /** An API/console dial: the call that Telecom registers for this id belongs to the AI. */
+    @Synchronized
+    fun markAiOutgoing(callId: String) {
+        aiOutgoing.add(callId)
+        aiOwned.add(callId)
+    }
+
+    @Synchronized
+    fun isAiOwned(callId: String): Boolean = aiOwned.contains(callId)
+
+    @Synchronized
+    fun setDecision(callId: String, wire: String, reason: String) {
+        decisions[callId] = wire
+        decisionReasons[callId] = reason
+    }
+
+    @Synchronized
+    fun decision(callId: String): String? = decisions[callId]
+
+    @Synchronized
+    fun decisionReason(callId: String): String? = decisionReasons[callId]
+
+    @Synchronized
+    fun markActive(callId: String) {
+        everActive.add(callId)
+    }
+
+    @Synchronized
+    fun wasActive(callId: String): Boolean = everActive.contains(callId)
 
     @Synchronized
     fun markRejected(callId: String) {

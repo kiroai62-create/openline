@@ -1,4 +1,4 @@
-package com.httpgateway.dialer.transport
+package com.vaaniflow.app.transport
 
 import android.content.Context
 import android.net.ConnectivityManager
@@ -6,8 +6,8 @@ import android.net.NetworkCapabilities
 import android.os.BatteryManager
 import android.os.Build
 import android.telephony.TelephonyManager
-import com.httpgateway.dialer.BuildConfig
-import com.httpgateway.dialer.audio.CallAudioBridge
+import com.vaaniflow.app.BuildConfig
+import com.vaaniflow.app.audio.CallAudioBridge
 import org.json.JSONObject
 
 /** The phone's health report for the server's Connection page. Blocking (checks the audio helper). */

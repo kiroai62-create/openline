@@ -1,4 +1,4 @@
-package com.httpgateway.dialer.shell
+package com.vaaniflow.app.shell
 
 import android.annotation.TargetApi
 import android.app.Application

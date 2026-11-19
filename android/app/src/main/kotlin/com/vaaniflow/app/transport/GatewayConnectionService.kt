@@ -1,4 +1,4 @@
-package com.httpgateway.dialer.transport
+package com.vaaniflow.app.transport
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -11,8 +11,8 @@ import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import android.util.Log
-import com.httpgateway.dialer.DialerActivity
-import com.httpgateway.dialer.R
+import com.vaaniflow.app.DialerActivity
+import com.vaaniflow.app.R
 
 /**
  * Keeps the app process running so the gateway WebSocket survives in the background. Without it
@@ -33,11 +33,23 @@ class GatewayConnectionService : Service() {
         return START_STICKY
     }
 
-    private fun buildNotification(): Notification {
+    private val aiListener: () -> Unit = { refreshNotification(this) }
+
+    override fun onCreate() {
+        super.onCreate()
+        com.vaaniflow.app.ai.AiSettings.addListener(aiListener)
+    }
+
+    override fun onDestroy() {
+        com.vaaniflow.app.ai.AiSettings.removeListener(aiListener)
+        super.onDestroy()
+    }
+
+    internal fun buildNotification(): Notification {
         val manager = getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(
-            NotificationChannel(CHANNEL_ID, "OpenLine connection", NotificationManager.IMPORTANCE_MIN).apply {
-                description = "Shown while the phone stays connected to your gateway."
+            NotificationChannel(CHANNEL_ID, "VaaniFlow AI status", NotificationManager.IMPORTANCE_MIN).apply {
+                description = "Shown while the phone stays connected to VaaniFlow, with a quick AI on/off switch."
                 setShowBadge(false)
             },
         )
@@ -47,16 +59,33 @@ class GatewayConnectionService : Service() {
             Intent(this, DialerActivity::class.java),
             PendingIntent.FLAG_IMMUTABLE,
         )
+        val ai = com.vaaniflow.app.ai.AiSettings.load(this)
+        val aiOn = ai.mode != com.vaaniflow.app.ai.AiSettings.Mode.OFF
+        val toggle = PendingIntent.getBroadcast(
+            this, 3, Intent(this, AiToggleReceiver::class.java), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
         return Notification.Builder(this, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.stat_sys_phone_call)
-            .setContentTitle(getString(R.string.app_name))
-            .setContentText("Connected to your gateway. Calls can be placed and answered.")
+            .setSmallIcon(R.drawable.ic_stat_vaaniflow)
+            .setColor(getColor(R.color.brand))
+            .setContentTitle(if (aiOn) "VaaniFlow AI is on" else "VaaniFlow AI is off")
+            .setContentText(if (aiOn) ai.mode.label + (if (ai.skipContacts) " · contacts ring normally" else "") else "Every call rings on this phone.")
             .setContentIntent(open)
             .setOngoing(true)
+            .addAction(Notification.Action.Builder(null as android.graphics.drawable.Icon?, if (aiOn) "Turn AI off" else "Turn AI on", toggle).build())
             .build()
     }
 
     companion object {
+        /** Redraws the status notification (AI switched on or off). */
+        fun refreshNotification(context: Context) {
+            val service = context as? GatewayConnectionService
+            if (service != null) {
+                context.getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, service.buildNotification())
+            } else {
+                start(context)
+            }
+        }
+
         private const val CHANNEL_ID = "connection"
         private const val NOTIFICATION_ID = 7002
 
@@ -65,5 +94,13 @@ class GatewayConnectionService : Service() {
             runCatching { context.startForegroundService(Intent(context, GatewayConnectionService::class.java)) }
                 .onFailure { Log.w("GatewayConnection", "could not start foreground service", it) }
         }
+    }
+}
+
+/** "Turn AI on/off" in the status notification. */
+class AiToggleReceiver : android.content.BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        com.vaaniflow.app.ai.AiSettings.toggle(context)
+        GatewayConnectionService.start(context) // onStartCommand redraws the notification
     }
 }

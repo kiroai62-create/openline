@@ -1,4 +1,4 @@
-package com.httpgateway.dialer.shell
+package com.vaaniflow.app.shell
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -114,7 +114,7 @@ class PairingService : Service() {
 
     private fun builder(text: String) = Notification.Builder(this, CHANNEL_ID)
         .setSmallIcon(android.R.drawable.stat_sys_phone_call)
-        .setContentTitle("OpenLine setup")
+        .setContentTitle("VaaniFlow setup")
         .setContentText(text)
         .setStyle(Notification.BigTextStyle().bigText(text))
         .setOnlyAlertOnce(false)
@@ -133,8 +133,8 @@ class PairingService : Service() {
         private const val CHANNEL_ID = "setup"
         private const val NOTIFICATION_ID = 7001
         private const val KEY_CODE = "code"
-        private const val ACTION_CODE = "com.httpgateway.dialer.PAIRING_CODE"
-        private const val ACTION_STOP = "com.httpgateway.dialer.PAIRING_STOP"
+        private const val ACTION_CODE = "com.vaaniflow.app.PAIRING_CODE"
+        private const val ACTION_STOP = "com.vaaniflow.app.PAIRING_STOP"
 
         fun start(context: Context) {
             context.startForegroundService(Intent(context, PairingService::class.java))

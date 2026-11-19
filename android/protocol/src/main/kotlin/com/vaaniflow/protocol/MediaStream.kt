@@ -1,4 +1,4 @@
-package com.httpgateway.protocol
+package com.vaaniflow.protocol
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject

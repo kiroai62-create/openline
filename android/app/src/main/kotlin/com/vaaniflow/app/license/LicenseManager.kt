@@ -1,8 +1,8 @@
-package com.httpgateway.dialer.license
+package com.vaaniflow.app.license
 
 import android.content.Context
 import android.os.Build
-import com.httpgateway.dialer.config.GatewayConfigStore
+import com.vaaniflow.app.config.GatewayConfigStore
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request

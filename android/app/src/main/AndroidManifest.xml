@@ -5,6 +5,14 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.CALL_PHONE" />
 
+    <!-- A full phone app: contacts, call history, SIM choice, ringing and the call screen. -->
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <uses-permission android:name="android.permission.READ_CALL_LOG" />
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
     <!-- Built-in wireless-ADB bootstrap for the shell-UID call-audio server. -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
@@ -23,19 +31,28 @@
     <application
         android:name=".GatewayApplication"
         android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:label="@string/app_name"
         android:supportsRtl="true"
-        android:theme="@style/Theme.HttpGateway"
+        android:theme="@style/Theme.VaaniFlow"
         android:usesCleartextTraffic="true">
 
         <activity
             android:name=".InCallActivity"
             android:exported="false"
-            android:launchMode="singleTop" />
+            android:excludeFromRecents="true"
+            android:launchMode="singleTask"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:taskAffinity="com.vaaniflow.app.incall"
+            android:theme="@style/Theme.VaaniFlow.InCall" />
 
         <activity
             android:name=".DialerActivity"
-            android:exported="true">
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -47,12 +64,30 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
 
-            <!-- QR pairing link from the admin console: httpgateway://pair?url=...&code=... -->
+            <!-- QR pairing link from the dashboard: vaaniflow://pair?url=...&code=... (old: httpgateway://) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="vaaniflow" android:host="pair" />
+            </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="httpgateway" android:host="pair" />
+            </intent-filter>
+
+            <!-- tel: links from the browser, WhatsApp and other apps open the keypad. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="tel" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.CALL_BUTTON" />
+                <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
 
             <!-- And the app must handle tel: ACTION_DIAL intents. -->
@@ -89,6 +124,13 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Keeps a persistent connection to the user's self-hosted call gateway so calls can be placed and answered remotely." />
         </service>
+
+        <receiver
+            android:name=".telecom.CallActionReceiver"
+            android:exported="false" />
+        <receiver
+            android:name=".transport.AiToggleReceiver"
+            android:exported="false" />
 
         <receiver
             android:name=".shell.BootReceiver"

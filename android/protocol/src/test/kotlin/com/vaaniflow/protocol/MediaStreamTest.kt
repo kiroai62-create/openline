@@ -1,4 +1,4 @@
-package com.httpgateway.protocol
+package com.vaaniflow.protocol
 
 import kotlin.test.Test
 import kotlin.test.assertEquals

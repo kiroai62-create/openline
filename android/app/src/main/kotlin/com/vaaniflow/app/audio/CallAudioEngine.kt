@@ -1,4 +1,4 @@
-package com.httpgateway.dialer.audio
+package com.vaaniflow.app.audio
 
 import android.annotation.SuppressLint
 import android.content.Context
@@ -11,7 +11,7 @@ import android.media.AudioTrack
 import android.media.MediaRecorder
 import android.os.Build
 import android.util.Log
-import com.httpgateway.protocol.MediaStream
+import com.vaaniflow.protocol.MediaStream
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response

@@ -1,4 +1,4 @@
-package com.httpgateway.dialer.telecom
+package com.vaaniflow.app.telecom
 
 import android.Manifest
 import android.content.Context
@@ -11,8 +11,8 @@ import android.telecom.Call
 import android.telecom.TelecomManager
 import android.telecom.VideoProfile
 import android.telephony.TelephonyManager
-import com.httpgateway.protocol.CommandAction
-import com.httpgateway.protocol.GatewayCommand
+import com.vaaniflow.protocol.CommandAction
+import com.vaaniflow.protocol.GatewayCommand
 
 class CallCommandController(context: Context) {
     data class Result(val ok: Boolean, val error: String? = null)
@@ -36,7 +36,8 @@ class CallCommandController(context: Context) {
     }
 
     private fun execute(command: GatewayCommand): Result = when (command.action) {
-        CommandAction.DIAL -> dial(command.callId, requireNotNull(command.to))
+        // Only the person holding the phone may dial emergency numbers, never the API.
+        CommandAction.DIAL -> dial(command.callId, requireNotNull(command.to), allowEmergency = command.commandId.startsWith("local_"))
         CommandAction.ANSWER -> withCall(command.callId) {
             it.answer(VideoProfile.STATE_AUDIO_ONLY)
             Result(true)
@@ -69,11 +70,11 @@ class CallCommandController(context: Context) {
         }
     }
 
-    private fun dial(callId: String, number: String): Result {
+    private fun dial(callId: String, number: String, allowEmergency: Boolean): Result {
         if (appContext.checkSelfPermission(Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED) {
             return Result(false, "call_phone_permission_missing")
         }
-        if (telephonyManager.isEmergencyNumber(number)) {
+        if (!allowEmergency && telephonyManager.isEmergencyNumber(number)) {
             return Result(false, "emergency_number_not_allowed")
         }
 

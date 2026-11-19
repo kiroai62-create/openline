@@ -1,4 +1,4 @@
-package com.httpgateway.dialer.transport
+package com.vaaniflow.app.transport
 
 import android.content.Context
 import android.net.ConnectivityManager
@@ -7,15 +7,16 @@ import android.os.Handler
 import android.os.Looper
 import android.telecom.Call
 import android.telecom.DisconnectCause
-import com.httpgateway.dialer.config.GatewayConfig
-import com.httpgateway.dialer.config.GatewayConfigStore
-import com.httpgateway.dialer.telecom.CallCommandController
-import com.httpgateway.dialer.telecom.CallRegistry
-import com.httpgateway.protocol.CommandParseResult
-import com.httpgateway.protocol.GatewayCommand
-import com.httpgateway.protocol.GatewayCommandParser
-import com.httpgateway.protocol.GatewayEvent
-import com.httpgateway.protocol.GatewayProtocol
+import com.vaaniflow.app.config.GatewayConfig
+import com.vaaniflow.app.config.GatewayConfigStore
+import com.vaaniflow.app.telecom.CallCommandController
+import com.vaaniflow.app.telecom.CallRegistry
+import com.vaaniflow.protocol.CommandAction
+import com.vaaniflow.protocol.CommandParseResult
+import com.vaaniflow.protocol.GatewayCommand
+import com.vaaniflow.protocol.GatewayCommandParser
+import com.vaaniflow.protocol.GatewayEvent
+import com.vaaniflow.protocol.GatewayProtocol
 import java.time.Instant
 import java.util.ArrayDeque
 import java.util.UUID
@@ -165,6 +166,11 @@ object GatewayRuntime {
         )
     }
 
+    /** The owner handed a call to the AI (ringing or active) or took it back. */
+    fun emitAiRequest(callId: String, wanted: Boolean) {
+        emit(callId = callId, event = if (wanted) "call.ai_requested" else "call.ai_released", payload = emptyMap())
+    }
+
     private fun connectFromStoredConfig() {
         val config = synchronized(lock) { configStore?.load() } ?: return
         if (!config.isConnectable()) return
@@ -209,6 +215,13 @@ object GatewayRuntime {
 
     private fun execute(command: GatewayCommand) {
         val commandController = synchronized(lock) { controller } ?: return
+        // A call the server answers or places is handled by the AI (or an API client): its audio
+        // goes to the server and the phone stays silent. Calls the owner handles stay normal calls.
+        when (command.action) {
+            CommandAction.ANSWER -> CallRegistry.markAiOwned(command.callId, true)
+            CommandAction.DIAL -> CallRegistry.markAiOutgoing(command.callId)
+            else -> Unit
+        }
         commandController.handle(command) { result ->
             emit(
                 callId = command.callId,
@@ -282,6 +295,7 @@ object GatewayRuntime {
                 "canHold",
                 ((details.callCapabilities and Call.Details.CAPABILITY_HOLD) != 0).toString(),
             )
+            CallRegistry.callIdFor(call)?.let { id -> CallRegistry.decision(id)?.let { put("ai", it) } }
         }
     }
 

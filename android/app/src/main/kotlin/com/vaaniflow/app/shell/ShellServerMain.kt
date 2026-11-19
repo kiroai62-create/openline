@@ -1,8 +1,8 @@
-package com.httpgateway.dialer.shell
+package com.vaaniflow.app.shell
 
 import android.os.Process
 import android.util.Log
-import com.httpgateway.dialer.audio.CallAudioEngine
+import com.vaaniflow.app.audio.CallAudioEngine
 import org.json.JSONObject
 import java.net.InetAddress
 import java.net.ServerSocket
@@ -11,14 +11,14 @@ import kotlin.system.exitProcess
 
 /**
  * Entry point of the shell-UID server, launched by [ShellLauncher] through wireless ADB:
- *   app_process /system/bin --nice-name=httpgateway_shell ...ShellServerMain <port> <token> <version>
+ *   app_process /system/bin --nice-name=vaaniflow_shell ...ShellServerMain <port> <token> <version>
  *
  * Control protocol: one JSON object per line on 127.0.0.1:<port>, each carrying the token.
  *   {"op":"ping"} -> {"ok":true,"uid":2000,"version":N,"callId":...}
  *   {"op":"start","callId","mediaUrl","deviceId","deviceToken"} / {"op":"stop","callId"} / {"op":"exit"}
  */
 object ShellServerMain {
-    private const val TAG = "HttpGatewayShell"
+    private const val TAG = "VaaniFlowShell"
 
     @JvmStatic
     fun main(args: Array<String>) {

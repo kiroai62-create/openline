@@ -1,4 +1,4 @@
-package com.httpgateway.dialer.shell
+package com.vaaniflow.app.shell
 
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -9,7 +9,7 @@ import android.util.Log
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action !in HANDLED) return
-        com.httpgateway.dialer.transport.GatewayConnectionService.start(context)
+        com.vaaniflow.app.transport.GatewayConnectionService.start(context)
         if (!ShellLauncher.isPaired(context)) return
         val pending = goAsync()
         Thread {
