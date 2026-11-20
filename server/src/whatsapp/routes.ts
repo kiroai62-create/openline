@@ -32,6 +32,13 @@ export function registerWhatsAppRoutes(app: Express, o: WhatsAppRouteOptions): v
     });
   });
 
+  // Connection log like the original gateway's events (qr, connected, disconnected, logout...).
+  app.get(`${base}/events`, (request, response) => {
+    const scope = o.scope(request, response);
+    if (!scope) return;
+    return response.json({ events: manager.store.events(scope, Math.min(Number(request.query.limit) || 100, 500)) });
+  });
+
   app.post(`${base}/connect`, async (request, response) => {
     const scope = o.scope(request, response);
     if (!scope) return;

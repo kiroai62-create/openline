@@ -249,3 +249,53 @@ describe("hybrid calls: the phone decides when the AI may answer", () => {
     expect(send).not.toHaveBeenCalled();
   });
 });
+
+describe("parity with the original gateway", () => {
+  it("defaults to a 5-8 s wait and the 'system busy' fallback, labels media in Hinglish and logs events", async () => {
+    const { DEFAULT_WA_SETTINGS, textOf, detectLang } = await import("../src/whatsapp/manager.js");
+    expect(DEFAULT_WA_SETTINGS.replyDelayMinMs).toBe(5000);
+    expect(DEFAULT_WA_SETTINGS.replyDelayMaxMs).toBe(8000);
+    expect(DEFAULT_WA_SETTINGS.fallbackMessage).toContain("system busy");
+    expect(textOf({ imageMessage: {} })).toBe("[Photo bheji]");
+    expect(textOf({ audioMessage: {} })).toBe("[Voice message bheja]");
+    expect(textOf({ locationMessage: {} })).toBe("[Location bheji]");
+    expect(detectLang("Clinic kal kitne baje khulega?")).toBe("hinglish");
+    expect(detectLang("क्लिनिक कब खुलेगा")).toBe("hi");
+    expect(detectLang("What time do you open tomorrow?")).toBe("en");
+
+    const wa = fakeWhatsApp();
+    const gateway = createGatewayServer({ apiKey: API_KEY, whatsappSocketFactory: wa.factory, whatsappDelayScale: 0 });
+    const http = gateway.httpServer;
+    await request(http).put("/v1/ai/providers").set(root).send(groq).expect(200);
+    const pending = request(http).post("/v1/whatsapp/connect").set(root).then((r) => r);
+    await vi.waitFor(() => expect(wa.sockets.length).toBe(1));
+    wa.sockets[0]!.emit("connection.update", { qr: "2@qr" });
+    wa.sockets[0]!.emit("connection.update", { connection: "open" });
+    await pending;
+
+    // The AI is down: the default fallback goes out and the chat is flagged for staff.
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("quota exceeded", { status: 429 })));
+    wa.sockets[0]!.incoming("Clinic kal kitne baje khulega?");
+    await vi.waitFor(() => expect(wa.sockets[0]!.sent).toHaveLength(1));
+    expect(wa.sockets[0]!.sent[0]!.text).toContain("Dhanyavaad! Abhi system busy hai");
+    await gateway.whatsapp.idle("default");
+    const chat = (await request(http).get("/v1/whatsapp/chats").set(root)).body.chats[0];
+    expect(chat).toMatchObject({ needsHuman: true, lang: "hinglish" });
+
+    // Tokens are recorded per AI reply.
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ choices: [{ message: { content: "Kal 10 baje." } }], usage: { total_tokens: 321 } }), { status: 200, headers: { "content-type": "application/json" } })));
+    await request(http).put(`/v1/whatsapp/chats/${chat.id}`).set(root).send({ aiEnabled: true }).expect(200);
+    wa.sockets[0]!.incoming("Aur Sunday?");
+    await vi.waitFor(() => expect(wa.sockets[0]!.sent).toHaveLength(2));
+    await gateway.whatsapp.idle("default");
+    const status = (await request(http).get("/v1/whatsapp/status").set(root)).body;
+    expect(status.stats.tokens).toBe(321);
+    expect(status.live).toMatchObject({ received: 2, replied: 2 });
+
+    // Unlinked from the phone (401): like the original, a fresh connection opens with a new QR.
+    wa.sockets[0]!.emit("connection.update", { connection: "close", lastDisconnect: { error: { message: "logged out", output: { statusCode: 401 } } } });
+    await vi.waitFor(() => expect(wa.sockets.length).toBe(2), { timeout: 4000 });
+    const events = (await request(http).get("/v1/whatsapp/events").set(root)).body.events.map((e: { type: string }) => e.type);
+    expect(events).toEqual(expect.arrayContaining(["qr", "connected", "disconnected"]));
+  });
+});

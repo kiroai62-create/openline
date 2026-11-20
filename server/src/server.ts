@@ -10,7 +10,7 @@ import { DeviceEventService } from "./events.js";
 import { MediaRelay } from "./media-relay.js";
 import { StateStore } from "./state.js";
 import { StreamManager } from "./stream/stream-manager.js";
-import { ClientStore } from "./clients.js";
+import { ClientStore, clientAiProviders } from "./clients.js";
 import { Analytics } from "./analytics.js";
 import { AiRouter } from "./ai/router.js";
 import { FallbackAudio } from "./ai/fallback-audio.js";
@@ -164,7 +164,7 @@ export function createGatewayServer(options: GatewayServerOptions): GatewayServe
         bookingUrl: client.bookingUrl,
         instructions: wa.instructions,
         countryCode: client.whatsappCountryCode || "91",
-        geminiApiKey: client.geminiApiKey || undefined,
+        providers: clientAiProviders(client),
       };
     },
   });

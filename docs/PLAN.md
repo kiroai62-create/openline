@@ -1,6 +1,6 @@
 # VaaniFlow: enterprise plan
 
-Status: proposal, waiting for the owner's OK on scope and order.
+Status: phases 1–5 built and pushed (see §5). Phase 6 is next.
 
 ## 1. Where the platform is today (checked in code)
 
@@ -42,3 +42,11 @@ Restore the original behaviour as the default:
 6. **Growth features** (pick): WhatsApp broadcasts/campaigns, contact CRM with tags and segments, calendar booking (Google Calendar), call transfer to staff, outbound reminder calls, team members and roles per customer, webhooks/Zapier, Shopify.
 
 Every phase: server tests + new tests for the feature, browser checks on all sizes, Android unit and screenshot tests, CI green.
+
+## 5. Done
+
+1. **Customer AI providers**: `#/myai` page and `/v1/me/ai` (GET, PUT, `/:id/test`). Gemini, Groq, Cloudflare, OpenRouter, Cerebras, Mistral, Sarvam, OpenAI-compatible; Live, chat, speech-to-text, text-to-speech; order, on/off, Test. The customer's keys are tried first on calls (Live and the speech pipeline) and on WhatsApp, then the platform's. Keys are masked, custom URLs must be public https. The older single Gemini key still works and shows in the list.
+2. **WhatsApp parity**: 5–8 s wait, "Dhanyavaad! Abhi system busy hai…" fallback after the wait, Hinglish media labels, new QR automatically after an unlink, connection log (`/events`), live counters (received, replied, failed, ignored, reconnects, uptime), chat language and AI tokens, 600 ms typing before staff messages, admin actions in the audit log.
+3. **Customer 360** (`#/customer?id=`): overview, calls with transcripts, WhatsApp chats (read and reply), business info, AI keys, phones with health, payments and usage, activity. "View as customer" keeps the admin session; "Back to admin" returns without signing in.
+4. **Web UI**: sign-in page follows light/dark with a toggle; tables become cards on phones; long names and URLs no longer break layouts. Checked automatically on 360/390/768/1024/1440 px in both themes for every admin and customer page (no overflow, no script errors).
+5. **Phone app**: missed-call notification with Call back and Message; banner when Android 14+ has turned off full-screen incoming calls; Google-style call History sheet in Recents.

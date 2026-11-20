@@ -29,7 +29,10 @@ object CallNotifier {
     const val ACTION_HANGUP = "com.vaaniflow.app.HANGUP"
     const val ACTION_TAKE_OVER = "com.vaaniflow.app.TAKE_OVER"
     const val ACTION_GIVE_AI = "com.vaaniflow.app.GIVE_AI"
+    const val ACTION_CALL_BACK = "com.vaaniflow.app.CALL_BACK"
     const val EXTRA_CALL_ID = "callId"
+    const val EXTRA_NUMBER = "number"
+    const val EXTRA_NOTIFICATION_ID = "notificationId"
 
     fun channels(context: Context) {
         val nm = context.getSystemService(NotificationManager::class.java)
@@ -107,8 +110,19 @@ object CallNotifier {
             .setContentIntent(open)
             .setAutoCancel(true)
             .setCategory(Notification.CATEGORY_MISSED_CALL)
+            .apply {
+                // Like Google Phone: call back or message straight from the notification.
+                if (number.isNotBlank()) {
+                    // Through our own non-exported receiver, so no other app can make the phone dial.
+                    val back = PendingIntent.getBroadcast(context, ("cb" + number).hashCode(), Intent(context, CallActionReceiver::class.java).setAction(ACTION_CALL_BACK).putExtra(EXTRA_NUMBER, number).putExtra(EXTRA_NOTIFICATION_ID, missedId), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+                    val sms = PendingIntent.getActivity(context, ("sm" + number).hashCode(), Intent(Intent.ACTION_SENDTO, android.net.Uri.parse("smsto:${android.net.Uri.encode(number)}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), PendingIntent.FLAG_IMMUTABLE)
+                    addAction(Notification.Action.Builder(null as Icon?, "Call back", back).build())
+                    addAction(Notification.Action.Builder(null as Icon?, "Message", sms).build())
+                }
+            }
             .build()
         runCatching { context.getSystemService(NotificationManager::class.java).notify(missedId++, n) }
+        if (missedId > 7290) missedId = 7200
     }
 
     private fun action(context: Context, action: String, callId: String): PendingIntent =
@@ -122,6 +136,14 @@ object CallNotifier {
 
 class CallActionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action == CallNotifier.ACTION_CALL_BACK) {
+            val number = intent.getStringExtra(CallNotifier.EXTRA_NUMBER).orEmpty()
+            context.getSystemService(NotificationManager::class.java).cancel(intent.getIntExtra(CallNotifier.EXTRA_NOTIFICATION_ID, 0))
+            if (number.isNotBlank() && context.checkSelfPermission(android.Manifest.permission.CALL_PHONE) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                runCatching { context.getSystemService(android.telecom.TelecomManager::class.java).placeCall(android.net.Uri.fromParts("tel", number, null), android.os.Bundle()) }
+            }
+            return
+        }
         val callId = intent.getStringExtra(CallNotifier.EXTRA_CALL_ID) ?: return
         when (intent.action) {
             CallNotifier.ACTION_ANSWER -> {

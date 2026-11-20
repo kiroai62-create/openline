@@ -158,6 +158,12 @@ const provider = z.object({
   accountId: z.string().trim().max(64).regex(/^[A-Za-z0-9]*$/, "letters and digits only").optional(),
   voice: z.string().trim().max(60).optional(),
 });
+/** A customer's own providers. Custom base URLs must be public https (the server calls them). */
+export const customerProvidersSchema = z.object({
+  providers: z
+    .array(provider.extend({ baseUrl: z.union([z.literal(""), z.string().trim().url().refine(isPublicHttpsUrl, "use a public https address")]).optional() }))
+    .max(20),
+});
 export const routingSchema = z.object({
   mode: z.enum(["auto", "live", "pipeline"]),
   providers: z.array(provider).max(40),

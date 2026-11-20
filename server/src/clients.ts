@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { Database } from "./db.js";
+import { PRESETS, type ProviderConfig } from "./ai/router.js";
 
 /**
  * A business the receptionist answers for (clinic, hospital, shop). Each client has its own
@@ -15,8 +16,13 @@ export interface ClientProfile {
   about: string;
   bookingUrl: string;
   voice: string;
-  /** This client's own Gemini key (central SaaS: the customer brings their own). */
+  /** This client's own Gemini key (central SaaS: the customer brings their own). Kept for older setups. */
   geminiApiKey: string;
+  /**
+   * The customer's own AI providers (Gemini, Groq, Cloudflare, OpenRouter...), tried in this order
+   * before the platform's. Same shape as the platform's provider list.
+   */
+  aiProviders: ProviderConfig[];
   whatsappGatewayUrl: string;
   whatsappApiSecret: string;
   whatsappCountryCode: string;
@@ -34,6 +40,7 @@ const DEFAULTS: Omit<ClientProfile, "id" | "name" | "createdAt" | "updatedAt"> =
   bookingUrl: "",
   voice: "Kore",
   geminiApiKey: "",
+  aiProviders: [],
   whatsappGatewayUrl: "",
   whatsappApiSecret: "",
   whatsappCountryCode: "91",
@@ -109,9 +116,10 @@ export class ClientStore {
 
   /** Safe for the browser: the WhatsApp secret is reduced to whether it is set. */
   view(client: ClientProfile) {
-    const { whatsappApiSecret, geminiApiKey, ...rest } = client;
+    const { whatsappApiSecret, geminiApiKey, aiProviders, ...rest } = client;
     return {
       ...rest,
+      aiProviders: maskProviders(aiProviders),
       deviceIds: this.deviceIds(client.id),
       geminiApiKey: { configured: Boolean(geminiApiKey), hint: geminiApiKey ? `…${geminiApiKey.slice(-4)}` : null },
       whatsappApiSecret: { configured: Boolean(whatsappApiSecret), hint: whatsappApiSecret ? `…${whatsappApiSecret.slice(-4)}` : null },
@@ -132,4 +140,23 @@ function toClient(row: ClientRow): ClientProfile {
 
 function stripUndefined<T extends object>(value: T): T {
   return Object.fromEntries(Object.entries(value).filter(([, v]) => v !== undefined)) as T;
+}
+
+/** Provider list for the browser: keys reduced to whether one is saved and its last 4 characters. */
+export function maskProviders(providers: ProviderConfig[]) {
+  return providers.map(({ apiKey, ...p }) => ({ ...p, keySet: Boolean(apiKey), keyHint: apiKey ? `…${apiKey.slice(-4)}` : null }));
+}
+
+/**
+ * The client's own providers as the AI router uses them: ids are namespaced per client (so their
+ * cooldowns are separate), and the older single Gemini key becomes a Live and a chat provider.
+ */
+export function clientAiProviders(client: Pick<ClientProfile, "id" | "geminiApiKey" | "aiProviders">): ProviderConfig[] {
+  const own = (client.aiProviders ?? []).map((p) => ({ ...p, id: `c:${client.id}:${p.id}` }));
+  const key = client.geminiApiKey?.trim();
+  if (!key || own.some((p) => p.type === "gemini" && p.apiKey === key)) return own;
+  return [
+    { id: `client-gemini:${client.id}`, kind: "live", type: "gemini", label: "Gemini (your key)", enabled: true, apiKey: key, model: PRESETS.gemini!.models.live! },
+    ...own,
+  ];
 }

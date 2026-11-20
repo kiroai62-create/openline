@@ -283,6 +283,20 @@ const MIGRATIONS: string[] = [
   CREATE INDEX wa_messages_scope ON wa_messages (scope, created_at);
   CREATE UNIQUE INDEX wa_messages_wa_id ON wa_messages (scope, wa_id) WHERE wa_id IS NOT NULL;
   `,
+  // WhatsApp parity with the original gateway: each chat's language, AI tokens per reply, and the
+  // connection event log (qr, connected, disconnected, logout, restart, boot).
+  `
+  ALTER TABLE wa_contacts ADD COLUMN lang TEXT NOT NULL DEFAULT '';
+  ALTER TABLE wa_messages ADD COLUMN tokens INTEGER;
+  CREATE TABLE wa_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    scope TEXT NOT NULL,
+    type TEXT NOT NULL,
+    detail TEXT NOT NULL DEFAULT '',
+    at TEXT NOT NULL
+  );
+  CREATE INDEX wa_events_scope ON wa_events (scope, id DESC);
+  `,
 ];
 
 function migrate(db: Database): void {

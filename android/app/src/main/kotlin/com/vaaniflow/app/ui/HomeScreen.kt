@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -115,6 +116,8 @@ data class HomeState(
     /** Android refused the default-phone-app request because the APK was sideloaded (restricted settings). */
     val dialerBlocked: Boolean = false,
     val showDialerHelp: Boolean = false,
+    /** Android 14+ turned off full-screen incoming calls for this app. */
+    val fullScreenBlocked: Boolean = false,
 )
 
 class HomeActions(
@@ -128,6 +131,7 @@ class HomeActions(
     val saveAi: (AiSettings.Settings) -> Unit,
     val openAppInfo: () -> Unit = {},
     val dialerHelp: (Boolean) -> Unit = {},
+    val allowFullScreen: () -> Unit = {},
 )
 
 @Composable
@@ -164,7 +168,7 @@ fun HomeScreen(state: HomeState, actions: HomeActions, initialTab: HomeTab, dial
         },
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {
-            if (!searching && (state.missingPermissions || !state.isDefaultDialer)) Banners(state, actions)
+            if (!searching && (state.missingPermissions || !state.isDefaultDialer || (state.isDefaultDialer && state.fullScreenBlocked))) Banners(state, actions)
             when {
                 searching -> SearchResults(query, state, actions)
                 tab == HomeTab.FAVOURITES -> Favourites(state, actions)
@@ -255,6 +259,9 @@ private fun Banners(state: HomeState, actions: HomeActions) {
             } else {
                 Banner(Icons.Rounded.PhoneAndroid, "Set as default phone app", "To make and answer calls with this app.", "Set as default", actions.setDefaultDialer)
             }
+        }
+        if (state.isDefaultDialer && state.fullScreenBlocked) {
+            Banner(Icons.Rounded.PhoneAndroid, "Show incoming calls on the full screen", "Android turned this off for this app, so calls only appear as a notification.", "Allow", actions.allowFullScreen)
         }
         if (state.missingPermissions) {
             Banner(Icons.Rounded.Contacts, "Allow access to contacts and call history", "To show who's calling and your recent calls.", "Allow", actions.requestPermissions)
@@ -396,14 +403,16 @@ private fun Recents(state: HomeState, actions: HomeActions) {
         rows.groupBy { dayLabel(it.first.date) }.toList()
     }
     var expanded by remember { mutableStateOf<Long?>(null) }
+    var history by remember { mutableStateOf<PhoneData.CallEntry?>(null) }
     val accounts = state.accounts.toMap()
+    history?.let { h -> HistorySheet(h, state.recents.filter { PhoneData.digits(it.number) == PhoneData.digits(h.number) }, if (accounts.size > 1) accounts else emptyMap(), actions) { history = null } }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 96.dp)) {
         days.forEach { (day, rows) ->
             item(key = "d$day") { SectionLabel(day) }
             rows.forEachIndexed { i, (e, count) ->
                 item(key = e.id) {
                     Surface(shape = segmentShape(i, rows.size), color = Vaani.tokens.card, modifier = Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = if (i > 0) 2.dp else 0.dp)) {
-                        RecentRow(e, count, if (accounts.size > 1) accounts[e.accountId] else null, expanded == e.id, { expanded = if (expanded == e.id) null else e.id }, actions)
+                        RecentRow(e, count, if (accounts.size > 1) accounts[e.accountId] else null, expanded == e.id, { expanded = if (expanded == e.id) null else e.id }, actions) { history = e }
                     }
                 }
             }
@@ -413,7 +422,7 @@ private fun Recents(state: HomeState, actions: HomeActions) {
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun RecentRow(e: PhoneData.CallEntry, count: Int, sim: String?, open: Boolean, toggle: () -> Unit, actions: HomeActions) {
+private fun RecentRow(e: PhoneData.CallEntry, count: Int, sim: String?, open: Boolean, toggle: () -> Unit, actions: HomeActions, showHistory: () -> Unit) {
     val t = Vaani.tokens
     val cs = MaterialTheme.colorScheme
     val title = (e.name ?: formatNumber(e.number).ifBlank { "Private number" }) + if (count > 1) " ($count)" else ""
@@ -439,10 +448,66 @@ private fun RecentRow(e: PhoneData.CallEntry, count: Int, sim: String?, open: Bo
         AnimatedVisibility(open) {
             Row(Modifier.fillMaxWidth().padding(start = 72.dp, end = 16.dp, bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 RowAction(Icons.AutoMirrored.Outlined.Message, "Message") { actions.message(e.number) }
+                RowAction(Icons.Outlined.AccessTime, "History", showHistory)
                 if (e.name == null) RowAction(Icons.Outlined.PersonAdd, "Add contact") { actions.addContact(e.number) }
-                if (e.duration > 0) Text(durationText(e.duration), style = MaterialTheme.typography.labelLarge, color = t.muted)
             }
         }
+    }
+}
+
+/** Google Phone's "History": every call with this number, newest first. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun HistorySheet(e: PhoneData.CallEntry, calls: List<PhoneData.CallEntry>, sims: Map<String, String>, actions: HomeActions, onDismiss: () -> Unit) {
+    val t = Vaani.tokens
+    val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheet, containerColor = MaterialTheme.colorScheme.surfaceContainerLow) {
+        Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(bottom = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Avatar(e.name, e.number, size = 72.dp)
+            Spacer(Modifier.height(12.dp))
+            Text(e.name ?: formatNumber(e.number).ifBlank { "Private number" }, style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = 24.dp))
+            if (e.name != null) Text(formatNumber(e.number), style = MaterialTheme.typography.bodyLarge, color = t.muted)
+            Spacer(Modifier.height(16.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                SheetAction(Icons.Rounded.Call, "Call", e.number.isNotBlank()) { onDismiss(); actions.call(e.number) }
+                SheetAction(Icons.AutoMirrored.Outlined.Message, "Message", e.number.isNotBlank()) { actions.message(e.number) }
+                if (e.name == null) SheetAction(Icons.Outlined.PersonAdd, "Add contact", e.number.isNotBlank()) { actions.addContact(e.number) }
+            }
+            Spacer(Modifier.height(16.dp))
+            SectionLabel("History")
+            LazyColumn(Modifier.fillMaxWidth().heightIn(max = 360.dp)) {
+                items(calls.size) { i ->
+                    val c = calls[i]
+                    val (icon, tint, label) = when {
+                        c.missed -> Triple(Icons.AutoMirrored.Rounded.CallMissed, t.danger, "Missed")
+                        c.outgoing -> Triple(Icons.AutoMirrored.Rounded.CallMade, t.muted, "Outgoing")
+                        else -> Triple(Icons.AutoMirrored.Rounded.CallReceived, t.muted, "Incoming")
+                    }
+                    Surface(shape = segmentShape(i, calls.size), color = t.card, modifier = Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = if (i > 0) 2.dp else 0.dp)) {
+                        Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(icon, null, Modifier.size(20.dp), tint = tint)
+                            Spacer(Modifier.width(16.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(label + (sims[c.accountId]?.let { " • $it" } ?: ""), style = MaterialTheme.typography.bodyLarge)
+                                Text(java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.MEDIUM, java.text.DateFormat.SHORT).format(Date(c.date)), style = MaterialTheme.typography.bodyMedium, color = t.muted)
+                            }
+                            if (c.duration > 0) Text(durationText(c.duration), style = MaterialTheme.typography.labelLarge, color = t.muted)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SheetAction(icon: ImageVector, label: String, enabled: Boolean, onClick: () -> Unit) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Surface(onClick = onClick, enabled = enabled, shape = CircleShape, color = MaterialTheme.colorScheme.secondaryContainer, modifier = Modifier.size(56.dp)) {
+            Box(contentAlignment = Alignment.Center) { Icon(icon, label, tint = MaterialTheme.colorScheme.onSecondaryContainer) }
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(label, style = MaterialTheme.typography.labelLarge)
     }
 }
 

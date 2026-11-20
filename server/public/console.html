@@ -11,7 +11,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script>
   // Apply the saved theme before first paint (no flash).
-  (function () { try { var t = localStorage.getItem("vf-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {} })();
+  (function () { var t = null; try { t = localStorage.getItem("vf-theme"); } catch (e) {} document.documentElement.dataset.theme = t || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"); })();
 </script>
 <style>
   /* ============================================================================================
@@ -83,7 +83,7 @@
   .avatar.soft { background: var(--brand-50); color: var(--brand); }
   .main { min-width: 0; display: flex; flex-direction: column; }
   .topbar { position: sticky; top: 0; z-index: 30; display: flex; align-items: center; gap: 12px; height: 64px; padding: 0 28px; background: color-mix(in srgb, var(--paper) 82%, transparent); backdrop-filter: saturate(1.4) blur(10px); border-bottom: 1px solid var(--line); }
-  .topbar .crumb { font-weight: 650; font-size: 15px; }
+  .topbar .crumb { font-weight: 650; font-size: 15px; min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .icon-btn { display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); cursor: pointer; }
   .icon-btn:hover { background: var(--hover); }
   .menu-btn { display: none; }
@@ -143,6 +143,7 @@
 
   /* ---- forms ---- */
   .lbl { display: block; font-size: 13px; font-weight: 600; margin: 14px 0 6px; color: var(--ink-2); }
+  .field { max-width: 100%; min-width: 0; text-overflow: ellipsis; }
   .field { width: 100%; height: 38px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: 14px Geist, Inter, system-ui, sans-serif; outline: none; transition: border-color .12s, box-shadow .12s; }
   textarea.field { height: auto; padding: 10px 12px; line-height: 1.5; resize: vertical; }
   select.field { padding-right: 30px; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23667085' stroke-width='2.5'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 11px center; }
@@ -240,7 +241,7 @@
   .line-panel { padding: 22px; }
   .line-state { display: flex; align-items: center; gap: 8px; font-weight: 600; color: var(--muted); margin-bottom: 14px; }
   .dial { display: flex; gap: 10px; }
-  .dial input { flex: 1; height: 52px; font-size: 22px; font-weight: 600; letter-spacing: .02em; padding: 0 16px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); outline: none; }
+  .dial input { flex: 1; min-width: 0; height: 52px; font-size: 22px; font-weight: 600; letter-spacing: .02em; padding: 0 16px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); outline: none; }
   .dial input:focus { border-color: var(--brand); box-shadow: 0 0 0 4px color-mix(in srgb, var(--brand) 16%, transparent); }
   .dial .btn { height: 52px; padding: 0 24px; border-radius: 14px; font-size: 15px; }
   .line-number { font-size: 30px; font-weight: 750; letter-spacing: -.01em; }
@@ -341,6 +342,13 @@
   .auth-art { position: relative; overflow: hidden; background: #09090B; color: #fff; padding: 48px 56px; display: flex; flex-direction: column; justify-content: space-between; }
   .auth-art::before { content: ""; position: absolute; inset: 0; background: radial-gradient(60% 50% at 80% 100%, rgba(91, 63, 245, .45), transparent 70%), linear-gradient(rgba(255, 255, 255, .04) 1px, transparent 1px) 0 0 / 48px 48px, linear-gradient(90deg, rgba(255, 255, 255, .04) 1px, transparent 1px) 0 0 / 48px 48px; }
   .auth-art > * { position: relative; }
+  :root:not([data-theme="dark"]) .auth-art { background: #F4F4F5; color: var(--ink); border-right: 1px solid var(--line); }
+  :root:not([data-theme="dark"]) .auth-art::before { background: radial-gradient(60% 50% at 80% 100%, rgba(91, 63, 245, .16), transparent 70%), linear-gradient(rgba(10, 10, 11, .045) 1px, transparent 1px) 0 0 / 48px 48px, linear-gradient(90deg, rgba(10, 10, 11, .045) 1px, transparent 1px) 0 0 / 48px 48px; }
+  :root:not([data-theme="dark"]) .auth-art .logo { color: var(--ink); }
+  :root:not([data-theme="dark"]) .auth-art p { color: var(--muted); }
+  :root:not([data-theme="dark"]) .auth-feats div { background: rgba(255, 255, 255, .75); border-color: var(--line); }
+  .auth { position: relative; }
+  .auth-theme { position: absolute; top: 18px; right: 18px; z-index: 2; }
   .auth-art .logo { color: #fff; }
   .auth-art h2 { font-size: 42px; line-height: 1.06; letter-spacing: -.045em; margin: 0 0 16px; font-weight: 600; max-width: 520px; }
   .auth-art p { color: rgba(255, 255, 255, .78); font-size: 16px; max-width: 480px; margin: 0; }
@@ -367,6 +375,28 @@
     .inbox { grid-template-columns: 1fr; height: calc(100vh - 160px); }
     .inbox.open .ib-list { display: none; } .inbox:not(.open) .ib-conv { display: none; }
   }
+  @media (max-width: 640px) {
+    table.data thead { display: none; }
+    table.data, table.data tbody, table.data tr, table.data td { display: block; width: 100%; }
+    table.data tr { padding: 10px 16px; border-bottom: 1px solid var(--line-2); }
+    table.data td { padding: 3px 0; border: 0; text-align: left !important; display: flex; gap: 12px; justify-content: space-between; min-width: 0; overflow-wrap: anywhere; }
+    table.data td[data-label]::before { content: attr(data-label); color: var(--muted); font-size: 12px; flex: none; }
+    table.data td:empty { display: none; }
+    .page-head, .dash-head { align-items: stretch; }
+    .page-head > .row, .dash-head > .row { width: 100%; }
+    .dash-head .row .field { flex: 1; min-width: 0; }
+    .content { padding: 14px; }
+    .panel-head { padding: 14px 16px; } .panel-body { padding: 14px 16px 16px; }
+    .kv { grid-template-columns: 1fr; gap: 2px 0; } .kv dd { margin-bottom: 8px; }
+    .modal { border-radius: 16px; } .modal-foot { flex-wrap: wrap; }
+    .call-row { padding: 11px 16px; }
+    .dial { flex-wrap: wrap; } .dial .btn { flex: 1; }
+    .chd { flex-wrap: wrap; } .chd .grow { flex: 1 1 60%; } .chd > .btn { flex: 1; }
+    table.data td.chev { display: none; }
+    #c360Name { font-size: 22px; }
+    .page-head > .row > select.field, .page-head > .row > .pill { flex: 1 1 100%; max-width: 100%; }
+  }
+  @media (max-width: 560px) { .provider-cards { grid-template-columns: 1fr 1fr; gap: 8px; } .pcard { padding: 12px; } .pcard p { display: none; } .pcard .btn { width: 100%; } }
   @media (max-width: 560px) { .pill.phone-status span:last-child { display: none; } .title { font-size: 22px; } .kpis { grid-template-columns: 1fr 1fr; } }
 </style>
 <script src="https://checkout.razorpay.com/v1/checkout.js" async></script>
@@ -407,6 +437,7 @@
   <symbol id="i-qr" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/></symbol>
   <symbol id="i-key" viewBox="0 0 24 24"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6M15.5 7.5l3 3L22 7l-3-3"/></symbol>
   <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></symbol>
   <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
   <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></symbol>
   <symbol id="i-hand" viewBox="0 0 24 24"><path d="M18 11V6a2 2 0 0 0-4 0M14 10V4a2 2 0 0 0-4 0v2M10 10.5V6a2 2 0 0 0-4 0v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.9-6-2.4l-3.6-3.6a2 2 0 0 1 2.8-2.8L7 15"/></symbol>
@@ -414,6 +445,7 @@
 
 <!-- Sign in ------------------------------------------------------------------------------------>
 <div class="auth" id="authView" hidden>
+  <button class="icon-btn auth-theme" id="authTheme" type="button" title="Switch theme" aria-label="Switch theme"><svg class="i"><use href="#i-moon"/></svg></button>
   <div class="auth-art">
     <a class="logo" href="/"><img src="/assets/logo.svg" alt=""><span class="wordmark" data-brand></span></a>
     <div>
@@ -474,6 +506,7 @@
         <a href="#/whatsapp" data-route="whatsapp" data-role="both"><svg class="i"><use href="#i-chat"/></svg>WhatsApp<span class="badge-n" id="navWaBadge" hidden></span></a>
         <a href="#/business" data-route="business" data-role="customer"><svg class="i"><use href="#i-brief"/></svg>My business</a>
         <a href="#/phones" data-route="phones" data-role="customer"><svg class="i"><use href="#i-mobile"/></svg>Phones</a>
+        <a href="#/myai" data-route="myai" data-role="customer"><svg class="i"><use href="#i-spark"/></svg>AI providers</a>
 
         <div class="nav-group" data-role="admin">Business</div>
         <a href="#/customers" data-route="customers" data-role="admin"><svg class="i"><use href="#i-users"/></svg>Customers</a>
@@ -523,6 +556,22 @@
   <section class="panel"><div class="scroll-x"><table class="data"><thead><tr>
     <th>Business</th><th>Email</th><th>Plan</th><th>Status</th><th class="num">Minutes</th><th class="num">Phones</th><th>Licence</th><th></th>
   </tr></thead><tbody id="customerRows"></tbody></table></div></section>
+</main>
+
+<!-- Customer 360 (admin) ------------------------------------------------------------------------->
+<main class="page" data-page="customer" hidden>
+  <a href="#/customers" class="small muted" style="display:inline-flex;gap:6px;align-items:center;margin-bottom:12px"><svg class="i" style="width:14px;height:14px"><use href="#i-back"/></svg>All customers</a>
+  <div class="page-head">
+    <div class="row" style="flex-wrap:nowrap;align-items:center;min-width:0"><span class="avatar lg soft" id="c360Avatar">?</span>
+      <div style="min-width:0"><h1 class="title" id="c360Name" style="overflow:hidden;text-overflow:ellipsis">Customer</h1><p class="lede" id="c360Sub" style="margin:0"></p></div></div>
+    <div class="row"><button class="btn" id="c360LoginAs"><svg class="i"><use href="#i-user"/></svg>View as customer</button><button class="btn link" id="c360Delete" style="color:var(--bad)">Delete</button></div>
+  </div>
+  <div class="tabs" role="tablist" id="c360Tabs">
+    <button data-c360="overview" aria-selected="true">Overview</button><button data-c360="calls">Calls</button><button data-c360="whatsapp">WhatsApp</button>
+    <button data-c360="business">Business</button><button data-c360="ai">AI keys</button><button data-c360="phones">Phones</button>
+    <button data-c360="billing">Billing</button><button data-c360="activity">Activity</button>
+  </div>
+  <div id="c360Body"><div class="empty">Loading…</div></div>
 </main>
 
 <!-- Plans (admin) ------------------------------------------------------------------------------>
@@ -586,9 +635,9 @@
       <p class="hint"><span id="bizAboutCount"></span> The AI answers only from this. Anything else, it says the team will confirm.</p>
     </div></section></div>
     <aside>
-      <section class="panel"><div class="panel-head"><h2><svg class="i"><use href="#i-key"/></svg>Your Gemini key</h2></div><div class="panel-body">
-        <p class="hint" style="margin-top:0">Optional. From aistudio.google.com. Your calls and chats then run on your own Google account first.</p>
-        <input class="field" id="bizGemini" type="password" autocomplete="off"><p class="hint" id="bizGeminiState"></p>
+      <section class="panel"><div class="panel-head"><h2><svg class="i"><use href="#i-spark"/></svg>Your AI keys</h2></div><div class="panel-body">
+        <p class="hint" style="margin-top:0" id="bizAiState">Use your own Gemini, Groq, Cloudflare, OpenRouter or other keys. Your calls and chats try them first.</p>
+        <a class="btn" href="#/myai"><svg class="i"><use href="#i-key"/></svg>Manage AI providers</a>
       </div></section>
       <section class="panel"><div class="panel-head"><h2><svg class="i"><use href="#i-chat"/></svg>Booking message</h2></div><div class="panel-body">
         <p class="hint" style="margin-top:0">Sent on your WhatsApp after a call when the caller wants to book. Link your number on the <a href="#/whatsapp">WhatsApp</a> page.</p>
@@ -614,6 +663,24 @@
     </div></section></div>
     <aside><section class="panel"><div class="panel-head"><h2>Your phones</h2></div><div id="phoneList"></div></section></aside>
   </div>
+</main>
+
+<!-- Customer: AI providers ------------------------------------------------------------------->
+<main class="page" data-page="myai" hidden>
+  <div class="page-head"><div><h1 class="title">AI providers</h1><p class="lede">Add your own keys. Your calls and WhatsApp chats try them first, in this order. If one hits a limit or fails, the next one answers, then the platform's AI.</p></div>
+    <button class="btn solid" id="myAiSave"><svg class="i"><use href="#i-check"/></svg>Save</button></div>
+  <div class="provider-cards" style="margin-bottom:20px">
+    <div class="pcard"><div class="pt"><span class="plogo" style="background:linear-gradient(135deg,#4285F4,#9B72CB)">G</span>Google Gemini</div><p class="small muted" style="margin:0">Live voice on calls and chat. Best Hindi quality.</p><button class="btn sm" data-myquick="gemini:live">Add Gemini</button></div>
+    <div class="pcard"><div class="pt"><span class="plogo" style="background:#F55036">Gq</span>Groq</div><p class="small muted" style="margin:0">Very fast chat for WhatsApp and calls.</p><button class="btn sm" data-myquick="groq:llm">Add Groq</button></div>
+    <div class="pcard"><div class="pt"><span class="plogo" style="background:#F38020">CF</span>Cloudflare</div><p class="small muted" style="margin:0">Free daily quota. Needs your account ID.</p><button class="btn sm" data-myquick="cloudflare:llm">Add Cloudflare</button></div>
+    <div class="pcard"><div class="pt"><span class="plogo" style="background:#6366F1">OR</span>OpenRouter</div><p class="small muted" style="margin:0">Many models with one key, some free.</p><button class="btn sm" data-myquick="openrouter:llm">Add OpenRouter</button></div>
+  </div>
+  <section class="panel"><div class="panel-head"><h2><svg class="i"><use href="#i-spark"/></svg>Your keys &amp; order</h2><span class="muted small" id="myAiSummary"></span></div><div class="panel-body">
+    <div id="myAiLegacy"></div>
+    <div id="myAiList"></div>
+    <div class="row" style="margin-top:14px;flex-wrap:nowrap"><select class="field" id="myAiAddType" aria-label="Provider to add"></select><button class="btn" id="myAiAdd"><svg class="i"><use href="#i-plus"/></svg>Add</button></div>
+    <p class="hint">Keys are stored on the server and never shown again. Only you and the platform admin can change them.</p>
+  </div></section>
 </main>
 
 <!-- Customer: Plan & billing ------------------------------------------------------------------->
@@ -807,7 +874,8 @@
     </div>
   </div>
 
-  <div data-wapane="connect" hidden>
+  <div data-wapane="connect" hidden style="display:flex;flex-direction:column">
+    <section class="panel" style="order:2"><div class="panel-head"><h2><svg class="i"><use href="#i-clock"/></svg>Connection log</h2><button class="btn sm" id="waEventsReload"><svg class="i"><use href="#i-refresh"/></svg>Refresh</button></div><ul class="list" id="waEvents"><li class="empty">Loading…</li></ul></section>
     <section class="panel">
       <div class="wa-status">
         <div class="qr"><div class="qr-box" id="waQr">—</div><p class="muted small" id="waQrHint" style="margin:12px 0 0"></p></div>
@@ -824,6 +892,7 @@
             <button class="btn" id="waRestart"><svg class="i"><use href="#i-refresh"/></svg>Reconnect</button>
             <button class="btn link" id="waLogout" style="color:var(--bad)">Unlink number</button>
           </div>
+          <div class="stats" id="waLive"></div>
           <p class="hint" style="margin-top:16px">Works with WhatsApp and WhatsApp Business. The phone can stay offline after linking. Keep message volume natural: WhatsApp may restrict numbers that send bulk or unsolicited messages.</p>
         </div>
       </div>
@@ -853,7 +922,7 @@
           <textarea class="field" id="waInstructions" rows="5" maxlength="5000" placeholder="Never quote prices on WhatsApp. Always ask for the patient's age. Reply in Hindi unless they write in English."></textarea>
           <label class="lbl" for="waFallback">When no AI can answer</label>
           <textarea class="field" id="waFallback" rows="2" maxlength="1000" placeholder="Thank you! Our team will reply shortly."></textarea>
-          <p class="hint">Sent at most once every 30 minutes per chat. Leave empty to stay silent; the chat is flagged for staff either way.</p>
+          <p class="hint">Sent after the usual wait when the AI can't answer (at most once a minute per chat). Leave empty to stay silent; the chat is flagged for staff either way.</p>
           <label class="lbl" for="waQuick">Quick replies (one per line)</label>
           <textarea class="field" id="waQuick" rows="5" placeholder="Namaste! Hum aapki kya madad kar sakte hain?"></textarea>
         </div></section>
@@ -1130,12 +1199,14 @@ $("authForm").onsubmit = async (event) => {
 };
 
 let userRole = "admin";
+let viewingAs = null;
 async function showApp() {
   signedIn = true;
   $("authView").hidden = true;
   $("appView").hidden = false;
   const status = await api("/v1/auth/status").catch(() => ({}));
   userRole = status.role || (me && me.role) || "admin";
+  viewingAs = status.viewingAs || null;
   server = await api("/v1/server").catch(() => ({}));
   applyBrand(server.brandName);
   applyRole();
@@ -1148,16 +1219,16 @@ async function showApp() {
 }
 
 function applyRole() {
-  const imp = sessionStorage.getItem("impersonating");
   const bar = $("impersonateBar");
-  if (imp && userRole === "customer") {
+  if (viewingAs && userRole === "customer") {
     bar.hidden = false;
-    bar.innerHTML = `Viewing as ${esc(imp)} · <a href="#" id="impExit" title="Signs out; sign in again as admin">Back to admin</a>`;
-    $("impExit").onclick = async (e) => { e.preventDefault(); sessionStorage.removeItem("impersonating"); await api("/v1/auth/logout", { method: "POST" }).catch(() => {}); location.hash = "#/"; location.reload(); };
-  } else {
-    bar.hidden = true;
-    if (userRole !== "customer") sessionStorage.removeItem("impersonating");
-  }
+    bar.innerHTML = `Viewing as ${esc(viewingAs)} · <a href="#" id="impExit">Back to admin</a>`;
+    $("impExit").onclick = async (e) => {
+      e.preventDefault();
+      try { await api("/v1/auth/return", { method: "POST" }); } catch { await api("/v1/auth/logout", { method: "POST" }).catch(() => {}); }
+      location.hash = "#/customers"; location.reload();
+    };
+  } else bar.hidden = true;
   document.querySelectorAll(".nav a[data-role], [data-role]").forEach((el) => {
     if (!el.dataset.role) return;
     const show = el.dataset.role === "both" || el.dataset.role === userRole;
@@ -1174,6 +1245,16 @@ $("signOut").onclick = async () => {
   showAuth();
 };
 
+// Phones: tables turn into cards; each cell shows its column name (CSS reads data-label).
+function labelTables(root = document) {
+  root.querySelectorAll("table.data").forEach((t) => {
+    const heads = [...t.querySelectorAll("thead th")].map((th) => th.textContent.trim());
+    if (!heads.length) return;
+    t.querySelectorAll("tbody tr").forEach((tr) => [...tr.children].forEach((td, i) => { if (td.tagName === "TD" && heads[i] && td.colSpan === 1) td.dataset.label = heads[i]; }));
+  });
+}
+new MutationObserver(() => labelTables()).observe(document.body, { childList: true, subtree: true });
+
 function toast(text) {
   const el = $("toast");
   el.textContent = text;
@@ -1184,8 +1265,8 @@ function toast(text) {
 
 // ---- Routing -------------------------------------------------------------------------------
 
-const ROUTES = ["dashboard", "customers", "plans", "billing", "home", "playground", "clients", "connection", "docs", "settings", "ai", "whatsapp", "overview", "business", "phones", "plan", "account"];
-const CUSTOMER_ROUTES = ["overview", "business", "phones", "plan", "account", "whatsapp"];
+const ROUTES = ["customer", "myai", "dashboard", "customers", "plans", "billing", "home", "playground", "clients", "connection", "docs", "settings", "ai", "whatsapp", "overview", "business", "phones", "plan", "account"];
+const CUSTOMER_ROUTES = ["overview", "business", "phones", "myai", "plan", "account", "whatsapp"];
 const SHARED_ROUTES = ["account", "whatsapp"];
 window.addEventListener("hashchange", onRoute);
 
@@ -1213,11 +1294,13 @@ function onRoute() {
   if (route === "dashboard") loadDashboard();
   if (route === "home") renderHome();
   if (route === "customers") loadCustomers();
+  if (route === "customer") loadCustomer360();
   if (route === "plans") loadPlansAdmin();
   if (route === "billing") loadBilling();
   if (route === "overview") loadOverview();
   if (route === "business") loadBusiness();
   if (route === "phones") loadPhonesPage();
+  if (route === "myai") loadMyAi();
   if (route === "plan") loadPlanPage();
   if (route === "account") loadAccount();
   refresh();
@@ -2077,7 +2160,7 @@ async function loadCustomers() {
     plansCache = plans;
     $("custSummary").textContent = `${customers.length} customer${customers.length === 1 ? "" : "s"} · ${customers.filter((c) => c.entitled).length} active`;
     $("customerRows").innerHTML = customers.length ? customers.map((c) => {
-      const min = c.minutesIncluded < 0 ? `${c.minutesUsed} / ∞` : `${c.minutesUsed} / ${c.minutesIncluded}`;
+      const min = c.minutesIncluded < 0 ? `${c.minutesUsed} / unlimited` : `${c.minutesUsed} / ${c.minutesIncluded}`;
       const badge = c.entitled ? "live" : "bad";
       return `<tr class="click" data-cust="${esc(c.id)}">
         <td><b>${esc(c.name)}</b>${c.lifetime ? ' <span class="tag">Lifetime</span>' : ""}</td>
@@ -2085,9 +2168,9 @@ async function loadCustomers() {
         <td><span class="tag ${badge}">${esc(STATUS_TEXT[c.status] || c.status)}</span></td>
         <td class="num">${min}</td><td class="num">${c.phones}</td>
         <td><span class="mono" style="font-size:12px">${esc(c.license || "—")}</span></td>
-        <td class="num">›</td></tr>`;
+        <td class="num chev">${svgIcon("ext", "width:14px;height:14px;opacity:.5")}</td></tr>`;
     }).join("") : `<tr><td colspan="8" class="muted">No customers yet. Click “New customer” after you close a deal.</td></tr>`;
-    $("customerRows").querySelectorAll("[data-cust]").forEach((tr) => tr.onclick = () => openCustomer(tr.dataset.cust));
+    $("customerRows").querySelectorAll("[data-cust]").forEach((tr) => tr.onclick = () => (location.hash = `#/customer?id=${encodeURIComponent(tr.dataset.cust)}`));
   } catch (error) { toast(error.message); }
 }
 
@@ -2107,42 +2190,137 @@ $("newCustomer").onclick = () => {
     <p class="hint">A licence key is generated automatically. They sign in with the email and password.</p>`,
     [{ label: "Cancel", onClick: closeModal }, { label: "Create", primary: true, onClick: async () => {
       const body = { businessName: mv("businessName").value.trim(), email: mv("email").value.trim(), password: mv("password").value, planId: mv("planId").value || undefined, billingCycle: mv("billingCycle").value, lifetime: mv("lifetime").checked, geminiApiKey: mv("geminiApiKey").value.trim() || undefined };
-      try { const v = await api("/v1/customers", { method: "POST", body: JSON.stringify(body) }); closeModal(); toast("Customer created."); openCustomer(v.customer.id); loadCustomers(); }
+      try { const v = await api("/v1/customers", { method: "POST", body: JSON.stringify(body) }); closeModal(); toast("Customer created."); location.hash = `#/customer?id=${encodeURIComponent(v.customer.id)}`; }
       catch (e) { toast(e.message); }
     } }]);
 };
 
-async function openCustomer(id) {
+// ---- admin: customer 360 ----
+let c360 = { id: null, tab: "overview", view: null, chat: null };
+const hashParam = (k) => new URLSearchParams(location.hash.split("?")[1] || "").get(k);
+const asCust = (path, id = c360.id) => `${path}${path.includes("?") ? "&" : "?"}customerId=${encodeURIComponent(id)}`;
+document.querySelectorAll("[data-c360]").forEach((b) => b.onclick = () => { c360.tab = b.dataset.c360; c360.chat = null; renderC360Tab(); });
+
+async function loadCustomer360() {
+  const id = hashParam("id");
+  if (!id) { location.hash = "#/customers"; return; }
+  if (c360.id !== id) c360 = { id, tab: "overview", view: null, chat: null };
   try {
-    const v = await api(`/v1/customers/${encodeURIComponent(id)}`);
-    const c = v.customer, ent = v.entitlement;
-    const expiry = c.lifetime ? "Lifetime" : (c.status === "trialing" ? `Trial ends ${c.trialEndsAt ? new Date(c.trialEndsAt).toLocaleDateString() : "—"}` : c.currentPeriodEnd ? `Renews ${new Date(c.currentPeriodEnd).toLocaleDateString()}` : "—");
-    modal(c.name, `
-      <div class="kv"><dt>Status</dt><dd>${esc(STATUS_TEXT[c.status] || c.status)} · ${ent.entitled ? "<span class='ok'>calls answered</span>" : "<span class='warn'>" + esc(ent.message || "not active") + "</span>"}</dd>
-        <dt>Email</dt><dd>${esc(v.email || "—")}</dd>
-        <dt>Licence</dt><dd><span class="mono">${esc(v.license?.key || "—")}</span> (${esc(v.license?.status || "—")})</dd>
-        <dt>Minutes</dt><dd>${ent.minutesUsed} / ${ent.minutesIncluded < 0 ? "∞" : ent.minutesIncluded} this month</dd>
-        <dt>Phones</dt><dd>${v.phones.length} / ${ent.maxPhones}</dd>
-        <dt>Billing</dt><dd>${expiry}</dd></div>
-      <hr style="border:0;border-top:1px solid var(--line);margin:14px 0">
-      <label class="lbl" style="margin-top:0">Plan</label><select class="field" name="planId">${planOptions(c.planId)}</select>
-      <label class="lbl">Status</label><select class="field" name="status">${["trialing","active","past_due","suspended","cancelled"].map((s) => `<option value="${s}" ${s === c.status ? "selected" : ""}>${STATUS_TEXT[s]}</option>`).join("")}</select>
-      <label class="lbl">Licence</label><select class="field" name="licenseStatus">${["active","suspended","revoked"].map((s) => `<option value="${s}" ${s === v.license?.status ? "selected" : ""}>${s}</option>`).join("")}</select>
-      <label class="lbl">Paid until (for offline payments; leave empty to auto-set one cycle when Active)</label><input class="field" name="periodEnd" type="date" value="${c.currentPeriodEnd ? c.currentPeriodEnd.slice(0, 10) : ""}">
-      <label class="switch" style="margin-top:12px"><span>Lifetime (free)</span><input type="checkbox" name="lifetime" ${c.lifetime ? "checked" : ""}></label>
-      <label class="lbl">Reset login password (optional)</label><input class="field" name="password" type="password" autocomplete="new-password">
-      <label class="lbl">Internal notes</label><textarea class="field" name="notes" rows="2">${esc(c.notes || "")}</textarea>`,
-      [
-        { label: "Delete", danger: true, onClick: async () => { if (!confirm(`Delete ${c.name}? This removes their account, data and licence.`)) return; await api(`/v1/customers/${c.id}`, { method: "DELETE" }).catch((e) => toast(e.message)); closeModal(); loadCustomers(); } },
-        { label: "Log in as", onClick: async () => { try { const r = await api(`/v1/customers/${c.id}/login-as`, { method: "POST" }); sessionStorage.setItem("impersonating", r.email); location.hash = "#/overview"; location.reload(); } catch (e) { toast(e.message); } } },
-        { label: "Save", primary: true, onClick: async () => {
-          const body = { planId: mv("planId").value, status: mv("status").value, licenseStatus: mv("licenseStatus").value, lifetime: mv("lifetime").checked, notes: mv("notes").value };
-          if (mv("periodEnd").value) body.currentPeriodEnd = new Date(mv("periodEnd").value + "T23:59:59").toISOString();
-          if (mv("password").value) body.password = mv("password").value;
-          try { await api(`/v1/customers/${c.id}`, { method: "PUT", body: JSON.stringify(body) }); closeModal(); toast("Saved."); loadCustomers(); } catch (e) { toast(e.message); }
-        } },
-      ]);
-  } catch (error) { toast(error.message); }
+    if (!plansCache.length) plansCache = (await api("/v1/plans")).plans;
+    c360.view = await api(`/v1/customers/${encodeURIComponent(id)}`);
+  } catch (error) { $("c360Body").innerHTML = `<div class="empty">${esc(error.message)}</div>`; return; }
+  const c = c360.view.customer, ent = c360.view.entitlement;
+  $("c360Avatar").textContent = initials(c.name);
+  $("c360Name").textContent = c.name;
+  $("c360Sub").innerHTML = `${esc(c360.view.email || "no login")} · <span class="tag ${ent.entitled ? "live" : "bad"}">${esc(STATUS_TEXT[c.status] || c.status)}</span> ${esc(c360.view.plan?.name || "No plan")}`;
+  setPageTitle("customer"); $("crumb").textContent = c.name;
+  $("c360LoginAs").onclick = async () => { try { await api(`/v1/customers/${c.id}/login-as`, { method: "POST" }); location.hash = "#/overview"; location.reload(); } catch (e) { toast(e.message); } };
+  $("c360Delete").onclick = async () => { if (!confirm(`Delete ${c.name}? This removes their account, chats, phones and licence.`)) return; try { await api(`/v1/customers/${c.id}`, { method: "DELETE" }); toast("Deleted."); location.hash = "#/customers"; } catch (e) { toast(e.message); } };
+  renderC360Tab();
+}
+
+async function renderC360Tab() {
+  document.querySelectorAll("[data-c360]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.c360 === c360.tab)));
+  const body = $("c360Body"), v = c360.view;
+  if (!v) return;
+  const c = v.customer, ent = v.entitlement, clientId = v.clientId;
+  try {
+    if (c360.tab === "overview") {
+      const a = await api(asCust("/v1/me/analytics?days=30")).catch(() => null);
+      const wa = clientId ? await api(`/v1/whatsapp/status?clientId=${encodeURIComponent(clientId)}&days=30`).catch(() => null) : null;
+      const t = a?.totals || {};
+      const expiry = c.lifetime ? "Lifetime" : c.status === "trialing" ? `Trial ends ${c.trialEndsAt ? new Date(c.trialEndsAt).toLocaleDateString() : "—"}` : c.currentPeriodEnd ? `Renews ${new Date(c.currentPeriodEnd).toLocaleDateString()}` : "—";
+      const k = (label, value, sub) => `<div class="kpi"><div class="k">${label}</div><div class="v">${value}</div><div class="d">${sub}</div></div>`;
+      body.innerHTML = `<div class="kpis">
+          ${k("Calls · 30 days", t.calls ?? 0, `${t.answered ?? 0} answered · ${t.missed ?? 0} missed`)}
+          ${k("Minutes this month", `${ent.minutesUsed}`, ent.minutesIncluded < 0 ? "Unlimited plan" : `of ${ent.minutesIncluded} included`)}
+          ${k("WhatsApp · 30 days", wa?.stats?.received ?? 0, `${wa?.stats?.aiReplies ?? 0} AI replies · ${wa?.connected ? "linked" : "not linked"}`)}
+          ${k("Phones", `${v.phones.length} / ${ent.maxPhones}`, ent.entitled ? "Calls are answered" : esc(ent.message || "Not active"))}
+        </div>
+        <div class="grid"><div><section class="panel"><div class="panel-head"><h2>Account</h2></div><div class="panel-body">
+          <div class="kv"><dt>Login</dt><dd>${esc(v.email || "—")}</dd><dt>Licence</dt><dd><span class="mono">${esc(v.license?.key || "—")}</span> (${esc(v.license?.status || "—")})</dd>
+          <dt>Billing</dt><dd>${esc(expiry)}</dd><dt>Created</dt><dd>${esc(new Date(c.createdAt).toLocaleDateString())}</dd></div>
+        </div></section></div>
+        <aside><section class="panel"><div class="panel-head"><h2>Manage</h2></div><form class="panel-body" id="c360Form">
+          <label class="lbl" style="margin-top:0">Plan</label><select class="field" name="planId">${planOptions(c.planId)}</select>
+          <label class="lbl">Status</label><select class="field" name="status">${["trialing","active","past_due","suspended","cancelled"].map((x) => `<option value="${x}" ${x === c.status ? "selected" : ""}>${STATUS_TEXT[x]}</option>`).join("")}</select>
+          <label class="lbl">Licence</label><select class="field" name="licenseStatus">${["active","suspended","revoked"].map((x) => `<option value="${x}" ${x === v.license?.status ? "selected" : ""}>${x}</option>`).join("")}</select>
+          <label class="lbl">Paid until</label><input class="field" name="periodEnd" type="date" value="${c.currentPeriodEnd ? c.currentPeriodEnd.slice(0, 10) : ""}">
+          <label class="switch" style="margin-top:12px"><span>Lifetime (free)</span><input type="checkbox" name="lifetime" ${c.lifetime ? "checked" : ""}></label>
+          <label class="lbl">Reset login password</label><input class="field" name="password" type="password" autocomplete="new-password" placeholder="Leave empty to keep">
+          <label class="lbl">Internal notes</label><textarea class="field" name="notes" rows="3">${esc(c.notes || "")}</textarea>
+          <button class="btn solid" style="width:100%;margin-top:14px">Save</button></form></section></aside></div>`;
+      $("c360Form").onsubmit = async (e) => {
+        e.preventDefault(); const f = e.target;
+        const b = { planId: f.planId.value, status: f.status.value, licenseStatus: f.licenseStatus.value, lifetime: f.lifetime.checked, notes: f.notes.value };
+        if (f.periodEnd.value) b.currentPeriodEnd = new Date(f.periodEnd.value + "T23:59:59").toISOString();
+        if (f.password.value) b.password = f.password.value;
+        try { await api(`/v1/customers/${c.id}`, { method: "PUT", body: JSON.stringify(b) }); toast("Saved."); loadCustomer360(); } catch (err) { toast(err.message); }
+      };
+    }
+    if (c360.tab === "calls") {
+      const { calls } = await api(asCust("/v1/me/calls"));
+      body.innerHTML = `<section class="panel"><div class="panel-head"><h2>Calls</h2><span class="muted small">Latest ${calls.length}</span></div>
+        ${calls.length ? `<ul class="list">${calls.map((x) => `<li><button class="call-row" data-call="${esc(x.id)}"><span class="dir">${x.direction === "incoming" ? "↙" : "↗"}</span><span class="num">${esc(formatWa(String(x.remoteNumber).replace(/\D/g, "")) || x.remoteNumber || "Unknown")}</span><span class="when">${esc(timeAgo(x.createdAt))}</span><span class="st">${esc(x.state)}${x.answeredAt && x.endedAt ? ` · ${Math.round((Date.parse(x.endedAt) - Date.parse(x.answeredAt)) / 1000)} s` : ""}</span></button></li>`).join("")}</ul>` : `<div class="empty">No calls yet.</div>`}</section>`;
+      body.querySelectorAll("[data-call]").forEach((b) => b.onclick = async () => {
+        try { const { transcript } = await api(asCust(`/v1/me/calls/${encodeURIComponent(b.dataset.call)}/transcript`));
+          modal("Transcript", transcript.length ? `<div class="transcript" style="max-height:60vh">${transcript.map((t) => `<div class="turn ${t.role}"><span class="who">${t.role === "agent" ? "AI" : "Caller"}</span>${esc(t.text)}</div>`).join("")}</div>` : `<p class="muted">No transcript for this call (the AI didn't take it).</p>`, [{ label: "Close", onClick: closeModal }]);
+        } catch (e) { toast(e.message); }
+      });
+    }
+    if (c360.tab === "whatsapp") {
+      if (!clientId) { body.innerHTML = `<div class="empty">No business for this customer.</div>`; return; }
+      const q = `clientId=${encodeURIComponent(clientId)}`;
+      if (c360.chat) {
+        const { chat, messages } = await api(`/v1/whatsapp/chats/${c360.chat}?${q}&peek=1`);
+        body.innerHTML = `<section class="panel"><div class="panel-head"><h2><button class="btn sm" id="c360Back" aria-label="Back to chats">${svgIcon("back")}</button> ${esc(chat.name || formatWa(chat.phone) || "Chat")}</h2><span class="muted small">${esc(formatWa(chat.phone))}</span></div>
+          <div class="msgs" style="max-height:60vh">${messages.map((m) => `<div class="bubble ${m.direction === "out" ? "out" : ""} ${m.source === "ai" ? "ai" : ""}">${esc(m.body)}<div class="meta">${m.source !== "patient" ? esc(m.source === "ai" ? "AI" : m.sentBy || m.source) + " · " : ""}${esc(shortTime(m.createdAt))}${m.status === "failed" ? ` · <span class="fail">failed</span>` : ""}</div></div>`).join("")}</div>
+          <form class="composer" id="c360Send"><div style="display:flex;gap:8px"><textarea class="field" name="text" rows="1" placeholder="Reply as the business…" style="flex:1;height:42px"></textarea><button class="btn solid">${svgIcon("send")}Send</button></div></form></section>`;
+        $("c360Back").onclick = () => { c360.chat = null; renderC360Tab(); };
+        const box = body.querySelector(".msgs"); box.scrollTop = box.scrollHeight;
+        $("c360Send").onsubmit = async (e) => { e.preventDefault(); const t = e.target.text.value.trim(); if (!t) return;
+          try { await api(`/v1/whatsapp/chats/${c360.chat}/messages?${q}`, { method: "POST", body: JSON.stringify({ text: t }) }); renderC360Tab(); } catch (err) { toast(err.message); } };
+      } else {
+        const [{ chats }, st] = await Promise.all([api(`/v1/whatsapp/chats?${q}&filter=all&q=`), api(`/v1/whatsapp/status?${q}`).catch(() => null)]);
+        body.innerHTML = `<section class="panel"><div class="panel-head"><h2>WhatsApp chats</h2><span class="pill"><span class="dot ${st?.connected ? "live" : "bad"}"></span>${st?.connected ? `Linked${st.me?.number ? " · +" + esc(st.me.number) : ""}` : "Not linked"}</span></div>
+          ${chats.length ? chats.map((x) => `<div class="ci" data-chat="${x.id}"><span class="avatar soft">${esc(initials(x.name, (x.phone || "").slice(-2)))}</span><div class="t"><div class="n"><b>${esc(x.name || formatWa(x.phone) || "Unknown")}</b><small>${x.lastMessageAt ? esc(shortTime(x.lastMessageAt)) : ""}</small></div><div class="pv">${esc((x.preview || "").slice(0, 90))}</div></div></div>`).join("") : `<div class="empty">No chats yet.</div>`}</section>`;
+        body.querySelectorAll("[data-chat]").forEach((el) => el.onclick = () => { c360.chat = Number(el.dataset.chat); renderC360Tab(); });
+      }
+    }
+    if (c360.tab === "business") {
+      const { business: b } = await api(asCust("/v1/me/business"));
+      body.innerHTML = `<section class="panel"><div class="panel-head"><h2>What the AI knows</h2></div><form class="panel-body" id="c360Biz">
+        <div class="grid even" style="gap:14px"><div><label class="lbl" style="margin-top:0">Business name</label><input class="field" name="name" value="${esc(b.name)}" maxlength="120"></div>
+        <div><label class="lbl" style="margin-top:0">Booking link</label><input class="field" name="bookingUrl" value="${esc(b.bookingUrl)}"></div></div>
+        <label class="lbl">Everything the AI should know</label><textarea class="field" name="about" rows="14" maxlength="20000">${esc(b.about)}</textarea>
+        <div class="row" style="justify-content:flex-end;margin-top:14px"><button class="btn solid">Save</button></div></form></section>`;
+      $("c360Biz").onsubmit = async (e) => { e.preventDefault(); const f = e.target;
+        try { await api(asCust("/v1/me/business"), { method: "PUT", body: JSON.stringify({ name: f.name.value.trim(), bookingUrl: f.bookingUrl.value.trim(), about: f.about.value.trim() }) }); toast("Saved."); } catch (err) { toast(err.message); } };
+    }
+    if (c360.tab === "ai") {
+      const r = await api(asCust("/v1/me/ai"));
+      const st = new Map(r.status.map((x) => [x.id, x]));
+      const rows = [...(r.legacyGeminiKey ? [{ label: "Gemini key (older)", kind: "live", type: "gemini", enabled: true, keyHint: r.legacyGeminiKey.hint, id: "-" }] : []), ...r.providers];
+      body.innerHTML = `<section class="panel"><div class="panel-head"><h2>Customer's own AI keys</h2><span class="muted small">Tried before the platform's</span></div>
+        ${rows.length ? `<div class="scroll-x"><table class="data"><thead><tr><th>Provider</th><th>Use</th><th>Key</th><th>State</th></tr></thead><tbody>${rows.map((p) => { const s2 = st.get(p.id); return `<tr><td><b>${esc(p.label)}</b><br><span class="muted small">${esc(TYPE_TEXT[p.type] || p.type)}</span></td><td>${esc(KIND_TEXT[p.kind])}</td><td class="mono">${esc(p.keyHint || "—")}</td><td>${!p.enabled ? `<span class="tag">Off</span>` : s2?.state === "cooldown" ? `<span class="tag bad">Cooling down</span>` : `<span class="tag live">Ready</span>`}${s2?.lastError ? `<br><span class="muted small">${esc(s2.lastError.slice(0, 80))}</span>` : ""}</td></tr>`; }).join("")}</tbody></table></div>` : `<div class="empty">No keys of their own. Their calls and chats use the platform's AI providers.</div>`}
+        <p class="hint" style="padding:0 20px 16px">To change their keys, use <b>View as customer</b> → AI providers.</p></section>`;
+    }
+    if (c360.tab === "phones") {
+      const { devices: ds } = await api(asCust("/v1/me/devices"));
+      body.innerHTML = `<section class="panel"><div class="panel-head"><h2>Phones</h2><span class="muted small">${ds.length} of ${ent.maxPhones}</span></div>${ds.length ? ds.map((d) => { const h = d.health || {}; return `<div class="device"><div class="device-head"><span class="dot ${d.connected ? "live" : "bad"}"></span><span class="grow"><b>${esc(d.name || d.id)}</b><br><span class="muted small">${d.connected ? "Online" : "Offline · seen " + esc(timeAgo(d.lastSeenAt))}</span></span></div>
+        <div class="stats">${[["Battery", h.battery != null ? `${h.battery}%${h.charging ? " ⚡" : ""}` : "—"], ["Network", h.network || "—"], ["Carrier", h.carrier || "—"], ["Call audio", h.audio || "—"], ["App", h.appVersion || "—"], ["Model", h.model || "—"]].map(([k2, v2]) => `<div class="stat"><div class="k">${k2}</div><div class="v">${esc(String(v2))}</div></div>`).join("")}</div></div>`; }).join("") : `<div class="empty">No phone paired yet.</div>`}</section>`;
+    }
+    if (c360.tab === "billing") {
+      const pays = v.payments || [];
+      const usage = v.usage || [];
+      body.innerHTML = `<div class="grid"><div><section class="panel"><div class="panel-head"><h2>Payments</h2></div><div class="scroll-x"><table class="data"><thead><tr><th>When</th><th class="num">Amount</th><th>Kind</th><th>Status</th></tr></thead><tbody>${pays.length ? pays.map((p) => `<tr><td>${esc(new Date(p.at).toLocaleString())}</td><td class="num">${rupees(p.amount)}</td><td>${esc(p.kind || "—")}</td><td>${esc(p.status)}</td></tr>`).join("") : `<tr><td colspan="4" class="muted">No payments yet.</td></tr>`}</tbody></table></div></section></div>
+        <aside><section class="panel"><div class="panel-head"><h2>Usage by month</h2></div><div class="scroll-x"><table class="data"><thead><tr><th>Month</th><th class="num">Calls</th><th class="num">Minutes</th></tr></thead><tbody>${usage.length ? usage.map((u) => `<tr><td>${esc(u.period)}</td><td class="num">${u.calls}</td><td class="num">${u.minutes}</td></tr>`).join("") : `<tr><td colspan="3" class="muted">No usage yet.</td></tr>`}</tbody></table></div></section></aside></div>`;
+    }
+    if (c360.tab === "activity") {
+      const { entries } = await api(`/v1/audit?customerId=${encodeURIComponent(c.id)}`);
+      body.innerHTML = `<section class="panel"><div class="panel-head"><h2>Activity</h2><span class="muted small">Changes by the customer and admins</span></div><ul class="list">${entries.length ? entries.map((e) => `<li style="padding:10px 20px"><b style="font-weight:500">${esc(e.action)}</b><br><span class="muted small">${esc(e.actor)} · ${esc(timeAgo(e.at))}${e.detail ? " · " + esc(String(e.detail).slice(0, 120)) : ""}</span></li>`).join("") : `<li class="empty">No activity yet.</li>`}</ul></section>`;
+    }
+  } catch (error) { body.innerHTML = `<div class="empty">${esc(error.message)}</div>`; }
 }
 
 // ---- admin: plans ----
@@ -2240,8 +2418,8 @@ async function loadBusiness() {
     $("bizVoice").value = b.voice || "Kore";
     $("bizBooking").value = b.bookingUrl || "";
     $("bizAbout").value = b.about || "";
-    $("bizGemini").value = ""; $("bizGemini").placeholder = b.geminiApiKey.configured ? `Saved key ${b.geminiApiKey.hint}. Paste to replace.` : "AIza…";
-    $("bizGeminiState").textContent = b.geminiApiKey.configured ? "Set. Your calls use your own Gemini key." : "Not set. Calls use the platform key until you add yours.";
+    const ownAi = (b.aiProviders || []).filter((p) => p.enabled && p.keySet).length + (b.geminiApiKey.configured ? 1 : 0);
+    $("bizAiState").textContent = ownAi ? `${ownAi} key${ownAi > 1 ? "s" : ""} of your own, tried first on calls and chats.` : "No keys of your own yet: calls and chats use the platform's AI.";
     $("bizWaUrl").value = b.whatsappGatewayUrl || "";
     $("bizWaSecret").value = ""; $("bizWaSecret").placeholder = b.whatsappApiSecret.configured ? `Saved ${b.whatsappApiSecret.hint}. Paste to replace.` : "";
     $("bizWaState").textContent = b.whatsappApiSecret.configured && b.whatsappGatewayUrl ? "WhatsApp connected." : "Not connected: booking links will be taken as messages.";
@@ -2255,9 +2433,94 @@ $("bizAbout").oninput = countBizAbout;
 $("bizSave").onclick = async () => {
   const msg = $("bizWaMessage").value.trim();
   const body = { name: $("bizName").value.trim(), voice: $("bizVoice").value, bookingUrl: $("bizBooking").value.trim(), about: $("bizAbout").value.trim(), whatsappGatewayUrl: $("bizWaUrl").value.trim().replace(/\/+$/, ""), whatsappCountryCode: $("bizWaCountry").value.trim() || "91", whatsappMessage: msg === DEFAULT_WA_MESSAGE ? "" : msg };
-  if ($("bizGemini").value.trim()) body.geminiApiKey = $("bizGemini").value.trim();
   if ($("bizWaSecret").value.trim()) body.whatsappApiSecret = $("bizWaSecret").value.trim();
   try { await api("/v1/me/business", { method: "PUT", body: JSON.stringify(body) }); toast("Saved. Applies from the next call."); loadBusiness(); } catch (e) { toast(e.message); }
+};
+
+// ---- customer: own AI providers ----
+let myAi = null;
+async function loadMyAi() {
+  try {
+    myAi = await api("/v1/me/ai");
+    myAi.providers.forEach((p) => (p.apiKey = undefined));
+    $("myAiAddType").innerHTML = Object.entries(myAi.presets).flatMap(([type, preset]) =>
+      preset.kinds.map((kind) => `<option value="${type}:${kind}">${esc(TYPE_TEXT[type])}: ${esc(KIND_TEXT[kind])}</option>`)).join("");
+    renderMyAi();
+  } catch (error) { toast(error.message); }
+}
+function addMyAi(type, kind) {
+  const preset = myAi.presets[type];
+  myAi.providers.push({ id: `${type}-${kind}-${Math.random().toString(36).slice(2, 8)}`, kind, type, label: TYPE_TEXT[type], enabled: true, model: preset.models[kind] || "", voice: kind === "tts" ? preset.voice : undefined, keySet: false, isNew: true });
+  renderMyAi();
+  const last = $("myAiList").querySelector(".prov:last-of-type [data-f=apiKey]"); last?.focus();
+}
+function renderMyAi() {
+  const status = new Map((myAi.status || []).map((x) => [x.id, x]));
+  const on = myAi.providers.filter((p) => p.enabled && (p.keySet || p.apiKey)).length;
+  $("myAiSummary").textContent = on ? `${on} active` : "Using the platform's AI";
+  $("myAiLegacy").innerHTML = myAi.legacyGeminiKey ? `<div class="prov"><div class="prov-head"><span class="dot live"></span><span class="grow"><b>Gemini key</b> <span class="muted small">saved earlier · ${esc(myAi.legacyGeminiKey.hint)} · tried first</span></span><button class="btn link mini" id="myAiLegacyRm">Remove</button></div></div>` : "";
+  if ($("myAiLegacyRm")) $("myAiLegacyRm").onclick = () => { myAi.removeLegacy = true; myAi.legacyGeminiKey = null; renderMyAi(); toast("Press Save to remove it."); };
+  const kinds = ["live", "llm", "stt", "tts"];
+  $("myAiList").innerHTML = myAi.providers.length || myAi.legacyGeminiKey ? kinds.map((kind) => {
+    const list = myAi.providers.filter((p) => p.kind === kind);
+    if (!list.length) return "";
+    return `<div class="kind-title">${KIND_TEXT[kind]}</div>` + list.map((p) => {
+      const st = status.get(p.id); const preset = myAi.presets[p.type] || {};
+      const dot = !p.enabled ? "" : st?.state === "cooldown" ? "bad" : "live";
+      return `<div class="prov" data-id="${esc(p.id)}">
+        <div class="prov-head"><span class="dot ${dot}"></span>
+          <input class="field grow" data-f="label" value="${esc(p.label)}" maxlength="60" aria-label="Name" style="margin:0;min-width:0">
+          <label class="small" style="white-space:nowrap"><input type="checkbox" data-f="enabled" ${p.enabled ? "checked" : ""}> On</label></div>
+        <div class="prov-grid">
+          <input class="field" data-f="apiKey" type="password" autocomplete="off" aria-label="API key" placeholder="${p.keySet ? `Saved key ${esc(p.keyHint)}. Paste to replace.` : "Paste your API key"}">
+          <input class="field" data-f="model" value="${esc(p.model)}" aria-label="Model" placeholder="Model">
+          ${p.type === "cloudflare" ? `<input class="field" data-f="accountId" value="${esc(p.accountId || "")}" aria-label="Cloudflare account ID" placeholder="Cloudflare account ID">` : ""}
+          ${p.type === "openai" ? `<input class="field" data-f="baseUrl" value="${esc(p.baseUrl || "")}" aria-label="Base URL" placeholder="https://…/v1">` : ""}
+          ${kind === "tts" ? `<input class="field" data-f="voice" value="${esc(p.voice || "")}" aria-label="Voice" placeholder="Voice">` : ""}
+        </div>
+        <div class="row" style="margin-top:8px;gap:6px">
+          <button class="btn mini" data-move="-1" aria-label="Try earlier">↑ Earlier</button><button class="btn mini" data-move="1" aria-label="Try later">↓ Later</button>
+          <button class="btn mini" data-test ${p.keySet && !p.isNew ? "" : "disabled title=\"Save first\""}>Test</button>
+          <span class="spacer"></span><button class="btn link mini" data-remove style="color:var(--bad)">Remove</button></div>
+        <p class="hint" style="margin:6px 0 0">${esc(TYPE_TEXT[p.type])}${preset.signup ? ` · <a href="${esc(preset.signup)}" target="_blank" rel="noopener">get a key</a>` : ""}${st && (st.ok || st.failed) ? ` · ${st.ok} ok, ${st.failed} failed${st.state === "cooldown" ? ", cooling down" : ""}` : ""}${st?.lastError ? `<br>Last error: ${esc(st.lastError.slice(0, 140))}` : ""}</p>
+        <div class="prov-test" data-test-out></div></div>`;
+    }).join("");
+  }).join("") : `<div class="empty">No keys yet. Add Gemini, Groq, Cloudflare or OpenRouter above. Until then your calls and chats use the platform's AI.</div>`;
+  $("myAiList").querySelectorAll(".prov").forEach((el) => {
+    const p = myAi.providers.find((x) => x.id === el.dataset.id);
+    el.querySelectorAll("[data-f]").forEach((input) => input.oninput = input.onchange = () => { p[input.dataset.f] = input.type === "checkbox" ? input.checked : input.value; });
+    el.querySelector("[data-remove]").onclick = () => { myAi.providers.splice(myAi.providers.indexOf(p), 1); renderMyAi(); };
+    el.querySelector("[data-test]").onclick = async () => {
+      const out = el.querySelector("[data-test-out]"); out.innerHTML = `<span class="muted">Testing…</span>`;
+      try { const r = await api(`/v1/me/ai/${encodeURIComponent(p.id)}/test`, { method: "POST" }); out.innerHTML = r.ok ? `<span class="ok">✓ Works · ${r.ms} ms</span>` : `<span class="down">✕ ${esc(r.error || "failed")}</span>`; }
+      catch (error) { out.innerHTML = `<span class="down">✕ ${esc(error.message)}</span>`; }
+    };
+    el.querySelectorAll("[data-move]").forEach((b) => b.onclick = () => {
+      const same = myAi.providers.filter((x) => x.kind === p.kind);
+      const swap = same[same.indexOf(p) + Number(b.dataset.move)];
+      if (!swap) return;
+      const i = myAi.providers.indexOf(p), j = myAi.providers.indexOf(swap);
+      [myAi.providers[i], myAi.providers[j]] = [swap, p]; renderMyAi();
+    });
+  });
+}
+$("myAiAdd").onclick = () => { const [type, kind] = $("myAiAddType").value.split(":"); addMyAi(type, kind); };
+document.querySelectorAll("[data-myquick]").forEach((b) => b.onclick = () => { const [type, kind] = b.dataset.myquick.split(":"); addMyAi(type, kind); });
+$("myAiSave").onclick = async () => {
+  const missing = myAi.providers.find((p) => p.enabled && !p.keySet && !p.apiKey?.trim());
+  if (missing) { toast(`Paste the API key for ${missing.label}, or switch it off.`); return; }
+  const noAccount = myAi.providers.find((p) => p.enabled && p.type === "cloudflare" && !String(p.accountId || "").trim());
+  if (noAccount) { toast("Cloudflare needs your account ID (Cloudflare dashboard, right side of the overview page)."); return; }
+  const providers = myAi.providers.map((p) => {
+    const out = { id: p.id, kind: p.kind, type: p.type, label: (p.label || "").trim() || TYPE_TEXT[p.type], enabled: p.enabled, model: (p.model || "").trim() || (myAi.presets[p.type]?.models[p.kind] ?? "default") };
+    if (p.apiKey?.trim()) out.apiKey = p.apiKey.trim();
+    if (p.baseUrl) out.baseUrl = p.baseUrl.trim();
+    if (p.accountId) out.accountId = p.accountId.trim();
+    if (p.voice) out.voice = p.voice.trim();
+    return out;
+  });
+  try { await api("/v1/me/ai", { method: "PUT", body: JSON.stringify({ providers, removeLegacyGemini: Boolean(myAi.removeLegacy) }) }); toast("Saved. Your next call and chat use these keys first."); loadMyAi(); }
+  catch (error) { toast(error.message); }
 };
 
 // ---- customer: phones ----
@@ -2281,7 +2544,7 @@ async function loadPlanPage() {
     const [me, { plans }] = await Promise.all([api("/v1/me"), api("/v1/plans")]);
     meData = me; const c = me.customer, ent = me.entitlement;
     const expiry = c.lifetime ? "Lifetime access" : c.status === "trialing" ? `Free trial ends ${c.trialEndsAt ? new Date(c.trialEndsAt).toLocaleDateString() : "soon"}` : c.currentPeriodEnd ? `Renews ${new Date(c.currentPeriodEnd).toLocaleDateString()}` : "—";
-    $("planStatus").innerHTML = `<div class="kpi" style="max-width:420px"><div class="k">Current plan</div><div class="v">${esc(me.plan?.name || "No plan")}</div><div class="d">${esc(STATUS_TEXT[c.status] || c.status)} · ${esc(expiry)} · ${ent.minutesUsed}/${ent.minutesIncluded < 0 ? "∞" : ent.minutesIncluded} min used</div></div>`;
+    $("planStatus").innerHTML = `<div class="kpi" style="max-width:420px"><div class="k">Current plan</div><div class="v">${esc(me.plan?.name || "No plan")}</div><div class="d">${esc(STATUS_TEXT[c.status] || c.status)} · ${esc(expiry)} · ${ent.minutesUsed}/${ent.minutesIncluded < 0 ? "unlimited" : ent.minutesIncluded} min used</div></div>`;
     renderPlanCards(plans.filter((p) => p.active && p.public), me.plan?.id);
   } catch (error) { toast(error.message); }
 }
@@ -2870,7 +3133,7 @@ function esc(value) {
 const PAGE_TITLES = {
   dashboard: "Dashboard", playground: "Live calls", overview: "Overview", whatsapp: "WhatsApp", business: "My business",
   phones: "Phones", customers: "Customers", plans: "Plans", billing: "Billing", clients: "Clients", connection: "Phones",
-  ai: "AI providers", home: "Developers", settings: "Settings", docs: "Docs", plan: "Plan & billing", account: "Account",
+  ai: "AI providers", myai: "AI providers", customer: "Customer", home: "Developers", settings: "Settings", docs: "Docs", plan: "Plan & billing", account: "Account",
 };
 function setPageTitle(name) { $("crumb").textContent = PAGE_TITLES[name] || ""; }
 
@@ -2882,17 +3145,20 @@ function wordmark(brand) {
 function renderMe() {
   const email = me?.email || "API key";
   $("meEmail").textContent = email;
-  $("meRole").textContent = userRole === "customer" ? (sessionStorage.getItem("impersonating") ? "Customer (viewing as)" : "Customer") : "Platform admin";
+  $("meRole").textContent = userRole === "customer" ? (viewingAs ? "Customer (viewing as)" : "Customer") : "Platform admin";
   $("meAvatar").textContent = (email[0] || "V").toUpperCase();
 }
 
-function setTheme(theme) {
+function setTheme(theme, save = false) {
   document.documentElement.dataset.theme = theme;
-  try { localStorage.setItem("vf-theme", theme); } catch {}
-  $("themeToggle").innerHTML = `<svg class="i"><use href="#i-${theme === "dark" ? "sun" : "moon"}"/></svg>`;
+  if (save) try { localStorage.setItem("vf-theme", theme); } catch {}
+  const icon = `<svg class="i"><use href="#i-${theme === "dark" ? "sun" : "moon"}"/></svg>`;
+  $("themeToggle").innerHTML = icon;
+  if ($("authTheme")) $("authTheme").innerHTML = icon;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#09090B" : "#FAFAFA");
 }
 setTheme(document.documentElement.dataset.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"));
-$("themeToggle").onclick = () => setTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
+$("themeToggle").onclick = $("authTheme").onclick = () => setTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark", true);
 
 function closeSidebar() { document.body.classList.remove("side-open"); }
 $("menuBtn").onclick = () => document.body.classList.toggle("side-open");
@@ -2963,7 +3229,7 @@ document.querySelectorAll("[data-watab]").forEach((b) => (b.onclick = () => {
   renderWaTabs();
   if (waTab === "inbox") loadWaChats();
   if (waTab === "automation") fillWaSettings();
-  if (waTab === "connect") renderWaConnection();
+  if (waTab === "connect") { renderWaConnection(); loadWaEvents(); }
 }));
 function renderWaTabs() {
   document.querySelectorAll("[data-watab]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.watab === waTab)));
@@ -3013,6 +3279,7 @@ function renderWaKpis() {
     kpi("bot", "AI replies", s.aiReplies, `Average ${avg} to reply`, true),
     kpi("hand", "Needs staff", s.human, s.human ? "Waiting for a person" : "Nothing waiting"),
     kpi("users", "New contacts", s.newContacts, `${s.staffReplies} staff replies`, true),
+    kpi("zap", "AI tokens", (s.tokens || 0).toLocaleString(), `${s.fallbacks || 0} fallback messages`),
   ].join("");
 }
 
@@ -3032,7 +3299,20 @@ function renderWaConnection() {
   $("waConnect").hidden = s.connected || s.state === "qr" || s.state === "connecting";
   $("waRestart").hidden = !s.connected && s.state !== "error";
   $("waLogout").hidden = s.state === "logged_out";
+  const l = s.live || {};
+  const up = s.uptimeSeconds || 0;
+  $("waLive").innerHTML = [["Received", l.received ?? 0], ["Replied", l.replied ?? 0], ["Failed", l.failed ?? 0], ["Ignored", l.ignored ?? 0], ["Reconnects", s.reconnects ?? 0], ["Running for", up >= 3600 ? `${Math.floor(up / 3600)} h ${Math.floor(up / 60) % 60} m` : `${Math.floor(up / 60)} m`]]
+    .map(([k, v]) => `<div class="stat"><div class="k">${k}</div><div class="v ${k === "Failed" && v ? "bad" : ""}">${esc(String(v))}</div></div>`).join("");
 }
+
+const WA_EVENT_TEXT = { qr: "QR ready to scan", connected: "Connected", disconnected: "Disconnected", logout: "Unlinked", restart: "Reconnect requested", boot: "Server restarted", qr_expired: "QR expired" };
+async function loadWaEvents() {
+  try {
+    const { events } = await api(waUrl("/events", "limit=50"));
+    $("waEvents").innerHTML = events.length ? events.map((e) => `<li style="padding:10px 20px;display:flex;gap:12px;align-items:baseline"><span class="dot ${e.type === "connected" ? "live" : e.type === "disconnected" || e.type === "logout" ? "bad" : "ring"}"></span><span class="grow"><b style="font-weight:500">${esc(WA_EVENT_TEXT[e.type] || e.type)}</b>${e.detail ? ` <span class="muted small">${esc(e.detail.slice(0, 120))}</span>` : ""}</span><span class="muted small" style="white-space:nowrap">${esc(timeAgo(e.at))}</span></li>`).join("") : `<li class="empty">Nothing yet.</li>`;
+  } catch (error) { $("waEvents").innerHTML = `<li class="empty">${esc(error.message)}</li>`; }
+}
+$("waEventsReload").onclick = loadWaEvents;
 
 $("waConnect").onclick = async () => {
   $("waConnect").disabled = true;
@@ -3045,6 +3325,8 @@ $("waLogout").onclick = async () => {
   if (!confirm("Unlink this WhatsApp number? The AI stops replying until you scan a new code. Chats stay in the inbox.")) return;
   try { await api(waUrl("/logout"), { method: "POST" }); toast("Number unlinked."); refreshWaStatus(); } catch (e) { toast(e.message); }
 };
+
+const LANG_TEXT = { hi: "हिंदी", hinglish: "Hinglish", en: "English" };
 
 // ---- inbox list ----
 const WA_FILTERS = [["all", "All"], ["unread", "Unread"], ["human", "Needs staff"], ["open", "Open"], ["resolved", "Done"], ["aioff", "AI off"]];
@@ -3069,6 +3351,7 @@ async function loadWaChats(quiet = false) {
       c.needsHuman && c.status === "open" ? `<span class="badge y">Needs staff</span>` : "",
       !c.aiEnabled ? `<span class="badge">AI off</span>` : "",
       c.status === "resolved" ? `<span class="badge g">Done</span>` : "",
+      LANG_TEXT[c.lang] ? `<span class="badge b">${LANG_TEXT[c.lang]}</span>` : "",
     ].join("");
     const who = c.previewSource && c.previewSource !== "patient" ? `<span class="muted">${c.previewSource === "ai" ? "AI: " : "You: "}</span>` : "";
     return `<div class="ci ${c.id === waChatId ? "on" : ""}" data-chat="${c.id}">
@@ -3145,9 +3428,9 @@ function buildWaConversation(c) {
 
 function renderWaHeader(c) {
   $("waHead").innerHTML = `
-    <button class="icon-btn" id="waBack" title="Back" style="display:none">←</button>
+    <button class="icon-btn" id="waBack" title="Back" aria-label="Back to chats" style="display:none">${svgIcon("back")}</button>
     <span class="avatar soft">${esc(initials(c.name, (c.phone || "").slice(-2)))}</span>
-    <div class="grow"><b style="display:block">${esc(c.name || formatWa(c.phone) || "Unknown")}</b>
+    <div class="grow" style="min-width:0"><b style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.name || formatWa(c.phone) || "Unknown")}</b>
       <span class="muted small">${esc(formatWa(c.phone))}${c.phone ? " · " : ""}${c.aiEnabled ? `<span class="ok">AI on</span>` : `<span class="warn">AI off · handled by staff</span>`}${c.needsHuman && c.status === "open" ? ` · <span class="warn">needs staff</span>` : ""}</span></div>
     <button class="btn sm" id="waToggleAi">${c.aiEnabled ? `${svgIcon("pause")}Pause AI` : `${svgIcon("play")}Resume AI`}</button>
     <button class="btn sm" id="waResolve">${c.status === "open" ? `${svgIcon("check")}Mark done` : `${svgIcon("refresh")}Reopen`}</button>`;
@@ -3208,6 +3491,8 @@ function renderWaInfo(c, messages) {
     <div class="statline"><span class="muted">AI replies</span><b>${ai}</b></div>
     <div class="statline"><span class="muted">Staff replies</span><b>${staff}</b></div>
     <div class="statline"><span class="muted">First contact</span><b>${esc(new Date(c.createdAt).toLocaleDateString())}</b></div>
+    <div class="statline"><span class="muted">Language</span><b>${esc(LANG_TEXT[c.lang] || "—")}</b></div>
+    <div class="statline"><span class="muted">AI tokens</span><b>${messages.reduce((n, m) => n + (m.tokens || 0), 0).toLocaleString()}</b></div>
     <form id="waInfoForm"><h4>Customer details</h4>
       <label class="lbl" style="margin-top:0">Name</label><input class="field" name="name" value="${esc(c.name)}" maxlength="150">
       <label class="lbl">Tags</label><input class="field" name="tags" value="${esc(c.tags)}" placeholder="implant, follow-up, vip" maxlength="255">

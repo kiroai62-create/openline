@@ -2,7 +2,7 @@ import { WebSocket, type RawData } from "ws";
 import type { AgentMessage, AgentStatus, CallAgentOptions, TranscriptLine } from "../agent/gemini-call-agent.js";
 import { buildInstructions } from "../agent/gemini-call-agent.js";
 import { PHONE_RATE, rms } from "./audio.js";
-import type { AiRouter, ChatMessage, ChatTool } from "./router.js";
+import type { AiRouter, ChatMessage, ChatTool, ProviderConfig } from "./router.js";
 
 /**
  * The fallback call agent: speech-to-text -> chat model -> text-to-speech, each through the
@@ -45,7 +45,12 @@ export class PipelineCallAgent {
   private playbackEndsAt = 0;
   private failures = 0;
 
-  constructor(private readonly options: CallAgentOptions & { router: AiRouter }) {
+  /** The customer's chat models, plus their Gemini Live key used as a chat model. */
+  private chatProviders(): ProviderConfig[] {
+    return this.options.router.textProviders(this.options.providers ?? []).filter((p) => (this.options.providers ?? []).some((x) => p.id.startsWith(x.id)));
+  }
+
+  constructor(private readonly options: CallAgentOptions & { router: AiRouter; providers?: ProviderConfig[] }) {
     this.transcript = [...(options.history ?? [])];
     for (const line of this.transcript) {
       this.history.push({ role: line.role === "caller" ? "user" : "assistant", content: line.text });
@@ -127,7 +132,7 @@ export class PipelineCallAgent {
     if (this.hangupRequested || this.closed) return;
     let text = "";
     try {
-      text = await this.options.router.transcribe(pcm);
+      text = await this.options.router.transcribe(pcm, this.options.providers);
     } catch (error) {
       return this.onProviderError(error);
     }
@@ -154,6 +159,7 @@ export class PipelineCallAgent {
         const { message, provider } = await this.options.router.chat(
           [{ role: "system", content: this.instructions() }, ...this.history.slice(-30)],
           this.tools(),
+          this.chatProviders(),
         );
         this.lastProvider = provider;
         if (gen !== this.generation) break;
@@ -193,10 +199,10 @@ export class PipelineCallAgent {
       if (parts.length && (parts.at(-1)!.length < 40 || s.length < 12)) parts[parts.length - 1] += ` ${s}`;
       else parts.push(s);
     }
-    let next = parts.length ? this.options.router.speak(parts[0]!) : undefined;
+    let next = parts.length ? this.options.router.speak(parts[0]!, this.options.providers) : undefined;
     for (let i = 0; i < parts.length && next; i++) {
       const pcm = await next;
-      next = i + 1 < parts.length ? this.options.router.speak(parts[i + 1]!) : undefined;
+      next = i + 1 < parts.length ? this.options.router.speak(parts[i + 1]!, this.options.providers) : undefined;
       if (gen !== this.generation || this.closed) {
         next?.catch(() => undefined);
         return;

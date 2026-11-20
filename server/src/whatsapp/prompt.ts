@@ -21,7 +21,8 @@ export function systemPrompt(business: WaBusiness, contact: WaContact): string {
   const booking = business.bookingUrl
     ? `When someone wants an appointment or booking, share this link: ${business.bookingUrl}\nAlso offer to note their name and preferred day and time so the team can confirm.`
     : "When someone wants an appointment, ask for their name and preferred day and time, and say the team will confirm.";
-  const notes = [contact.name && `Name on WhatsApp: ${contact.name}`, contact.notes && `Staff notes: ${contact.notes}`, contact.tags && `Tags: ${contact.tags}`]
+  const langName = ({ hi: "Hindi in Devanagari", hinglish: "Hinglish (Hindi in Latin letters)", en: "English" } as Record<string, string>)[contact.lang ?? ""];
+  const notes = [contact.name && `Name on WhatsApp: ${contact.name}`, langName && `Usually writes in: ${langName}`, contact.notes && `Staff notes: ${contact.notes}`, contact.tags && `Tags: ${contact.tags}`]
     .filter(Boolean)
     .join("\n");
   return `You are the WhatsApp assistant of ${name}. You reply to customers on WhatsApp on behalf of the team.

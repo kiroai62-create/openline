@@ -26,7 +26,7 @@ export interface WaAutomationSettings {
   ignoreGroups: boolean;
   /** A reply from the business's own phone pauses the AI for that chat. */
   pauseOnStaffReply: boolean;
-  /** Sent once (at most every 30 min per chat) when no AI can answer. Empty: stay silent. */
+  /** Sent when no AI can answer (after the usual delay, like the original gateway). Empty: stay silent. */
   fallbackMessage: string;
   /** Extra rules for the AI. */
   instructions: string;
@@ -36,15 +36,17 @@ export interface WaAutomationSettings {
   useForBookingLinks: boolean;
 }
 
+/** Defaults match the original 32 Teeth gateway (5-8 s human-like wait, fallback when the AI fails). */
+export const DEFAULT_FALLBACK_MESSAGE = "Dhanyavaad! Abhi system busy hai. Hamari team aapko jaldi reply karegi.";
 export const DEFAULT_WA_SETTINGS: WaAutomationSettings = {
   autoReply: true,
-  replyDelayMinMs: 2_000,
-  replyDelayMaxMs: 5_000,
+  replyDelayMinMs: 5_000,
+  replyDelayMaxMs: 8_000,
   typingIndicator: true,
   markRead: true,
   ignoreGroups: true,
   pauseOnStaffReply: true,
-  fallbackMessage: "",
+  fallbackMessage: DEFAULT_FALLBACK_MESSAGE,
   instructions: "",
   quickReplies: [],
   useForBookingLinks: true,
@@ -71,7 +73,7 @@ export interface WaAuthStore {
 export type WaSocketFactory = (input: { auth: { creds: any; keys: any }; scope: string }) => Promise<WaSocket>;
 
 /** Business details and keys for a scope; undefined when the business no longer exists. */
-export type WaBusinessResolver = (scope: string) => (WaBusiness & { geminiApiKey?: string; countryCode: string }) | undefined;
+export type WaBusinessResolver = (scope: string) => (WaBusiness & { providers?: ProviderConfig[]; countryCode: string }) | undefined;
 
 export interface WhatsAppManagerOptions {
   store: WhatsAppStore;
@@ -104,11 +106,16 @@ interface Session {
   /** Ids of messages we sent, so their echo is not stored twice. */
   sentIds: Set<string>;
   connectedAt?: string;
+  startedAt: string;
+  /** Counters like the original gateway's /health. */
+  stats: { received: number; replied: number; failed: number; ignored: number; lastMessageAt?: string; lastReplyAt?: string };
 }
 
 /** Messages older than this when they arrive (history after a reconnect) are stored, not answered. */
 const MAX_REPLY_AGE_MS = 10 * 60_000;
-const FALLBACK_EVERY_MS = 30 * 60_000;
+/** Guards against a fallback storm if a customer sends many messages while the AI is down. */
+const FALLBACK_EVERY_MS = 60_000;
+const newStats = () => ({ received: 0, replied: 0, failed: 0, ignored: 0 });
 
 export class WhatsAppManager {
   private readonly sessions = new Map<string, Session>();
@@ -144,6 +151,9 @@ export class WhatsAppManager {
       me: s?.me ? { id: s.me.id, name: s.me.name ?? null, number: numberFromJid(s.me.id) } : null,
       lastError: s?.lastError ?? null,
       connectedAt: s?.connectedAt ?? null,
+      reconnects: s?.reconnects ?? 0,
+      uptimeSeconds: s ? Math.floor((Date.now() - Date.parse(s.startedAt)) / 1000) : 0,
+      live: s?.stats ?? newStats(),
     };
   }
 
@@ -167,6 +177,8 @@ export class WhatsAppManager {
       auth: await this.loadAuth(scope),
       queues: new Map(),
       sentIds: new Set(),
+      startedAt: new Date().toISOString(),
+      stats: newStats(),
     };
     session.wanted = true;
     this.sessions.set(scope, session);
@@ -179,8 +191,9 @@ export class WhatsAppManager {
       if (!this.options.business(scope)) continue;
       const auth = await this.loadAuth(scope);
       if (!auth.creds?.me) continue; // never finished linking
-      const session: Session = { scope, state: "idle", everConnected: true, wanted: true, reconnects: 0, auth, queues: new Map(), sentIds: new Set() };
+      const session: Session = { scope, state: "idle", everConnected: true, wanted: true, reconnects: 0, auth, queues: new Map(), sentIds: new Set(), startedAt: new Date().toISOString(), stats: newStats() };
       this.sessions.set(scope, session);
+      this.options.store.addEvent(scope, "boot", "server started, reconnecting");
       await this.open(session).catch((error) => console.error(`whatsapp ${scope}: resume failed`, error));
     }
   }
@@ -201,6 +214,7 @@ export class WhatsAppManager {
     }
     this.options.store.clearSession(scope);
     this.sessions.delete(scope);
+    this.options.store.addEvent(scope, "logout", "unlinked from the dashboard");
   }
 
   /** Drops the connection and opens it again (keeps the link). */
@@ -212,6 +226,7 @@ export class WhatsAppManager {
     s.sock = undefined;
     s.state = "idle";
     s.wanted = true;
+    this.options.store.addEvent(scope, "restart", "reconnect requested");
     await this.open(s);
   }
 
@@ -236,7 +251,7 @@ export class WhatsAppManager {
    * Sends a text to a number or chat and records it in the inbox. `source` tells the inbox who sent
    * it (staff in the console, a booking link from a call, the AI...).
    */
-  async sendText(scope: string, to: string | { contactId: number }, text: string, meta: { source: WaSource; sentBy?: string; provider?: string; latencyMs?: number } = { source: "staff" }) {
+  async sendText(scope: string, to: string | { contactId: number }, text: string, meta: { source: WaSource; sentBy?: string; provider?: string; latencyMs?: number; tokens?: number } = { source: "staff" }) {
     const s = this.sessions.get(scope);
     let contact: WaContact | undefined;
     if (typeof to === "object") {
@@ -248,22 +263,28 @@ export class WhatsAppManager {
       if (!number) throw new Error("enter a WhatsApp number with the country code, 10 or more digits");
       contact = this.options.store.upsertContact(scope, `${number}@s.whatsapp.net`, number, "");
     }
-    const record = this.options.store.addMessage(contact, { direction: "out", source: meta.source, body: text, status: "pending", sentBy: meta.sentBy, provider: meta.provider, latencyMs: meta.latencyMs });
+    const record = this.options.store.addMessage(contact, { direction: "out", source: meta.source, body: text, status: "pending", sentBy: meta.sentBy, provider: meta.provider, latencyMs: meta.latencyMs, tokens: meta.tokens });
     if (!s?.sock || s.state !== "connected") {
       this.options.store.setDelivery(record.id, false, undefined, "WhatsApp is not connected");
       throw new Error("WhatsApp is not connected. Scan the QR code on the WhatsApp page first.");
     }
     try {
+      if (meta.source === "staff" && this.settings(scope).typingIndicator) {
+        await s.sock.sendPresenceUpdate("composing", contact.jid).catch(() => undefined);
+        await sleep(600 * (this.options.delayScale ?? 1));
+      }
       const sent = await s.sock.sendMessage(contact.jid, { text });
       const id = sent?.key?.id ?? undefined;
       if (id) rememberId(s, id);
       this.options.store.setDelivery(record.id, true, id);
       this.bumpOut(contact.id);
+      if (s) { s.stats.replied++; s.stats.lastReplyAt = new Date().toISOString(); }
       if (meta.source === "staff") this.options.store.updateContact(scope, contact.id, { needsHuman: false, unread: 0 });
       return { message: this.options.store.message(record.id)!, contact: this.options.store.contact(scope, contact.id)! };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.options.store.setDelivery(record.id, false, undefined, message);
+      s.stats.failed++;
       throw new Error(`WhatsApp send failed: ${message}`);
     }
   }
@@ -385,6 +406,7 @@ export class WhatsAppManager {
         void QRCode.toString(update.qr, { type: "svg", margin: 1, errorCorrectionLevel: "M" }).then((svg) => {
           if (s.qr === update.qr) s.qrSvg = svg;
         });
+        this.options.store.addEvent(s.scope, "qr", "QR ready to scan");
       }
       if (update.connection === "open") {
         s.state = "connected";
@@ -395,22 +417,29 @@ export class WhatsAppManager {
         s.connectedAt = new Date().toISOString();
         this.scheduleSave(s, true);
         console.log(`whatsapp ${s.scope}: connected as ${numberFromJid(s.me?.id ?? "") ?? "?"}`);
+        this.options.store.addEvent(s.scope, "connected", numberFromJid(s.me?.id ?? "") ?? "");
       }
       if (update.connection === "close") {
         const code = update.lastDisconnect?.error?.output?.statusCode;
         s.lastError = `${update.lastDisconnect?.error?.message ?? "connection closed"}${code ? ` (${code})` : ""}`;
         s.sock = undefined;
+        this.options.store.addEvent(s.scope, "disconnected", s.lastError);
         if (code === 401 || code === 403) {
-          // Unlinked from the phone: forget the session; the user scans a new QR to link again.
+          // Unlinked from the phone: forget the session and, like the original gateway, open a fresh
+          // connection so a new QR is ready to scan. A QR nobody scans stops after it expires (408).
           console.warn(`whatsapp ${s.scope}: logged out (${code})`);
-          s.state = "logged_out";
           s.me = undefined;
-          s.auth = { creds: {}, keys: {} };
           this.options.store.clearSession(s.scope);
-          this.sessions.delete(s.scope);
+          void this.lib().then((lib) => {
+            s.auth = { creds: this.options.socketFactory ? {} : lib.initAuthCreds(), keys: {} };
+            s.everConnected = false;
+            s.state = "connecting";
+            this.retry(s, 1_500);
+          }).catch(() => { s.state = "logged_out"; this.sessions.delete(s.scope); });
           return;
         }
         if (!s.everConnected && code === 408) {
+          this.options.store.addEvent(s.scope, "qr_expired", "nobody scanned the QR");
           // Nobody scanned the QR in time: stop until the user asks again.
           s.state = "idle";
           s.lastError = "The QR code expired. Click Connect to get a new one.";
@@ -465,9 +494,9 @@ export class WhatsAppManager {
   private async onMessage(s: Session, m: any): Promise<void> {
     const rawJid: string | undefined = m?.key?.remoteJid;
     if (!rawJid || !m.message) return;
-    if (rawJid === "status@broadcast" || rawJid.endsWith("@broadcast") || rawJid.endsWith("@newsletter")) return;
+    if (rawJid === "status@broadcast" || rawJid.endsWith("@broadcast") || rawJid.endsWith("@newsletter")) { s.stats.ignored++; return; }
     const settings = this.settings(s.scope);
-    if (rawJid.endsWith("@g.us") && settings.ignoreGroups) return;
+    if (rawJid.endsWith("@g.us") && settings.ignoreGroups) { s.stats.ignored++; return; }
     const waId: string | undefined = m.key.id ?? undefined;
     if (waId && (s.sentIds.has(waId) || this.options.store.hasMessage(s.scope, waId))) return;
 
@@ -491,6 +520,10 @@ export class WhatsAppManager {
 
     const contact = this.options.store.upsertContact(s.scope, jid, phone, String(m.pushName ?? ""));
     this.options.store.addMessage(contact, { direction: "in", source: "patient", body: text, waId, at });
+    s.stats.received++;
+    s.stats.lastMessageAt = new Date().toISOString();
+    const lang = detectLang(text);
+    if (lang && lang !== contact.lang) this.options.store.setLang(contact.id, lang);
     if (settings.markRead) await s.sock?.readMessages([m.key]).catch(() => undefined);
 
     if (!settings.autoReply) return;
@@ -511,39 +544,41 @@ export class WhatsAppManager {
     if (!business || !router) return;
     const started = Date.now();
     if (settings.typingIndicator) await s.sock?.sendPresenceUpdate("composing", contact.jid).catch(() => undefined);
-    let reply: { text: string; handoff: boolean; provider?: string } | undefined;
+    let reply: { text: string; handoff: boolean; provider?: string; tokens?: number } | undefined;
     try {
-      const extra: ProviderConfig[] = business.geminiApiKey
-        ? [{ id: `client-gemini-llm:${s.scope}`, kind: "llm", type: "gemini", label: "Gemini (business key)", enabled: true, apiKey: business.geminiApiKey, model: "gemini-3.8-flash" }]
-        : [];
+      // The business's own providers first (chat models and its Gemini key), then the platform's.
+      const extra: ProviderConfig[] = business.providers ?? [];
       const history = historyMessages(this.options.store.messages(contact.id, 40));
       if (!history.length) return;
       const result = await router.chatText([{ role: "system", content: systemPrompt(business, contact) }, ...history], { extra });
-      reply = { ...parseReply(result.text), provider: result.provider };
+      reply = { ...parseReply(result.text), provider: result.provider, tokens: result.tokens };
     } catch (error) {
       console.warn(`whatsapp ${s.scope}: AI reply failed: ${error instanceof Error ? error.message : error}`);
     }
 
+    const scale = this.options.delayScale ?? 1;
+    const wait = randomBetween(settings.replyDelayMinMs, settings.replyDelayMaxMs) * scale - (Date.now() - started);
+
     if (!reply?.text) {
-      if (settings.typingIndicator) await s.sock?.sendPresenceUpdate("paused", contact.jid).catch(() => undefined);
-      // No AI could answer: hand the chat to staff, and tell the customer once in a while.
+      // No AI could answer: hand the chat to staff and, like the original gateway, send the fallback
+      // message after the usual human-like wait.
       this.options.store.updateContact(s.scope, contact.id, { needsHuman: true });
       const last = contact.lastFallbackAt ? Date.parse(contact.lastFallbackAt) : 0;
       if (settings.fallbackMessage.trim() && Date.now() - last > FALLBACK_EVERY_MS) {
+        if (wait > 0) await sleep(wait);
+        if (settings.typingIndicator) await s.sock?.sendPresenceUpdate("paused", contact.jid).catch(() => undefined);
         this.options.store.markFallback(contact.id);
         await this.sendText(s.scope, { contactId: contact.id }, settings.fallbackMessage.trim(), { source: "fallback" }).catch(() => undefined);
-      }
+      } else if (settings.typingIndicator) await s.sock?.sendPresenceUpdate("paused", contact.jid).catch(() => undefined);
       return;
     }
 
-    const scale = this.options.delayScale ?? 1;
-    const wait = randomBetween(settings.replyDelayMinMs, settings.replyDelayMaxMs) * scale - (Date.now() - started);
     if (wait > 0) await sleep(wait);
     if (settings.typingIndicator) await s.sock?.sendPresenceUpdate("paused", contact.jid).catch(() => undefined);
     // Staff may have taken over while the AI was thinking.
     const latest = this.options.store.contact(s.scope, contact.id);
     if (!latest || !latest.aiEnabled) return;
-    await this.sendText(s.scope, { contactId: contact.id }, reply.text, { source: "ai", provider: reply.provider, latencyMs: Date.now() - started }).catch((error) =>
+    await this.sendText(s.scope, { contactId: contact.id }, reply.text, { source: "ai", provider: reply.provider, latencyMs: Date.now() - started, tokens: reply.tokens }).catch((error) =>
       console.warn(`whatsapp ${s.scope}: ${error instanceof Error ? error.message : error}`),
     );
     if (reply.handoff) this.options.store.updateContact(s.scope, contact.id, { needsHuman: true });
@@ -569,13 +604,14 @@ export function textOf(message: any): string | undefined {
     inner.listResponseMessage?.title ??
     inner.templateButtonReplyMessage?.selectedDisplayText;
   if (typeof text === "string" && text.trim()) return text;
-  if (inner.audioMessage) return "[Voice message]";
-  if (inner.imageMessage) return "[Photo]";
-  if (inner.videoMessage) return "[Video]";
-  if (inner.documentMessage) return `[Document${inner.documentMessage.fileName ? `: ${inner.documentMessage.fileName}` : ""}]`;
-  if (inner.locationMessage || inner.liveLocationMessage) return "[Location]";
-  if (inner.contactMessage || inner.contactsArrayMessage) return "[Contact card]";
-  if (inner.stickerMessage) return "[Sticker]";
+  // Same labels as the original gateway, so the AI and staff see what was sent.
+  if (inner.audioMessage) return "[Voice message bheja]";
+  if (inner.imageMessage) return "[Photo bheji]";
+  if (inner.videoMessage) return "[Video bheja]";
+  if (inner.documentMessage) return `[Document bheja${inner.documentMessage.fileName ? `: ${inner.documentMessage.fileName}` : ""}]`;
+  if (inner.locationMessage || inner.liveLocationMessage) return "[Location bheji]";
+  if (inner.contactMessage || inner.contactsArrayMessage) return "[Contact bheja]";
+  if (inner.stickerMessage) return "[Sticker bheja]";
   return undefined;
 }
 
@@ -594,3 +630,15 @@ function randomBetween(min: number, max: number): number {
 }
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** "hi" for Devanagari, "hinglish" for romanised Hindi, "en" for English, "" when unsure. */
+export function detectLang(text: string): string {
+  const t = text.replace(/\[[^\]]*\]/g, " ").trim();
+  if (!t) return "";
+  if (/[\u0900-\u097F]/.test(t)) return "hi";
+  const words = t.toLowerCase().match(/[a-z]+/g) ?? [];
+  if (!words.length) return "";
+  const hinglish = new Set(["hai", "hain", "kya", "kab", "kaise", "kitne", "kitna", "baje", "nahi", "nahin", "haan", "ji", "aap", "aapka", "mera", "meri", "mujhe", "hum", "kal", "aaj", "karna", "karein", "kar", "chahiye", "dard", "bhai", "acha", "accha", "theek", "thik", "namaste", "dhanyavaad", "kripya", "khulega", "milega", "batao", "bataiye", "ke", "ka", "ki", "ko", "se", "me", "mein", "par", "wala", "abhi", "kyu", "kyun", "sakta", "sakti"]);
+  const hits = words.filter((w) => hinglish.has(w)).length;
+  return hits >= 1 && hits / words.length >= 0.15 ? "hinglish" : "en";
+}

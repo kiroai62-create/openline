@@ -383,8 +383,10 @@ export class SaasStore {
     this.db.prepare("INSERT INTO audit_log (actor, action, target, detail, at) VALUES (?, ?, ?, ?, ?)").run(actor, action, target ?? null, detail ?? null, nowIso());
   }
 
-  auditLog(limit = 200): { actor: string; action: string; target?: string; detail?: string; at: string }[] {
-    const rows = this.db.prepare("SELECT actor, action, target, detail, at FROM audit_log ORDER BY id DESC LIMIT ?").all(limit) as {
+  auditLog(limit = 200, target?: string): { actor: string; action: string; target?: string; detail?: string; at: string }[] {
+    const rows = (target
+      ? this.db.prepare("SELECT actor, action, target, detail, at FROM audit_log WHERE target = ? ORDER BY id DESC LIMIT ?").all(target, limit)
+      : this.db.prepare("SELECT actor, action, target, detail, at FROM audit_log ORDER BY id DESC LIMIT ?").all(limit)) as {
       actor: string; action: string; target: string | null; detail: string | null; at: string;
     }[];
     return rows.map((r) => ({ actor: r.actor, action: r.action, target: r.target ?? undefined, detail: r.detail ?? undefined, at: r.at }));

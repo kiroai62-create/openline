@@ -34,6 +34,7 @@ import {
   updateCustomerSchema,
   licenseActivateSchema,
   customerBusinessSchema,
+  customerProvidersSchema,
   checkoutSchema,
   updateClientSchema,
 } from "./schemas.js";
@@ -45,7 +46,7 @@ import type { StateStore } from "./state.js";
 import { renderTemplate, sendWhatsApp, toWhatsAppNumber, whatsappFromClient, whatsappFromConfig, type WhatsAppTarget } from "./agent/whatsapp.js";
 import type { SaasStore } from "./saas.js";
 import type { Billing } from "./billing.js";
-import type { ClientStore } from "./clients.js";
+import { clientAiProviders, maskProviders, type ClientStore } from "./clients.js";
 import { Analytics } from "./analytics.js";
 import { PRESETS, type AiRouter } from "./ai/router.js";
 import type { FallbackAudio } from "./ai/fallback-audio.js";
@@ -172,6 +173,8 @@ export function createApp(deps: AppDependencies) {
       authenticated: Boolean(user) || deps.auth.isAuthorized(request),
       user: user ?? null,
       role: user?.role ?? (deps.auth.isAuthorized(request) ? "admin" : null),
+      // An admin is viewing the console as this customer.
+      viewingAs: user?.role === "customer" && deps.auth.sessionUser(deps.auth.returnToken(request))?.role === "admin" ? user.email : null,
     });
   });
 
@@ -222,7 +225,23 @@ export function createApp(deps: AppDependencies) {
   app.post("/v1/auth/logout", (request, response) => {
     deps.auth.logout(deps.auth.sessionToken(request));
     deps.auth.clearSessionCookie(response);
+    const back = deps.auth.returnToken(request);
+    if (back) {
+      deps.auth.logout(back);
+      deps.auth.clearReturnCookie(response);
+    }
     response.status(204).end();
+  });
+
+  // Ends "view as customer" and puts the admin's own session back.
+  app.post("/v1/auth/return", (request, response) => {
+    const back = deps.auth.returnToken(request);
+    const admin = deps.auth.sessionUser(back);
+    if (!back || admin?.role !== "admin") return response.status(404).json(errorBody("NOT_FOUND", "no admin session to return to"));
+    deps.auth.logout(deps.auth.sessionToken(request));
+    deps.auth.setSessionCookie(request, response, back, new Date(Date.now() + 12 * 60 * 60_000));
+    deps.auth.clearReturnCookie(response);
+    return response.json({ ok: true, email: admin.email });
   });
 
   function signIn(request: Request, response: Response, email: string, password: string) {
@@ -449,6 +468,9 @@ export function createApp(deps: AppDependencies) {
       if (!login) return response.status(404).json(errorBody("NOT_FOUND", "customer login not found"));
       const session = deps.auth.issueSessionFor(login.id);
       if (!session) return response.status(404).json(errorBody("NOT_FOUND", "customer login not found"));
+      // Keep the admin's own session so "Back to admin" works without signing in again.
+      const own = deps.auth.sessionToken(request);
+      if (own && actingUser(request)?.role === "admin") deps.auth.setReturnCookie(request, response, own, session.expiresAt);
       deps.auth.setSessionCookie(request, response, session.token, session.expiresAt);
       saas.audit(adminActor(request), "customer.login_as", request.params.id, login.email);
       return response.json({ ok: true, email: login.email });
@@ -461,7 +483,8 @@ export function createApp(deps: AppDependencies) {
 
     app.get("/v1/audit", (request, response) => {
       if (!requireAdmin(request, response)) return;
-      return response.json({ entries: saas.auditLog(300) });
+      const target = typeof request.query.customerId === "string" ? request.query.customerId : undefined;
+      return response.json({ entries: saas.auditLog(300, target) });
     });
 
     // --- billing (customer buys/upgrades) ---
@@ -531,6 +554,51 @@ export function createApp(deps: AppDependencies) {
       if (parsed.data.name && parsed.data.name !== ctx.customer.name) saas!.updateCustomer(ctx.customer.id, { name: parsed.data.name });
       saas!.audit(actingUser(request)?.email ?? "customer", "business.update", ctx.customer.id);
       return response.json({ business: deps.clients.view(client) });
+    });
+
+    // The customer's own AI providers (Gemini, Groq, Cloudflare, OpenRouter...): tried first on
+    // their calls and WhatsApp, then the platform's. Keys never leave the server.
+    app.get("/v1/me/ai", (request, response) => {
+      const ctx = meClient(request);
+      if (!ctx?.client) return response.status(404).json(errorBody("NOT_FOUND", "no business for this account"));
+      const own = clientAiProviders(ctx.client);
+      const status = deps.router ? deps.router.statusOf(own) : [];
+      return response.json({
+        providers: maskProviders(ctx.client.aiProviders ?? []),
+        legacyGeminiKey: ctx.client.geminiApiKey ? { configured: true, hint: `…${ctx.client.geminiApiKey.slice(-4)}` } : null,
+        status: status.map((x) => ({ ...x, id: x.id.replace(`c:${ctx.client!.id}:`, "") })),
+        presets: PRESETS,
+        platformReady: deps.router?.anyConfigured() ?? false,
+      });
+    });
+
+    app.put("/v1/me/ai", (request, response) => {
+      const ctx = meClient(request);
+      if (!ctx?.client || !deps.clients) return response.status(404).json(errorBody("NOT_FOUND", "no business for this account"));
+      const parsed = customerProvidersSchema.safeParse(request.body);
+      if (!parsed.success) return validationError(response, parsed.error.issues);
+      const saved = new Map((ctx.client.aiProviders ?? []).map((p) => [p.id, p]));
+      const providers = parsed.data.providers.map((p) => ({
+        ...p,
+        apiKey: p.apiKey === undefined ? saved.get(p.id)?.apiKey ?? "" : p.apiKey,
+        baseUrl: p.baseUrl || undefined,
+        accountId: p.accountId || undefined,
+        voice: p.voice || undefined,
+      }));
+      // The older single Gemini key moves into the list the first time the list is saved.
+      const patch: Record<string, unknown> = { aiProviders: providers };
+      if (request.body?.removeLegacyGemini === true) patch.geminiApiKey = "";
+      deps.clients.update(ctx.client.id, patch as never);
+      saas.audit(actingUser(request)?.email ?? "customer", "ai.providers", ctx.customer.id, providers.map((p) => `${p.type}/${p.kind}`).join(", "));
+      return response.json({ providers: maskProviders(providers) });
+    });
+
+    app.post("/v1/me/ai/:id/test", async (request, response) => {
+      const ctx = meClient(request);
+      if (!ctx?.client || !deps.router) return response.status(404).json(errorBody("NOT_FOUND", "unavailable"));
+      const p = (ctx.client.aiProviders ?? []).find((x) => x.id === request.params.id);
+      if (!p) return response.status(404).json(errorBody("NOT_FOUND", "provider not found; save it first"));
+      return response.json(await deps.router.testProvider(p));
     });
 
     // Scoped dashboard data for the signed-in customer (admins read any via ?customerId=).
@@ -894,6 +962,10 @@ export function createApp(deps: AppDependencies) {
       actor: (request) => deps.auth.sessionUser(deps.auth.sessionToken(request))?.email ?? "admin",
       errorBody,
       validationError,
+      audit: (request, action, scope, detail) => {
+        const customer = scope !== "default" ? deps.saas?.customerByClient(scope) : undefined;
+        deps.saas?.audit(deps.auth.sessionUser(deps.auth.sessionToken(request))?.email ?? "admin", action, customer?.id ?? scope, detail);
+      },
     });
   }
 

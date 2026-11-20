@@ -4,7 +4,7 @@ import type { DeviceCommandChannel } from "../device-channel.js";
 import type { StateStore } from "../state.js";
 import type { CallRecord, DeviceEventName } from "../types.js";
 import { GeminiCallAgent, type AgentMessage, type AgentMode, type TranscriptLine } from "./gemini-call-agent.js";
-import type { ClientStore } from "../clients.js";
+import { clientAiProviders, type ClientStore } from "../clients.js";
 import type { AiRouter, ProviderConfig } from "../ai/router.js";
 import { PipelineCallAgent } from "../ai/pipeline-agent.js";
 import type { FallbackAudio } from "../ai/fallback-audio.js";
@@ -95,8 +95,8 @@ export interface CallProfile {
   bookingUrl: string;
   whatsapp?: WhatsAppTarget;
   clientId?: string;
-  /** The client's own Gemini key (central SaaS), used for Gemini Live before the shared keys. */
-  geminiApiKey?: string;
+  /** The client's own AI providers (Gemini, Groq, Cloudflare...), tried before the shared ones. */
+  providers?: ProviderConfig[];
   /** Country code and template for booking links on the built-in WhatsApp. */
   whatsappCountryCode: string;
   whatsappTemplate: string;
@@ -215,7 +215,7 @@ export class AgentManager {
       call.direction === "incoming" &&
       policy.mode !== "never" &&
       this.profileFor(call).autoAnswer &&
-      Boolean(this.pickEngine(this.profileFor(call).geminiApiKey, this.profileFor(call).clientId)) &&
+      Boolean(this.pickEngine(this.profileFor(call).providers)) &&
       this.checkEntitled(call) &&
       !this.requested.has(call.id) &&
       !this.pendingAnswer.has(call.id)
@@ -251,7 +251,7 @@ export class AgentManager {
       return;
     }
     const profileNow = this.profileFor(call);
-    const engine = this.pickEngine(profileNow.geminiApiKey, profileNow.clientId);
+    const engine = this.pickEngine(profileNow.providers);
     if (!engine) {
       console.error(`no AI provider available for call ${call.id}`);
       void this.giveUp(call);
@@ -280,30 +280,31 @@ export class AgentManager {
     };
     const agent: CallAgent = engine.live
       ? new GeminiCallAgent({ ...common, geminiApiKey: engine.live.apiKey, model: engine.live.model })
-      : new PipelineCallAgent({ ...common, geminiApiKey: "", model: "", router: this.options.router! });
+      : new PipelineCallAgent({ ...common, geminiApiKey: "", model: "", router: this.options.router!, providers: profileNow.providers ?? [] });
     this.agents.set(call.id, agent);
     this.engines.set(call.id, engine.live ? `Gemini Live · ${engine.live.label}` : "Speech pipeline");
     console.log(`call ${call.id}: AI engine ${this.engines.get(call.id)} (attempt ${attempts})`);
     void agent.start();
   }
 
-  private pickEngine(clientKey?: string, clientId?: string): { live?: ProviderConfig } | undefined {
+  /**
+   * The customer's own providers come first (each cools down on its own), then the platform's:
+   * a Gemini Live key not on cooldown, else the speech pipeline.
+   */
+  private pickEngine(extra: ProviderConfig[] = []): { live?: ProviderConfig } | undefined {
     const router = this.options.router;
-    // A customer's own Gemini Live key takes priority over the shared keys; it cools down on its own.
-    if (clientKey) {
-      const id = `client-gemini:${clientId ?? "default"}`;
-      if (!router?.isCoolingDown(id)) return { live: { id, kind: "live", type: "gemini", label: "Gemini (customer key)", enabled: true, apiKey: clientKey, model: this.model } };
-    }
     if (!router) {
+      const own = extra.find((p) => p.kind === "live" && p.enabled && p.apiKey);
+      if (own) return { live: own };
       const key = this.options.config.get("geminiApiKey");
       return key ? { live: { id: "settings-gemini", kind: "live", type: "gemini", label: "Gemini", enabled: true, apiKey: key, model: this.model } } : undefined;
     }
     const mode = router.routing().mode;
     if (mode !== "pipeline") {
-      const live = router.available("live")[0];
+      const live = router.available("live", extra)[0];
       if (live) return { live };
     }
-    if (mode !== "live" && router.pipelineAvailable()) return {};
+    if (mode !== "live" && router.pipelineAvailable(extra)) return {};
     // Everything is on cooldown: the caller hears "please call later" instead of waiting in silence.
     return undefined;
   }
@@ -422,7 +423,7 @@ export class AgentManager {
         bookingUrl: client.bookingUrl,
         whatsapp: whatsappFromClient(client),
         clientId: client.id,
-        geminiApiKey: client.geminiApiKey || undefined,
+        providers: clientAiProviders(client),
         whatsappCountryCode: client.whatsappCountryCode || "91",
         whatsappTemplate: client.whatsappMessage?.trim() || DEFAULT_WHATSAPP_MESSAGE,
       };

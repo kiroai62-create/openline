@@ -24,6 +24,8 @@ export interface WaContact {
   lastMessageAt: string | null;
   lastFallbackAt: string | null;
   createdAt: string;
+  /** Language the customer writes in: "hi" (Devanagari), "hinglish" or "en". */
+  lang: string;
   /** Last message preview (list view only). */
   preview?: string;
   previewSource?: WaSource;
@@ -41,7 +43,16 @@ export interface WaMessage {
   sentBy: string | null;
   provider: string | null;
   latencyMs: number | null;
+  /** AI tokens used for this reply. */
+  tokens: number | null;
   createdAt: string;
+}
+
+export interface WaEvent {
+  id: number;
+  type: string;
+  detail: string;
+  at: string;
 }
 
 export type ContactFilter = "all" | "unread" | "human" | "open" | "resolved" | "aioff";
@@ -63,6 +74,7 @@ interface ContactRow {
   last_message_at: string | null;
   last_fallback_at: string | null;
   created_at: string;
+  lang: string;
   pv?: string | null;
   pvs?: string | null;
 }
@@ -79,6 +91,7 @@ interface MessageRow {
   sent_by: string | null;
   provider: string | null;
   latency_ms: number | null;
+  tokens: number | null;
   created_at: string;
 }
 
@@ -118,6 +131,7 @@ export class WhatsAppStore {
   /** Removes everything of a business (account deleted). */
   removeScope(scope: string): void {
     this.db.prepare("DELETE FROM wa_messages WHERE scope = ?").run(scope);
+    this.db.prepare("DELETE FROM wa_events WHERE scope = ?").run(scope);
     this.db.prepare("DELETE FROM wa_contacts WHERE scope = ?").run(scope);
     this.clearSession(scope);
   }
@@ -212,18 +226,18 @@ export class WhatsAppStore {
 
   addMessage(
     contact: WaContact,
-    m: { direction: "in" | "out"; source: WaSource; body: string; status?: WaMessage["status"]; error?: string; waId?: string; sentBy?: string; provider?: string; latencyMs?: number; at?: string },
+    m: { direction: "in" | "out"; source: WaSource; body: string; status?: WaMessage["status"]; error?: string; waId?: string; sentBy?: string; provider?: string; latencyMs?: number; tokens?: number; at?: string },
   ): WaMessage {
     const at = m.at ?? new Date().toISOString();
     const result = this.db
       .prepare(
-        `INSERT INTO wa_messages (contact_id, scope, direction, source, body, status, error, wa_id, sent_by, provider, latency_ms, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO wa_messages (contact_id, scope, direction, source, body, status, error, wa_id, sent_by, provider, latency_ms, tokens, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         contact.id, contact.scope, m.direction, m.source, m.body.slice(0, 8000),
         m.status ?? (m.direction === "in" ? "received" : "sent"), m.error?.slice(0, 300) ?? null, m.waId ?? null,
-        m.sentBy ?? null, m.provider ?? null, m.latencyMs ?? null, at,
+        m.sentBy ?? null, m.provider ?? null, m.latencyMs ?? null, m.tokens ?? null, at,
       );
     if (m.direction === "in") {
       this.db.prepare("UPDATE wa_contacts SET msg_in = msg_in + 1, unread = unread + 1, last_message_at = ?, status = 'open' WHERE id = ?").run(at, contact.id);
@@ -231,6 +245,22 @@ export class WhatsAppStore {
       this.db.prepare("UPDATE wa_contacts SET msg_out = msg_out + 1, last_message_at = ? WHERE id = ?").run(at, contact.id);
     }
     return this.message(Number(result.lastInsertRowid))!;
+  }
+
+  setLang(contactId: number, lang: string): void {
+    this.db.prepare("UPDATE wa_contacts SET lang = ? WHERE id = ?").run(lang, contactId);
+  }
+
+  // ---- connection event log ----
+
+  addEvent(scope: string, type: string, detail = ""): void {
+    this.db.prepare("INSERT INTO wa_events (scope, type, detail, at) VALUES (?, ?, ?, ?)").run(scope, type, detail.slice(0, 500), new Date().toISOString());
+    // Keep the last 500 per business.
+    this.db.prepare("DELETE FROM wa_events WHERE scope = ? AND id <= (SELECT id FROM wa_events WHERE scope = ? ORDER BY id DESC LIMIT 1 OFFSET 500)").run(scope, scope);
+  }
+
+  events(scope: string, limit = 100): WaEvent[] {
+    return this.db.prepare("SELECT id, type, detail, at FROM wa_events WHERE scope = ? ORDER BY id DESC LIMIT ?").all(scope, limit) as unknown as WaEvent[];
   }
 
   setDelivery(id: number, ok: boolean, waId?: string, error?: string): void {
@@ -259,6 +289,7 @@ export class WhatsAppStore {
         `SELECT SUM(direction = 'in') AS received, SUM(direction = 'out' AND source = 'ai' AND status = 'sent') AS ai,
            SUM(direction = 'out' AND source IN ('staff', 'phone') AND status = 'sent') AS staff,
            SUM(status = 'failed') AS failed, AVG(CASE WHEN source = 'ai' THEN latency_ms END) AS latency,
+           SUM(COALESCE(tokens, 0)) AS tokens, SUM(source = 'fallback' AND status = 'sent') AS fallbacks,
            COUNT(DISTINCT contact_id) AS chats
          FROM wa_messages WHERE scope = ? AND created_at >= ?`,
       )
@@ -270,6 +301,8 @@ export class WhatsAppStore {
       staffReplies: r.staff ?? 0,
       failed: r.failed ?? 0,
       avgReplyMs: r.latency ? Math.round(r.latency) : null,
+      tokens: r.tokens ?? 0,
+      fallbacks: r.fallbacks ?? 0,
       chats: r.chats ?? 0,
       newContacts: fresh.n,
       ...this.counts(scope),
@@ -295,6 +328,7 @@ function toContact(r: ContactRow): WaContact {
     lastMessageAt: r.last_message_at,
     lastFallbackAt: r.last_fallback_at,
     createdAt: r.created_at,
+    lang: r.lang ?? "",
     ...(r.pv !== undefined ? { preview: r.pv ?? "", previewSource: (r.pvs ?? undefined) as WaSource | undefined } : {}),
   };
 }
@@ -312,6 +346,7 @@ function toMessage(r: MessageRow): WaMessage {
     sentBy: r.sent_by,
     provider: r.provider,
     latencyMs: r.latency_ms,
+    tokens: r.tokens ?? null,
     createdAt: r.created_at,
   };
 }

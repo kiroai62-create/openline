@@ -208,6 +208,7 @@ class DialerActivity : ComponentActivity() {
         ),
         saveAi = { AiSettings.save(this, it); home = home.copy(ai = it); GatewayConnectionService.start(this) },
         openAppInfo = ::openAppInfo,
+        allowFullScreen = ::openFullScreenSettings,
         dialerHelp = { show -> home = home.copy(showDialerHelp = show) },
     )
 
@@ -221,6 +222,17 @@ class DialerActivity : ComponentActivity() {
             val missing = listOf(Manifest.permission.READ_CONTACTS, Manifest.permission.READ_CALL_LOG).any { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
             runOnUiThread { home = home.copy(contacts = contacts, recents = recents, accounts = accounts, missingPermissions = missing, ai = AiSettings.load(this)) }
         }
+    }
+
+    /** Android 14+ can switch off full-screen incoming calls for an app; then calls only show a notification. */
+    private fun fullScreenBlocked(): Boolean =
+        Build.VERSION.SDK_INT >= 34 && !getSystemService(android.app.NotificationManager::class.java).canUseFullScreenIntent()
+
+    private fun openFullScreenSettings() {
+        val intent = Intent("android.settings.MANAGE_APP_USE_FULL_SCREEN_INTENT", Uri.parse("package:$packageName"))
+        runCatching { startActivity(intent) }
+            .recoverCatching { startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, packageName)) }
+            .onFailure { toast("Open Settings, then Apps, then VaaniFlow, then allow full-screen notifications") }
     }
 
     private fun isDefaultDialer() = getSystemService(RoleManager::class.java).isRoleHeld(RoleManager.ROLE_DIALER)
@@ -246,6 +258,7 @@ class DialerActivity : ComponentActivity() {
         home = home.copy(
             isDefaultDialer = isDefault,
             dialerBlocked = !isDefault && dialerBlocked(),
+            fullScreenBlocked = fullScreenBlocked(),
             setup = SetupState(
                 isDefault = isDefaultDialer(),
                 paired = config.deviceToken.isNotBlank(),

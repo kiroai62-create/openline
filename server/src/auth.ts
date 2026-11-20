@@ -5,6 +5,8 @@ import type { Database } from "./db.js";
 import { hashToken } from "./state.js";
 
 const SESSION_COOKIE = "gw_session";
+/** The admin's own session, kept while they view the console as a customer. */
+const RETURN_COOKIE = "gw_admin_return";
 const SESSION_TTL_MS = 30 * 24 * 60 * 60_000;
 const MAX_LOGIN_FAILURES_PER_MINUTE = 10;
 
@@ -295,6 +297,18 @@ export class AuthService {
 
   clearSessionCookie(response: Response): void {
     response.clearCookie(SESSION_COOKIE, { path: "/" });
+  }
+
+  returnToken(request: { headers: IncomingMessage["headers"] }): string | undefined {
+    return readCookie(request.headers.cookie, RETURN_COOKIE);
+  }
+
+  setReturnCookie(request: Request, response: Response, token: string, expiresAt: Date): void {
+    response.cookie(RETURN_COOKIE, token, { httpOnly: true, sameSite: "strict", secure: request.secure, expires: expiresAt, path: "/" });
+  }
+
+  clearReturnCookie(response: Response): void {
+    response.clearCookie(RETURN_COOKIE, { path: "/" });
   }
 }
 

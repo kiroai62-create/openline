@@ -129,34 +129,38 @@ export class AiRouter {
     this.settings.set("aiRouting", next);
   }
 
-  /** Enabled providers of a kind, in order. The Gemini key in Settings is always the first Live key. */
-  list(kind: ProviderKind): ProviderConfig[] {
-    const own = this.routing().providers.filter((p) => p.kind === kind && p.enabled && p.apiKey);
+  /**
+   * Enabled providers of a kind, in order. `extra` (a customer's own keys) always comes first; then
+   * the Gemini key in Settings (Live only) and the platform's provider list.
+   */
+  list(kind: ProviderKind, extra: ProviderConfig[] = []): ProviderConfig[] {
+    const mine = extra.filter((p) => p.kind === kind && p.enabled && p.apiKey);
+    const own = [...mine, ...this.routing().providers.filter((p) => p.kind === kind && p.enabled && p.apiKey)];
     if (kind !== "live") return own;
     const primary = this.config.get("geminiApiKey");
     const base: ProviderConfig[] = primary
       ? [{ id: "settings-gemini", kind: "live", type: "gemini", label: "Gemini (Settings)", enabled: true, apiKey: primary, model: this.config.get("geminiModel") ?? PRESETS.gemini!.models.live! }]
       : [];
-    return [...base, ...own];
+    return [...mine, ...base, ...own.slice(mine.length)];
   }
 
-  available(kind: ProviderKind): ProviderConfig[] {
+  available(kind: ProviderKind, extra: ProviderConfig[] = []): ProviderConfig[] {
     const now = Date.now();
-    return this.list(kind).filter((p) => (this.cooldown.get(p.id) ?? 0) <= now);
+    return this.list(kind, extra).filter((p) => (this.cooldown.get(p.id) ?? 0) <= now);
   }
 
   /** The speech pipeline needs at least one provider of each kind. */
-  pipelineReady(): boolean {
-    return (["llm", "stt", "tts"] as const).every((k) => this.list(k).length > 0);
+  pipelineReady(extra: ProviderConfig[] = []): boolean {
+    return (["llm", "stt", "tts"] as const).every((k) => this.list(k, extra).length > 0);
   }
 
   /** Every pipeline step has a provider that is not on cooldown. */
-  pipelineAvailable(): boolean {
-    return (["llm", "stt", "tts"] as const).every((k) => this.available(k).length > 0);
+  pipelineAvailable(extra: ProviderConfig[] = []): boolean {
+    return (["llm", "stt", "tts"] as const).every((k) => this.available(k, extra).length > 0);
   }
 
-  anyConfigured(): boolean {
-    return this.list("live").length > 0 || this.pipelineReady();
+  anyConfigured(extra: ProviderConfig[] = []): boolean {
+    return this.list("live", extra).length > 0 || this.pipelineReady(extra);
   }
 
   /** Records a failure and decides how long the provider sits out. */
@@ -185,10 +189,15 @@ export class AiRouter {
   }
 
   status(): ProviderStatus[] {
-    const now = Date.now();
     const all = [...this.list("live"), ...(["llm", "stt", "tts"] as const).flatMap((k) => this.list(k))];
     const disabled = this.routing().providers.filter((p) => !p.enabled || !p.apiKey);
-    return [...all, ...disabled].map((p) => {
+    return this.statusOf([...all, ...disabled]);
+  }
+
+  /** Health of any list of providers (e.g. a customer's own keys). */
+  statusOf(providers: ProviderConfig[]): ProviderStatus[] {
+    const now = Date.now();
+    return providers.map((p) => {
       const until = this.cooldown.get(p.id) ?? 0;
       const s = this.stats.get(p.id);
       return {
@@ -217,8 +226,8 @@ export class AiRouter {
 
   // ---- requests with failover ----
 
-  async chat(messages: ChatMessage[], tools: ChatTool[]): Promise<{ message: ChatMessage; provider: string }> {
-    return this.each("llm", async (p) => {
+  async chat(messages: ChatMessage[], tools: ChatTool[], extra: ProviderConfig[] = []): Promise<{ message: ChatMessage; provider: string }> {
+    return this.each("llm", extra, async (p) => {
       const body: Record<string, unknown> = { model: p.model, messages, temperature: 0.4, max_tokens: 300 };
       if (tools.length) Object.assign(body, { tools, tool_choice: "auto" });
       const json = (await this.json(`${this.openAiBase(p)}/chat/completions`, p, body)) as {
@@ -238,7 +247,7 @@ export class AiRouter {
   async chatText(
     messages: ChatMessage[],
     options: { extra?: ProviderConfig[]; maxTokens?: number; temperature?: number } = {},
-  ): Promise<{ text: string; provider: string }> {
+  ): Promise<{ text: string; provider: string; tokens?: number }> {
     const order = this.textProviders(options.extra ?? []);
     if (!order.length) throw new Error("no chat model configured (add Gemini, Groq or Cloudflare in AI providers)");
     const now = Date.now();
@@ -249,11 +258,12 @@ export class AiRouter {
         const body = { model: p.model, messages, temperature: options.temperature ?? 0.5, max_tokens: options.maxTokens ?? 500 };
         const json = (await this.json(`${this.openAiBase(p)}/chat/completions`, p, body)) as {
           choices?: { message?: { content?: string | null } }[];
+          usage?: { total_tokens?: number };
         };
         const text = json.choices?.[0]?.message?.content?.trim();
         if (!text) throw new ProviderError(`${p.label}: empty reply`);
         this.succeed(p);
-        return { text, provider: p.label };
+        return { text, provider: p.label, tokens: json.usage?.total_tokens };
       } catch (error) {
         last = error;
         this.fail(p, error);
@@ -270,13 +280,23 @@ export class AiRouter {
       key && !own.some((p) => p.type === "gemini" && p.apiKey === key)
         ? [{ id: "settings-gemini-llm", kind: "llm", type: "gemini", label: "Gemini (Settings)", enabled: true, apiKey: key, model: PRESETS.gemini!.models.llm! }]
         : [];
-    return [...extra.filter((p) => p.apiKey), ...own, ...settingsGemini];
+    // A customer's Gemini Live key also answers chat (same key, chat model).
+    const mine = extra
+      .filter((p) => p.enabled && p.apiKey && (p.kind === "llm" || (p.kind === "live" && p.type === "gemini")))
+      .map((p) => (p.kind === "live" ? { ...p, id: `${p.id}:chat`, kind: "llm" as const, model: PRESETS.gemini!.models.llm! } : p))
+      .filter((p, i, all) => all.findIndex((x) => x.type === p.type && x.apiKey === p.apiKey) === i);
+    return [...mine, ...own, ...settingsGemini];
   }
 
   /** Sends one short request to a saved provider so the console can show whether its key works. */
   async test(id: string): Promise<{ ok: boolean; ms: number; reply?: string; error?: string }> {
     const p = this.routing().providers.find((x) => x.id === id);
     if (!p) throw new Error("provider not found");
+    return this.testProvider(p);
+  }
+
+  /** One short request with this provider's key (works for platform and customer providers). */
+  async testProvider(p: ProviderConfig): Promise<{ ok: boolean; ms: number; reply?: string; error?: string }> {
     if (!p.apiKey) return { ok: false, ms: 0, error: "no API key saved" };
     const started = Date.now();
     try {
@@ -300,9 +320,9 @@ export class AiRouter {
   }
 
   /** 16 kHz PCM -> text. */
-  async transcribe(pcm: Buffer): Promise<string> {
+  async transcribe(pcm: Buffer, extra: ProviderConfig[] = []): Promise<string> {
     const wav = pcmToWav(pcm);
-    return this.each("stt", async (p) => {
+    return this.each("stt", extra, async (p) => {
       if (p.type === "cloudflare") {
         const json = (await this.json(
           `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(p.accountId ?? "")}/ai/run/${p.model}`,
@@ -338,8 +358,8 @@ export class AiRouter {
   }
 
   /** Text -> 16 kHz PCM. */
-  async speak(text: string): Promise<Buffer> {
-    return this.each("tts", (p) => this.synthesize(p, text));
+  async speak(text: string, extra: ProviderConfig[] = []): Promise<Buffer> {
+    return this.each("tts", extra, (p) => this.synthesize(p, text));
   }
 
   private async synthesize(p: ProviderConfig, text: string): Promise<Buffer> {
@@ -385,10 +405,10 @@ export class AiRouter {
 
   // ---- internals ----
 
-  private async each<T>(kind: Exclude<ProviderKind, "live">, run: (p: ProviderConfig) => Promise<T>): Promise<T> {
-    const candidates = this.available(kind);
+  private async each<T>(kind: Exclude<ProviderKind, "live">, extra: ProviderConfig[], run: (p: ProviderConfig) => Promise<T>): Promise<T> {
+    const candidates = this.available(kind, extra);
     // Everything on cooldown: try the configured ones anyway rather than leave the caller in silence.
-    const order = candidates.length ? candidates : this.list(kind);
+    const order = candidates.length ? candidates : this.list(kind, extra);
     if (!order.length) throw new Error(`no ${kind} provider configured`);
     let last: unknown;
     for (const p of order) {
