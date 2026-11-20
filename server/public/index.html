@@ -3,204 +3,363 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#5B47FB">
+<meta name="theme-color" content="#ffffff">
 <title>VaaniFlow · AI receptionist for calls and WhatsApp</title>
 <meta name="description" content="VaaniFlow answers your business calls and WhatsApp chats with AI, in Hindi, Hinglish and English. Uses your own SIM and number.">
 <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-  :root { --brand: #5B47FB; --flow: #14C8B0; --grad: linear-gradient(135deg, #5B47FB 0%, #3E7BF6 52%, #14C8B0 100%); --ink: #0F1222; --ink-2: #2A2F45; --muted: #5F6680; --line: #E6E8F0; --paper: #FFFFFF; --soft: #F6F7FB; }
+  :root {
+    --ink: #0A0A0B; --ink-2: #3F3F46; --muted: #71717A; --faint: #A1A1AA;
+    --line: #E4E4E7; --line-2: #F0F0F2; --bg: #FFFFFF; --soft: #FAFAFA;
+    --brand: #5B3FF5; --brand-soft: #F0EDFF; --teal: #14B8A6;
+    --mono: "Geist Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+    --shadow: 0 1px 2px rgba(10, 10, 11, .04), 0 8px 24px -8px rgba(10, 10, 11, .08);
+  }
   * { box-sizing: border-box; }
   html { scroll-behavior: smooth; }
-  body { margin: 0; font: 16px/1.6 Inter, system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); background: var(--paper); -webkit-font-smoothing: antialiased; }
+  body { margin: 0; font: 16px/1.6 Geist, Inter, system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); background: var(--bg); -webkit-font-smoothing: antialiased; }
   a { color: inherit; text-decoration: none; }
-  .wrap { width: min(1180px, 100% - 40px); margin: 0 auto; }
-  .g { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
-  .btn { display: inline-flex; align-items: center; gap: 8px; height: 46px; padding: 0 22px; border-radius: 12px; font-weight: 650; font-size: 15px; border: 1px solid var(--line); background: #fff; color: var(--ink); cursor: pointer; transition: transform .08s, box-shadow .15s; }
-  .btn:hover { box-shadow: 0 6px 20px rgba(16, 24, 40, .08); }
-  .btn.p { background: var(--grad); border: 0; color: #fff; box-shadow: 0 10px 30px rgba(91, 71, 251, .35); }
-  .btn.p:hover { box-shadow: 0 14px 36px rgba(91, 71, 251, .45); transform: translateY(-1px); }
-  .btn.sm { height: 38px; padding: 0 16px; font-size: 14px; border-radius: 10px; }
-  header { position: sticky; top: 0; z-index: 10; background: rgba(255, 255, 255, .78); backdrop-filter: saturate(1.6) blur(12px); border-bottom: 1px solid rgba(230, 232, 240, .7); }
-  .nav { display: flex; align-items: center; gap: 28px; height: 68px; }
-  .logo { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 19px; letter-spacing: -.02em; }
-  .logo img { width: 34px; height: 34px; border-radius: 10px; box-shadow: 0 6px 18px rgba(91, 71, 251, .35); }
-  .links { display: flex; gap: 26px; font-size: 14.5px; color: var(--ink-2); font-weight: 500; }
-  .links a:hover { color: var(--brand); }
+  img { display: block; }
+  .wrap { width: min(1160px, 100% - 40px); margin: 0 auto; }
+
+  /* buttons */
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 42px; padding: 0 18px; border-radius: 999px; font: 500 14.5px Geist, system-ui, sans-serif; border: 1px solid var(--line); background: #fff; color: var(--ink); cursor: pointer; transition: background .15s, border-color .15s, transform .15s, box-shadow .15s; white-space: nowrap; }
+  .btn:hover { border-color: #D4D4D8; background: var(--soft); }
+  .btn.p { background: var(--ink); border-color: var(--ink); color: #fff; box-shadow: 0 1px 0 rgba(255, 255, 255, .15) inset, 0 4px 14px -4px rgba(10, 10, 11, .45); }
+  .btn.p:hover { background: #27272A; transform: translateY(-1px); }
+  .btn.sm { height: 34px; padding: 0 14px; font-size: 13.5px; }
+  .btn svg { width: 16px; height: 16px; }
+  .arrow { transition: transform .15s; } .btn:hover .arrow { transform: translateX(2px); }
+
+  /* header */
+  header { position: sticky; top: 0; z-index: 20; background: rgba(255, 255, 255, .8); backdrop-filter: saturate(1.8) blur(14px); border-bottom: 1px solid transparent; transition: border-color .2s; }
+  header.scrolled { border-color: var(--line); }
+  .nav { display: flex; align-items: center; gap: 32px; height: 64px; }
+  .logo { display: inline-flex; align-items: center; gap: 9px; font-weight: 600; font-size: 17px; letter-spacing: -.03em; }
+  .logo img { width: 28px; height: 28px; border-radius: 7px; }
+  .links { display: flex; gap: 4px; font-size: 14px; color: var(--ink-2); }
+  .links a { padding: 6px 12px; border-radius: 999px; transition: background .15s, color .15s; }
+  .links a:hover { background: var(--soft); color: var(--ink); }
   .nav .sp { flex: 1; }
-  .hero { position: relative; overflow: hidden; padding: 84px 0 40px; }
-  .hero::before { content: ""; position: absolute; inset: -30% -10% auto; height: 760px; background: radial-gradient(40% 50% at 25% 30%, rgba(91, 71, 251, .18), transparent 70%), radial-gradient(35% 45% at 80% 20%, rgba(20, 200, 176, .18), transparent 70%); z-index: -1; }
-  .eyebrow { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px 6px 6px; border-radius: 99px; background: #fff; border: 1px solid var(--line); font-size: 13px; font-weight: 600; color: var(--ink-2); box-shadow: 0 2px 10px rgba(16, 24, 40, .05); }
-  .eyebrow b { background: var(--grad); color: #fff; padding: 2px 9px; border-radius: 99px; font-size: 11.5px; }
-  h1 { font-size: clamp(38px, 6vw, 68px); line-height: 1.04; letter-spacing: -.04em; margin: 22px 0 18px; font-weight: 800; max-width: 900px; }
-  .sub { font-size: clamp(17px, 2vw, 20px); color: var(--muted); max-width: 680px; margin: 0 0 32px; }
-  .cta { display: flex; gap: 12px; flex-wrap: wrap; }
-  .trust { display: flex; gap: 22px; flex-wrap: wrap; margin-top: 26px; color: var(--muted); font-size: 14px; }
-  .trust span::before { content: "✓"; color: var(--flow); font-weight: 800; margin-right: 6px; }
-  /* product mock */
-  .mock { margin-top: 56px; display: grid; grid-template-columns: 1.55fr 1fr; gap: 20px; align-items: start; }
-  .card { background: #fff; border: 1px solid var(--line); border-radius: 20px; box-shadow: 0 30px 80px rgba(16, 24, 40, .12); overflow: hidden; }
-  .bar { display: flex; gap: 6px; padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--soft); }
-  .bar i { width: 10px; height: 10px; border-radius: 50%; background: #E0E3EC; }
-  .dash { display: grid; grid-template-columns: 150px 1fr; min-height: 340px; }
-  .dash .sb { border-right: 1px solid var(--line); padding: 14px 10px; display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: var(--ink-2); }
-  .dash .sb div { padding: 7px 10px; border-radius: 8px; } .dash .sb .on { background: #F1EFFF; color: var(--brand); font-weight: 650; }
-  .dash .mn { padding: 16px; }
-  .kp { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-  .kp div { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; font-size: 11.5px; color: var(--muted); }
-  .kp b { display: block; font-size: 20px; color: var(--ink); letter-spacing: -.02em; }
-  .chart { display: flex; align-items: flex-end; gap: 6px; height: 120px; margin-top: 16px; padding: 10px; border: 1px solid var(--line); border-radius: 12px; }
-  .chart span { flex: 1; border-radius: 5px 5px 2px 2px; background: linear-gradient(180deg, #8C7DFF, #5B47FB); }
-  .chart span:nth-child(3n) { background: linear-gradient(180deg, #4FE0CC, #14C8B0); }
-  .rows { margin-top: 12px; font-size: 12px; }
-  .rows div { display: flex; justify-content: space-between; padding: 7px 2px; border-bottom: 1px dashed var(--line); }
-  .tag { font-size: 10.5px; font-weight: 700; padding: 1px 7px; border-radius: 99px; background: #E8F7EE; color: #12A150; }
-  .tag.v { background: #F1EFFF; color: var(--brand); }
-  .chat { padding: 14px; background: #F3F6F9; display: flex; flex-direction: column; gap: 8px; min-height: 340px; background-image: radial-gradient(#DFE3EC 1px, transparent 1px); background-size: 16px 16px; }
-  .chat .h { display: flex; align-items: center; gap: 10px; background: #fff; margin: -14px -14px 6px; padding: 12px 14px; border-bottom: 1px solid var(--line); font-size: 13px; }
-  .chat .av { width: 32px; height: 32px; border-radius: 50%; background: #F1EFFF; color: var(--brand); display: grid; place-items: center; font-weight: 800; font-size: 12px; }
-  .b { max-width: 82%; padding: 8px 11px; border-radius: 12px; font-size: 13px; background: #fff; border: 1px solid var(--line); }
-  .b.o { align-self: flex-end; background: #F1EFFF; border-color: #E4E0FF; }
-  .b small { display: block; font-size: 10px; color: var(--muted); text-align: right; margin-top: 2px; }
-  section.s { padding: 96px 0; }
-  .kicker { color: var(--brand); font-weight: 700; font-size: 13px; letter-spacing: .1em; text-transform: uppercase; }
-  h2 { font-size: clamp(30px, 4vw, 44px); line-height: 1.12; letter-spacing: -.03em; margin: 10px 0 14px; font-weight: 800; }
-  .lead { color: var(--muted); font-size: 18px; max-width: 660px; margin: 0; }
-  .feats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 46px; }
-  .feat { border: 1px solid var(--line); border-radius: 18px; padding: 24px; background: #fff; transition: box-shadow .15s, transform .15s; }
-  .feat:hover { box-shadow: 0 16px 40px rgba(16, 24, 40, .08); transform: translateY(-2px); }
-  .ic { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: #F1EFFF; color: var(--brand); margin-bottom: 14px; }
-  .ic.t { background: #E7FAF7; color: #0FA894; }
-  .ic svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
-  .feat h3 { margin: 0 0 6px; font-size: 18px; letter-spacing: -.01em; }
-  .feat p { margin: 0; color: var(--muted); font-size: 15px; }
-  .dark { background: #0C0B24; color: #fff; position: relative; overflow: hidden; }
-  .dark::before { content: ""; position: absolute; inset: 0; background: radial-gradient(40% 60% at 15% 20%, rgba(91, 71, 251, .45), transparent 70%), radial-gradient(35% 55% at 90% 80%, rgba(20, 200, 176, .35), transparent 70%); }
-  .dark > * { position: relative; }
-  .dark .lead { color: rgba(255, 255, 255, .72); }
-  .dark .kicker { color: #8FF3E3; }
-  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 56px; align-items: center; }
-  .rules { display: flex; flex-direction: column; gap: 12px; }
-  .rule { display: flex; gap: 14px; align-items: flex-start; padding: 16px 18px; border-radius: 16px; background: rgba(255, 255, 255, .06); border: 1px solid rgba(255, 255, 255, .12); }
-  .rule b { display: block; } .rule span { color: rgba(255, 255, 255, .7); font-size: 14.5px; }
-  .pill { flex: none; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 99px; background: rgba(255, 255, 255, .12); }
-  .pill.ai { background: var(--grad); }
-  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 44px; counter-reset: s; }
-  .step { padding: 26px; border-radius: 18px; background: var(--soft); border: 1px solid var(--line); }
-  .step::before { counter-increment: s; content: counter(s); display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; background: var(--grad); color: #fff; font-weight: 800; margin-bottom: 14px; }
-  .step h3 { margin: 0 0 6px; } .step p { margin: 0; color: var(--muted); font-size: 15px; }
-  .providers { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 30px; }
-  .providers span { padding: 10px 16px; border-radius: 12px; border: 1px solid var(--line); font-weight: 650; background: #fff; }
-  .plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; margin-top: 44px; }
+  .nav .actions { display: flex; gap: 8px; }
+
+  /* hero */
+  .hero { position: relative; padding: 88px 0 0; text-align: center; overflow: hidden; }
+  .hero::before { content: ""; position: absolute; inset: 0; background-image: linear-gradient(var(--line-2) 1px, transparent 1px), linear-gradient(90deg, var(--line-2) 1px, transparent 1px); background-size: 48px 48px; -webkit-mask-image: radial-gradient(ellipse 70% 55% at 50% 0%, #000 30%, transparent 75%); mask-image: radial-gradient(ellipse 70% 55% at 50% 0%, #000 30%, transparent 75%); z-index: -1; }
+  .hero::after { content: ""; position: absolute; left: 50%; top: -220px; width: 900px; height: 520px; transform: translateX(-50%); background: radial-gradient(closest-side, rgba(91, 63, 245, .16), transparent), radial-gradient(closest-side at 70% 60%, rgba(20, 184, 166, .12), transparent); z-index: -1; filter: blur(10px); }
+  .announce { display: inline-flex; align-items: center; gap: 10px; padding: 4px 14px 4px 4px; border-radius: 999px; border: 1px solid var(--line); background: #fff; font-size: 13.5px; color: var(--ink-2); box-shadow: var(--shadow); }
+  .announce b { font-weight: 500; font-size: 12px; padding: 2px 9px; border-radius: 999px; background: var(--ink); color: #fff; }
+  .announce:hover { border-color: #D4D4D8; }
+  h1 { font-size: clamp(40px, 6.6vw, 76px); line-height: 1.02; letter-spacing: -.055em; font-weight: 600; margin: 26px auto 20px; max-width: 920px; }
+  h1 .soft { color: var(--faint); }
+  .sub { font-size: clamp(17px, 2vw, 19px); color: var(--muted); max-width: 640px; margin: 0 auto 32px; letter-spacing: -.01em; }
+  .cta { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .trust { display: flex; gap: 22px; justify-content: center; flex-wrap: wrap; margin-top: 22px; color: var(--muted); font-size: 13.5px; }
+  .trust span { display: inline-flex; align-items: center; gap: 7px; }
+  .trust svg { width: 15px; height: 15px; color: var(--teal); }
+
+  /* product shot */
+  .shot { position: relative; margin: 64px auto 0; max-width: 1080px; text-align: left; }
+  .frame { border-radius: 16px; border: 1px solid var(--line); background: #fff; box-shadow: 0 0 0 6px rgba(10, 10, 11, .025), 0 40px 80px -24px rgba(10, 10, 11, .22); overflow: hidden; }
+  .chrome { display: flex; align-items: center; gap: 7px; height: 40px; padding: 0 14px; border-bottom: 1px solid var(--line); background: var(--soft); }
+  .chrome i { width: 10px; height: 10px; border-radius: 50%; background: #E4E4E7; }
+  .chrome .url { margin: 0 auto; font: 12px var(--mono); color: var(--muted); background: #fff; border: 1px solid var(--line); border-radius: 999px; padding: 3px 14px; }
+  .app { display: grid; grid-template-columns: 200px 1fr; min-height: 420px; }
+  .app .sb { border-right: 1px solid var(--line); padding: 14px 10px; display: flex; flex-direction: column; gap: 2px; font-size: 13px; color: var(--ink-2); }
+  .app .sb .ws { display: flex; align-items: center; gap: 8px; font-weight: 600; padding: 6px 8px 12px; color: var(--ink); }
+  .app .sb .ws img { width: 20px; height: 20px; border-radius: 5px; }
+  .app .sb div.it { padding: 7px 10px; border-radius: 8px; display: flex; align-items: center; gap: 9px; }
+  .app .sb div.it::before { content: ""; width: 14px; height: 14px; border-radius: 4px; border: 1.5px solid #D4D4D8; }
+  .app .sb .on { background: var(--soft); color: var(--ink); font-weight: 500; }
+  .app .sb .on::before { border-color: var(--ink); }
+  .app .mn { padding: 20px 22px; }
+  .app h4 { margin: 0 0 14px; font-size: 16px; font-weight: 600; letter-spacing: -.02em; display: flex; justify-content: space-between; align-items: center; }
+  .app h4 small { font: 12px var(--mono); color: var(--muted); font-weight: 400; border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; }
+  .kp { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .kp div { padding: 14px 16px; font-size: 12.5px; color: var(--muted); }
+  .kp div + div { border-left: 1px solid var(--line); }
+  .kp b { display: block; font-size: 24px; color: var(--ink); letter-spacing: -.04em; font-weight: 600; margin-top: 2px; }
+  .kp em { font-style: normal; font-size: 11.5px; color: #16A34A; margin-left: 6px; font-weight: 500; }
+  .chart { position: relative; height: 140px; margin-top: 14px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: linear-gradient(var(--line-2) 1px, transparent 1px) 0 0 / 100% 35px; }
+  .chart svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .rows { margin-top: 14px; border: 1px solid var(--line); border-radius: 12px; font-size: 13px; }
+  .rows div { display: flex; align-items: center; gap: 10px; padding: 9px 14px; }
+  .rows div + div { border-top: 1px solid var(--line-2); }
+  .rows .av { width: 24px; height: 24px; border-radius: 50%; background: var(--soft); border: 1px solid var(--line); display: grid; place-items: center; font-size: 10.5px; font-weight: 600; color: var(--ink-2); }
+  .rows .n { flex: 1; } .rows .t { color: var(--muted); font: 12px var(--mono); }
+  .tag { font-size: 11.5px; font-weight: 500; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--ink-2); background: #fff; }
+  .tag.ai { color: var(--brand); border-color: #DDD6FE; background: var(--brand-soft); }
+  .tag.ok { color: #15803D; border-color: #BBF7D0; background: #F0FDF4; }
+  .phone { position: absolute; right: -28px; bottom: -40px; width: 270px; border-radius: 34px; padding: 8px; background: #0A0A0B; box-shadow: 0 40px 80px -20px rgba(10, 10, 11, .45); }
+  .phone .scr { border-radius: 27px; overflow: hidden; background: #EFEAE2; }
+  .phone .hd { display: flex; align-items: center; gap: 9px; background: #fff; padding: 22px 14px 10px; font-size: 13px; border-bottom: 1px solid var(--line); }
+  .phone .hd .av { width: 30px; height: 30px; border-radius: 50%; background: var(--brand-soft); color: var(--brand); display: grid; place-items: center; font-weight: 600; font-size: 12px; }
+  .phone .hd small { display: block; color: #16A34A; font-size: 11px; }
+  .phone .body { padding: 12px 10px 16px; display: flex; flex-direction: column; gap: 6px; }
+  .b { max-width: 86%; padding: 6px 9px; border-radius: 10px; font-size: 12px; line-height: 1.45; background: #fff; box-shadow: 0 1px 0 rgba(0, 0, 0, .06); }
+  .b.o { align-self: flex-end; background: #D9FDD3; }
+  .b small { display: block; text-align: right; font-size: 9.5px; color: var(--muted); }
+
+  /* logos */
+  .logos { padding: 96px 0 24px; text-align: center; }
+  .logos p { font: 12px var(--mono); text-transform: uppercase; letter-spacing: .14em; color: var(--faint); margin: 0 0 22px; }
+  .logos .row { display: flex; justify-content: center; flex-wrap: wrap; gap: 14px 44px; color: var(--muted); font-weight: 600; font-size: 17px; letter-spacing: -.02em; }
+  .logos .row span { opacity: .75; transition: opacity .15s; } .logos .row span:hover { opacity: 1; }
+
+  /* sections */
+  section.s { padding: 104px 0; }
+  .kicker { display: inline-flex; align-items: center; gap: 8px; font: 12.5px var(--mono); text-transform: uppercase; letter-spacing: .12em; color: var(--muted); }
+  .kicker::before { content: ""; width: 6px; height: 6px; border-radius: 2px; background: var(--brand); }
+  h2 { font-size: clamp(32px, 4.4vw, 50px); line-height: 1.06; letter-spacing: -.045em; margin: 14px 0 16px; font-weight: 600; max-width: 760px; }
+  h2 .soft { color: var(--faint); }
+  .lead { color: var(--muted); font-size: 18px; max-width: 620px; margin: 0; letter-spacing: -.01em; }
+  .center { text-align: center; } .center h2, .center .lead { margin-left: auto; margin-right: auto; }
+
+  /* bento */
+  .bento { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; margin-top: 52px; }
+  .cell { position: relative; border: 1px solid var(--line); border-radius: 20px; background: #fff; padding: 26px; overflow: hidden; transition: border-color .2s, box-shadow .2s; }
+  .cell:hover { border-color: #D4D4D8; box-shadow: var(--shadow); }
+  .cell.w3 { grid-column: span 3; } .cell.w2 { grid-column: span 2; } .cell.w4 { grid-column: span 4; }
+  .cell h3 { margin: 0 0 6px; font-size: 18px; font-weight: 600; letter-spacing: -.025em; }
+  .cell p { margin: 0; color: var(--muted); font-size: 15px; max-width: 440px; }
+  .cell .ic { width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--line); display: grid; place-items: center; margin-bottom: 18px; background: #fff; box-shadow: var(--shadow); }
+  .cell .ic svg { width: 18px; height: 18px; stroke: var(--ink); fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .viz { margin-top: 22px; border: 1px solid var(--line); border-radius: 14px; background: var(--soft); padding: 14px; font-size: 13px; }
+  .wave { display: flex; align-items: center; justify-content: space-between; height: 54px; }
+  .wave i { flex: none; width: 5px; border-radius: 99px; background: var(--ink); opacity: .85; animation: w 1.4s ease-in-out infinite; }
+  .wave i:nth-child(3n) { background: var(--brand); } .wave i:nth-child(4n) { background: var(--teal); }
+  @keyframes w { 50% { transform: scaleY(.7); } }
+  @media (prefers-reduced-motion: reduce) { .wave i { animation: none; } }
+  .flow { display: flex; flex-direction: column; gap: 8px; }
+  .flow div { display: flex; align-items: center; gap: 10px; background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; }
+  .flow div span:last-child { margin-left: auto; }
+  .chatviz { display: flex; flex-direction: column; gap: 6px; background: #EFEAE2; }
+  .chatviz .b { font-size: 12.5px; }
+  .term { background: #09090B; border-color: #27272A; color: #E4E4E7; font: 13px/1.7 var(--mono); }
+  .term span { color: #71717A; } .term em { font-style: normal; color: #5EEAD4; }
+  .prov { display: flex; flex-wrap: wrap; gap: 8px; }
+  .prov span { background: #fff; border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; font-size: 13px; }
+  .prov span.on { border-color: #BBF7D0; background: #F0FDF4; color: #15803D; }
+
+  /* dark */
+  .dark { background: #09090B; color: #FAFAFA; position: relative; overflow: hidden; }
+  .dark::before { content: ""; position: absolute; inset: 0; background-image: linear-gradient(rgba(255, 255, 255, .04) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, .04) 1px, transparent 1px); background-size: 48px 48px; -webkit-mask-image: radial-gradient(ellipse 60% 70% at 70% 50%, #000, transparent 80%); mask-image: radial-gradient(ellipse 60% 70% at 70% 50%, #000, transparent 80%); }
+  .dark::after { content: ""; position: absolute; right: -10%; top: 10%; width: 600px; height: 600px; background: radial-gradient(closest-side, rgba(91, 63, 245, .35), transparent); }
+  .dark > * { position: relative; z-index: 1; }
+  .dark .lead { color: #A1A1AA; } .dark .kicker { color: #A1A1AA; } .dark .kicker::before { background: #5EEAD4; }
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: center; }
+  .rules { display: flex; flex-direction: column; border: 1px solid rgba(255, 255, 255, .1); border-radius: 18px; background: rgba(255, 255, 255, .03); backdrop-filter: blur(8px); overflow: hidden; }
+  .rule { display: flex; gap: 16px; align-items: flex-start; padding: 18px 20px; }
+  .rule + .rule { border-top: 1px solid rgba(255, 255, 255, .08); }
+  .rule b { display: block; font-weight: 500; } .rule span { color: #A1A1AA; font-size: 14.5px; }
+  .pill { flex: none; font: 11.5px var(--mono); padding: 3px 9px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, .16); color: #E4E4E7; margin-top: 2px; width: 112px; text-align: center; }
+  .pill.ai { border-color: rgba(94, 234, 212, .4); color: #5EEAD4; }
+
+  /* steps */
+  .steps { display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 52px; border: 1px solid var(--line); border-radius: 20px; overflow: hidden; }
+  .step { padding: 30px 28px; }
+  .step + .step { border-left: 1px solid var(--line); }
+  .step .no { font: 13px var(--mono); color: var(--faint); }
+  .step h3 { margin: 16px 0 6px; font-size: 18px; font-weight: 600; letter-spacing: -.02em; }
+  .step p { margin: 0; color: var(--muted); font-size: 15px; }
+
+  /* pricing */
+  .toggle { display: inline-flex; padding: 3px; border-radius: 999px; background: var(--soft); border: 1px solid var(--line); margin-top: 28px; }
+  .toggle button { border: 0; background: none; padding: 7px 18px; border-radius: 999px; font: 500 14px Geist, sans-serif; cursor: pointer; color: var(--muted); }
+  .toggle button[aria-pressed="true"] { background: #fff; color: var(--ink); box-shadow: 0 1px 3px rgba(10, 10, 11, .1); }
+  .plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 14px; margin-top: 40px; text-align: left; }
   .plan { border: 1px solid var(--line); border-radius: 20px; padding: 28px; background: #fff; display: flex; flex-direction: column; }
-  .plan.hot { border: 2px solid transparent; background: linear-gradient(#fff, #fff) padding-box, var(--grad) border-box; box-shadow: 0 24px 60px rgba(91, 71, 251, .18); }
-  .plan h3 { margin: 0; font-size: 18px; }
-  .price { font-size: 40px; font-weight: 800; letter-spacing: -.03em; margin: 12px 0 2px; } .price small { font-size: 15px; color: var(--muted); font-weight: 500; }
-  .plan ul { list-style: none; padding: 0; margin: 18px 0 24px; display: flex; flex-direction: column; gap: 9px; color: var(--ink-2); font-size: 15px; flex: 1; }
-  .plan li::before { content: "✓"; color: var(--flow); font-weight: 800; margin-right: 8px; }
-  .toggle { display: inline-flex; padding: 4px; border-radius: 12px; background: var(--soft); border: 1px solid var(--line); margin-top: 24px; }
-  .toggle button { border: 0; background: none; padding: 8px 16px; border-radius: 9px; font: 600 14px Inter, sans-serif; cursor: pointer; color: var(--muted); }
-  .toggle button[aria-pressed="true"] { background: #fff; color: var(--ink); box-shadow: 0 1px 4px rgba(16, 24, 40, .1); }
-  .faq { max-width: 820px; margin: 40px auto 0; }
-  details { border-bottom: 1px solid var(--line); padding: 18px 0; }
-  summary { cursor: pointer; font-weight: 650; font-size: 17px; list-style: none; display: flex; justify-content: space-between; gap: 12px; }
-  summary::after { content: "+"; color: var(--brand); font-size: 22px; line-height: 1; }
-  details[open] summary::after { content: "–"; }
+  .plan.hot { border-color: var(--ink); box-shadow: 0 24px 48px -16px rgba(10, 10, 11, .2); position: relative; }
+  .plan.hot::before { content: "Most popular"; position: absolute; top: -11px; left: 24px; font: 11.5px var(--mono); background: var(--ink); color: #fff; padding: 2px 10px; border-radius: 999px; }
+  .plan h3 { margin: 0; font-size: 16px; font-weight: 600; }
+  .price { font-size: 44px; font-weight: 600; letter-spacing: -.05em; margin: 14px 0 2px; } .price small { font-size: 15px; color: var(--muted); font-weight: 400; letter-spacing: 0; }
+  .plan .meta { color: var(--muted); font-size: 14px; }
+  .plan ul { list-style: none; padding: 20px 0 0; margin: 20px 0 26px; display: flex; flex-direction: column; gap: 10px; color: var(--ink-2); font-size: 14.5px; flex: 1; border-top: 1px solid var(--line-2); }
+  .plan li { display: flex; gap: 10px; }
+  .plan li::before { content: ""; flex: none; width: 16px; height: 16px; margin-top: 3px; border-radius: 50%; background: var(--ink) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E") center / 10px no-repeat; }
+  .plan .btn { width: 100%; }
+
+  /* faq */
+  .faq { max-width: 760px; margin: 44px auto 0; border-top: 1px solid var(--line); }
+  details { border-bottom: 1px solid var(--line); padding: 20px 4px; }
+  summary { cursor: pointer; font-weight: 500; font-size: 16.5px; list-style: none; display: flex; justify-content: space-between; gap: 12px; letter-spacing: -.01em; }
+  summary::-webkit-details-marker { display: none; }
+  summary::after { content: ""; flex: none; width: 20px; height: 20px; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2371717A' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M12 5v14M5 12h14'/%3E%3C/svg%3E") center / 18px no-repeat; transition: transform .2s; }
+  details[open] summary::after { transform: rotate(45deg); }
   details p { color: var(--muted); margin: 10px 0 0; }
-  .final { text-align: center; border-radius: 28px; padding: 64px 24px; background: var(--grad); color: #fff; box-shadow: 0 30px 80px rgba(91, 71, 251, .35); }
-  .final h2 { color: #fff; } .final p { color: rgba(255, 255, 255, .85); margin: 0 auto 26px; max-width: 560px; font-size: 18px; }
-  .final .btn { background: #fff; color: var(--brand); border: 0; }
-  footer { padding: 40px 0 50px; color: var(--muted); font-size: 14px; border-top: 1px solid var(--line); margin-top: 96px; }
-  footer .wrap { display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap; align-items: center; }
-  .setup { background: #FFF4E0; color: #8A5300; text-align: center; padding: 10px; font-size: 14px; font-weight: 600; }
-  .setup a { text-decoration: underline; }
-  @media (max-width: 920px) { .links { display: none; } .mock, .split { grid-template-columns: 1fr; } .feats, .steps { grid-template-columns: 1fr; } .dash { grid-template-columns: 1fr; } .dash .sb { display: none; } section.s { padding: 70px 0; } }
+
+  /* final */
+  .final { position: relative; text-align: center; border-radius: 28px; padding: 80px 24px; background: #09090B; color: #fff; overflow: hidden; }
+  .final::before { content: ""; position: absolute; inset: 0; background: radial-gradient(50% 80% at 50% 120%, rgba(91, 63, 245, .55), transparent 70%); }
+  .final > * { position: relative; }
+  .final img { width: 52px; height: 52px; margin: 0 auto 22px; border-radius: 13px; box-shadow: 0 10px 40px rgba(91, 63, 245, .6); }
+  .final h2 { color: #fff; margin: 0 auto 12px; } .final p { color: #A1A1AA; margin: 0 auto 30px; max-width: 520px; font-size: 18px; }
+  .final .btn { background: #fff; color: var(--ink); border-color: #fff; }
+  .final .btn.ghost { background: transparent; color: #fff; border-color: rgba(255, 255, 255, .2); }
+
+  footer { padding: 56px 0 48px; color: var(--muted); font-size: 14px; border-top: 1px solid var(--line); margin-top: 104px; }
+  .foot { display: grid; grid-template-columns: 2fr repeat(3, 1fr); gap: 32px; }
+  .foot h5 { margin: 0 0 12px; font-size: 13px; font-weight: 500; color: var(--ink); }
+  .foot a { display: block; padding: 3px 0; }
+  .foot .about .logo { display: inline-flex; color: var(--ink); padding: 0; } .foot a:hover { color: var(--ink); }
+  .foot .about p { max-width: 300px; margin: 14px 0 0; }
+  .legal { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 44px; padding-top: 22px; border-top: 1px solid var(--line-2); font-size: 13px; }
+
+  .setup { background: var(--ink); color: #fff; text-align: center; padding: 9px; font-size: 13.5px; }
+  .setup a { text-decoration: underline; text-underline-offset: 3px; }
+  .reveal { opacity: 0; transform: translateY(14px); transition: opacity .6s ease, transform .6s ease; }
+  .reveal.in { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; } }
+
+  @media (max-width: 960px) {
+    .links { display: none; } .split { grid-template-columns: 1fr; gap: 36px; }
+    .bento { grid-template-columns: 1fr; } .cell.w2, .cell.w3, .cell.w4 { grid-column: auto; }
+    .steps { grid-template-columns: 1fr; } .step + .step { border-left: 0; border-top: 1px solid var(--line); }
+    .app { grid-template-columns: 1fr; } .app .sb { display: none; }
+    .phone { position: relative; right: auto; bottom: auto; margin: -60px auto 0; }
+    .foot { grid-template-columns: 1fr 1fr; } section.s { padding: 72px 0; }
+    .nav .actions .btn:not(.p) { display: none; }
+  }
 </style>
 </head>
 <body>
-<div class="setup" id="setupBanner" hidden>This server isn't set up yet. <a href="/console">Create the admin account</a>.</div>
-<header><div class="wrap nav">
-  <a class="logo" href="/"><img src="/assets/logo.svg" alt=""><span data-brand><span>Vaani</span><span class="g">Flow</span></span></a>
-  <nav class="links"><a href="#features">Features</a><a href="#personal">Your phone</a><a href="#how">How it works</a><a href="#pricing">Pricing</a><a href="#faq">FAQ</a></nav>
+<div class="setup" id="setupBanner" hidden>This server isn't set up yet. <a href="/console">Create the admin account →</a></div>
+<header id="top"><div class="wrap nav">
+  <a class="logo" href="/"><img src="/assets/logo.svg" alt=""><span data-brand>VaaniFlow</span></a>
+  <nav class="links"><a href="#features">Product</a><a href="#personal">Your phone</a><a href="#how">How it works</a><a href="#pricing">Pricing</a><a href="#faq">FAQ</a></nav>
   <span class="sp"></span>
-  <a class="btn sm" href="/console">Sign in</a>
-  <a class="btn sm p" href="#pricing">Get started</a>
+  <div class="actions"><a class="btn sm" href="/console">Log in</a><a class="btn sm p" href="/console">Start free <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div>
 </div></header>
 
 <section class="hero"><div class="wrap">
-  <span class="eyebrow"><b>New</b> WhatsApp automation is built in</span>
-  <h1>Your business number, answered by AI. <span class="g">Every call. Every chat.</span></h1>
-  <p class="sub">VaaniFlow picks up your calls on your own SIM, replies on WhatsApp in Hindi, Hinglish and English, shares booking links and hands the conversation to your team when it matters.</p>
-  <div class="cta"><a class="btn p" href="#pricing">Start free trial</a><a class="btn" href="#how">See how it works</a></div>
-  <div class="trust"><span>Works with your existing number</span><span>Personal calls stay personal</span><span>No new hardware</span></div>
+  <a class="announce" href="#features"><b>New</b> WhatsApp automation is built in <span aria-hidden="true">→</span></a>
+  <h1>Every call and chat,<br><span class="soft">answered by AI.</span></h1>
+  <p class="sub">VaaniFlow picks up calls on your own SIM and number, and replies on WhatsApp in Hindi, Hinglish and English. It books appointments and hands over to your team when it matters.</p>
+  <div class="cta"><a class="btn p" href="/console">Start free trial <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a><a class="btn" href="#how">See how it works</a></div>
+  <div class="trust">
+    <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Keeps your existing number</span>
+    <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Personal calls stay personal</span>
+    <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>No new hardware</span>
+  </div>
 
-  <div class="mock" aria-hidden="true">
-    <div class="card"><div class="bar"><i></i><i></i><i></i></div>
-      <div class="dash"><div class="sb"><div class="on">Overview</div><div>WhatsApp</div><div>My business</div><div>Phones</div><div>Plan &amp; billing</div></div>
-        <div class="mn"><div class="kp"><div>Calls answered<b>1,284</b></div><div>WhatsApp replies<b>3,912</b></div><div>Booking links<b>486</b></div></div>
-          <div class="chart"><span style="height:40%"></span><span style="height:62%"></span><span style="height:48%"></span><span style="height:80%"></span><span style="height:66%"></span><span style="height:92%"></span><span style="height:58%"></span><span style="height:74%"></span><span style="height:86%"></span><span style="height:70%"></span><span style="height:96%"></span><span style="height:64%"></span></div>
-          <div class="rows"><div><span>+91 98xxx 43210 · 2 min ago</span><span><span class="tag">Answered</span> <span class="tag v">AI</span></span></div><div><span>+91 97xxx 11002 · 9 min ago</span><span><span class="tag">Answered</span> <span class="tag v">Link sent</span></span></div><div><span>+91 99xxx 90876 · 21 min ago</span><span><span class="tag">Answered</span></span></div></div>
-        </div></div></div>
-    <div class="card"><div class="chat"><div class="h"><span class="av">AS</span><div><b>Asha</b><br><span style="color:#12A150;font-size:11.5px">AI on</span></div></div>
-      <div class="b">Clinic kal kitne baje khulega?<small>10:41</small></div>
-      <div class="b o">Namaste Asha! Kal hum subah 10 baje se shaam 7 baje tak khule hain. Appointment book karein? 🙂<small>AI · 10:41 ✓✓</small></div>
-      <div class="b">Haan, dant dard ke liye<small>10:42</small></div>
-      <div class="b o">Ye raha booking link: clinic.example/book. Aap apna naam aur time bhi yahan likh sakti hain, team confirm kar degi.<small>AI · 10:42 ✓✓</small></div>
+  <div class="shot reveal" aria-hidden="true">
+    <div class="frame">
+      <div class="chrome"><i></i><i></i><i></i><span class="url">app.vaaniflow.com/overview</span></div>
+      <div class="app">
+        <div class="sb"><div class="ws"><img src="/assets/logo.svg" alt="">Smile Dental</div><div class="it on">Overview</div><div class="it">Calls</div><div class="it">WhatsApp</div><div class="it">My business</div><div class="it">Phones</div><div class="it">AI providers</div><div class="it">Billing</div></div>
+        <div class="mn">
+          <h4>Overview <small>Last 7 days</small></h4>
+          <div class="kp"><div>Calls answered<b>1,284<em>+18%</em></b></div><div>WhatsApp replies<b>3,912<em>+32%</em></b></div><div>Bookings sent<b>486<em>+11%</em></b></div></div>
+          <div class="chart"><svg viewBox="0 0 600 140" preserveAspectRatio="none"><defs><linearGradient id="ar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5B3FF5" stop-opacity=".22"/><stop offset="1" stop-color="#5B3FF5" stop-opacity="0"/></linearGradient></defs><path d="M0 108 C60 96 90 70 140 78 S230 40 280 52 360 88 410 60 500 22 540 34 590 18 600 16 V140 H0Z" fill="url(#ar)"/><path d="M0 108 C60 96 90 70 140 78 S230 40 280 52 360 88 410 60 500 22 540 34 590 18 600 16" fill="none" stroke="#5B3FF5" stroke-width="2.2"/><path d="M0 124 C70 118 120 104 170 110 S260 92 310 98 400 112 450 96 540 82 600 78" fill="none" stroke="#14B8A6" stroke-width="2" stroke-dasharray="4 4"/></svg></div>
+          <div class="rows">
+            <div><span class="av">AV</span><span class="n">Asha Verma</span><span class="tag ok">Answered</span><span class="tag ai">AI</span><span class="t">2m</span></div>
+            <div><span class="av">RK</span><span class="n">+91 97xxx 11002</span><span class="tag ok">Answered</span><span class="tag ai">Link sent</span><span class="t">9m</span></div>
+            <div><span class="av">DR</span><span class="n">Dr. Rao</span><span class="tag">Personal</span><span class="t">21m</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="phone"><div class="scr">
+      <div class="hd"><span class="av">AS</span><div><b>Asha</b><small>AI replying</small></div></div>
+      <div class="body">
+        <div class="b">Clinic kal kitne baje khulega?<small>10:41</small></div>
+        <div class="b o">Namaste Asha! Kal hum 10 se 7 baje tak khule hain. Appointment book karein? 🙂<small>10:41 ✓✓</small></div>
+        <div class="b">Haan, dant dard ke liye<small>10:42</small></div>
+        <div class="b o">Ye raha booking link: clinic.example/book. Team confirm kar degi.<small>10:42 ✓✓</small></div>
+      </div>
     </div></div>
   </div>
 </div></section>
 
+<div class="logos wrap"><p>Runs on the AI you choose</p>
+  <div class="row"><span>Google Gemini</span><span>Groq</span><span>Cloudflare</span><span>OpenRouter</span><span>Sarvam AI</span><span>OpenAI-compatible</span></div>
+</div>
+
 <section class="s" id="features"><div class="wrap">
-  <div class="kicker">Features</div>
-  <h2>One AI front desk for calls and WhatsApp</h2>
-  <p class="lead">Everything a busy clinic, shop or office needs to never miss a customer, managed from one dashboard.</p>
-  <div class="feats">
-    <div class="feat"><div class="ic"><svg viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/></svg></div><h3>AI receptionist on real calls</h3><p>Answers on your SIM with a natural voice, takes messages, answers questions from your information and sends the booking link.</p></div>
-    <div class="feat"><div class="ic t"><svg viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22z"/></svg></div><h3>WhatsApp automation</h3><p>Link your number with a QR code. The AI replies in seconds, your team sees every chat in one inbox and can take over anytime.</p></div>
-    <div class="feat"><div class="ic"><svg viewBox="0 0 24 24"><path d="M18 11V6a2 2 0 0 0-4 0M14 10V4a2 2 0 0 0-4 0v2M10 10.5V6a2 2 0 0 0-4 0v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.9-6-2.4l-3.6-3.6a2 2 0 0 1 2.8-2.8L7 15"/></svg></div><h3>Human hand-off</h3><p>Complaints, emergencies and "can I talk to someone" are flagged for staff. One click pauses the AI for that chat.</p></div>
-    <div class="feat"><div class="ic t"><svg viewBox="0 0 24 24"><path d="M12 3l1.9 5.8L20 11l-6.1 2.2L12 19l-1.9-5.8L4 11l6.1-2.2z"/></svg></div><h3>Multiple AI providers</h3><p>Gemini, Groq and Cloudflare Workers AI with automatic failover. If one hits its limit, the next one answers.</p></div>
-    <div class="feat"><div class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div><h3>Analytics</h3><p>Calls answered and missed, busiest hours, booking links sent, AI reply times and every transcript.</p></div>
-    <div class="feat"><div class="ic t"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg></div><h3>Your data, your server</h3><p>Self-hosted on your VPS, Azure or AWS. One database per deployment, API keys never leave the server.</p></div>
+  <div class="kicker">Product</div>
+  <h2>One AI front desk. <span class="soft">Calls and WhatsApp, in one place.</span></h2>
+  <p class="lead">Everything a busy clinic, shop or office needs so no customer goes unanswered.</p>
+  <div class="bento">
+    <div class="cell w4 reveal">
+      <div class="ic"><svg viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/></svg></div>
+      <h3>An AI receptionist on real calls</h3>
+      <p>Answers on your SIM with a natural voice, answers questions from your business details, takes messages and sends the booking link.</p>
+      <div class="viz"><div class="wave"><i style="height:30%"></i><i style="height:60%"></i><i style="height:90%"></i><i style="height:50%"></i><i style="height:75%"></i><i style="height:35%"></i><i style="height:95%"></i><i style="height:65%"></i><i style="height:40%"></i><i style="height:80%"></i><i style="height:55%"></i><i style="height:30%"></i><i style="height:70%"></i><i style="height:92%"></i><i style="height:45%"></i><i style="height:62%"></i><i style="height:38%"></i><i style="height:85%"></i><i style="height:50%"></i><i style="height:28%"></i><i style="height:66%"></i><i style="height:88%"></i><i style="height:42%"></i><i style="height:58%"></i></div></div>
+    </div>
+    <div class="cell w2 reveal">
+      <div class="ic"><svg viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22z"/></svg></div>
+      <h3>WhatsApp automation</h3>
+      <p>Link your number with a QR code. The AI replies in seconds and your team sees every chat in one inbox.</p>
+      <div class="viz chatviz"><div class="b">Kal appointment mil sakta hai?</div><div class="b o">Haan! 11 baje ya 4 baje? 🙂</div></div>
+    </div>
+    <div class="cell w2 reveal">
+      <div class="ic"><svg viewBox="0 0 24 24"><path d="M18 11V6a2 2 0 0 0-4 0M14 10V4a2 2 0 0 0-4 0v2M10 10.5V6a2 2 0 0 0-4 0v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.9-6-2.4l-3.6-3.6a2 2 0 0 1 2.8-2.8L7 15"/></svg></div>
+      <h3>Human hand-off</h3>
+      <p>Complaints, emergencies and "can I talk to someone" go to your staff. One click pauses the AI.</p>
+    </div>
+    <div class="cell w2 reveal">
+      <div class="ic"><svg viewBox="0 0 24 24"><path d="M12 3l1.9 5.8L20 11l-6.1 2.2L12 19l-1.9-5.8L4 11l6.1-2.2z"/></svg></div>
+      <h3>Any AI provider</h3>
+      <p>Automatic failover: if one provider hits its limit, the next one answers.</p>
+      <div class="viz prov"><span class="on">Gemini · active</span><span>Groq</span><span>Cloudflare</span></div>
+    </div>
+    <div class="cell w2 reveal">
+      <div class="ic"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 5-6"/></svg></div>
+      <h3>Analytics</h3>
+      <p>Answered and missed calls, busiest hours, bookings sent, reply times and every transcript.</p>
+    </div>
+    <div class="cell w3 reveal">
+      <div class="ic"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg></div>
+      <h3>Your data, your server</h3>
+      <p>Self-hosted on your VPS, Azure or AWS. API keys never leave the server.</p>
+      <div class="viz term"><span>$</span> docker compose up -d<br><em>vaaniflow  running on :8787</em></div>
+    </div>
+    <div class="cell w3 reveal">
+      <div class="ic"><svg viewBox="0 0 24 24"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="9"/></svg></div>
+      <h3>Live in an afternoon</h3>
+      <p>Install the app, scan two QR codes, paste your business details. That's it.</p>
+      <div class="viz flow"><div><span class="tag ok">Done</span>Phone linked<span style="font:12px var(--mono);color:var(--muted)">00:02</span></div><div><span class="tag ok">Done</span>WhatsApp linked<span style="font:12px var(--mono);color:var(--muted)">00:04</span></div></div>
+    </div>
   </div>
 </div></section>
 
 <section class="s dark" id="personal"><div class="wrap split">
   <div>
     <div class="kicker">Your phone stays yours</div>
-    <h2>A full phone app. The AI only takes the calls you want it to.</h2>
-    <p class="lead">The VaaniFlow app is a complete dialer with contacts, call history, favourites and a proper call screen. You decide when the AI steps in.</p>
+    <h2>A full phone app. The AI only takes the calls you choose.</h2>
+    <p class="lead">The VaaniFlow app works like the phone app you already use, with contacts, call history and favourites. You decide when the AI steps in.</p>
   </div>
-  <div class="rules">
-    <div class="rule"><span class="pill">Saved contacts</span><div><b>Family and friends ring normally</b><span>Calls from your contacts never go to the AI.</span></div></div>
+  <div class="rules reveal">
+    <div class="rule"><span class="pill">Contacts</span><div><b>Family and friends ring normally</b><span>Calls from saved contacts never go to the AI.</span></div></div>
     <div class="rule"><span class="pill">Business SIM</span><div><b>Pick the SIM the AI handles</b><span>On dual-SIM phones, personal SIM calls stay personal.</span></div></div>
-    <div class="rule"><span class="pill ai">Ring first</span><div><b>You answer, or the AI does</b><span>The phone rings for a few seconds; if you don't pick up, the AI answers silently.</span></div></div>
-    <div class="rule"><span class="pill ai">After hours</span><div><b>AI answers instantly when you're closed</b><span>Set your business hours, or switch the AI off from the notification.</span></div></div>
+    <div class="rule"><span class="pill ai">Ring first</span><div><b>You answer, or the AI does</b><span>The phone rings for a few seconds. If you don't pick up, the AI answers.</span></div></div>
+    <div class="rule"><span class="pill ai">After hours</span><div><b>AI answers instantly when you're closed</b><span>Set business hours, or switch the AI off from the notification.</span></div></div>
   </div>
 </div></section>
 
 <section class="s" id="how"><div class="wrap">
   <div class="kicker">How it works</div>
-  <h2>Live in an afternoon</h2>
-  <div class="steps">
-    <div class="step"><h3>Install the app</h3><p>Install VaaniFlow on an Android phone with your SIM and set it as the phone app.</p></div>
-    <div class="step"><h3>Scan two QR codes</h3><p>One links the phone to your workspace, the other links your WhatsApp number.</p></div>
-    <div class="step"><h3>Tell it about your business</h3><p>Paste your timings, services, fees and booking link. The AI answers only from this.</p></div>
+  <h2>Three steps. <span class="soft">No developers needed.</span></h2>
+  <div class="steps reveal">
+    <div class="step"><span class="no">01</span><h3>Install the app</h3><p>Install VaaniFlow on an Android phone with your SIM and set it as the phone app.</p></div>
+    <div class="step"><span class="no">02</span><h3>Scan two QR codes</h3><p>One links the phone to your workspace, the other links your WhatsApp number.</p></div>
+    <div class="step"><span class="no">03</span><h3>Describe your business</h3><p>Paste your timings, services, fees and booking link. The AI answers only from this.</p></div>
   </div>
-  <div class="providers"><span>Google Gemini</span><span>Groq</span><span>Cloudflare Workers AI</span><span>OpenRouter</span><span>Sarvam AI</span><span>Any OpenAI-compatible API</span></div>
 </div></section>
 
-<section class="s" id="pricing" style="background:var(--soft)"><div class="wrap" style="text-align:center">
+<section class="s" id="pricing" style="background:var(--soft);border-top:1px solid var(--line);border-bottom:1px solid var(--line)"><div class="wrap center">
   <div class="kicker">Pricing</div>
   <h2>Simple plans that grow with you</h2>
-  <p class="lead" style="margin:0 auto">Start with a free trial. Upgrade, renew or cancel from your dashboard.</p>
+  <p class="lead">Start with a free trial. Upgrade, renew or cancel from your dashboard.</p>
   <div class="toggle"><button aria-pressed="true" data-cycle="monthly">Monthly</button><button aria-pressed="false" data-cycle="yearly">Yearly</button></div>
-  <div class="plans" id="plans"><p style="grid-column:1/-1;color:var(--muted)">Loading plans…</p></div>
+  <div class="plans" id="plans"><p style="grid-column:1/-1;color:var(--muted);text-align:center">Loading plans…</p></div>
 </div></section>
 
 <section class="s" id="faq"><div class="wrap">
-  <div style="text-align:center"><div class="kicker">FAQ</div><h2>Questions, answered</h2></div>
+  <div class="center"><div class="kicker">FAQ</div><h2>Questions, answered</h2></div>
   <div class="faq">
     <details><summary>Do I need a new number?</summary><p>No. Use the SIM you already have, or forward your existing number to the phone running VaaniFlow.</p></details>
     <details><summary>Will the AI answer my personal calls?</summary><p>Not if you don't want it to. Saved contacts ring normally, you can pick which SIM the AI handles, and the phone can ring for you first before the AI steps in.</p></details>
@@ -210,30 +369,43 @@
   </div>
 </div></section>
 
-<section><div class="wrap"><div class="final">
+<section><div class="wrap"><div class="final reveal">
+  <img src="/assets/logo.svg" alt="">
   <h2>Never miss a customer again</h2>
   <p>Give every caller and every WhatsApp message an instant, helpful answer.</p>
-  <a class="btn" href="/console">Open your dashboard</a>
+  <div class="cta"><a class="btn" href="/console">Start free trial</a><a class="btn ghost" href="/console">Log in</a></div>
 </div></div></section>
 
-<footer><div class="wrap"><a class="logo" href="/"><img src="/assets/logo.svg" alt=""><span data-brand><span>Vaani</span><span class="g">Flow</span></span></a><span>© <span id="year"></span> <span id="brandFoot">VaaniFlow</span> · AI receptionist for calls and WhatsApp</span></div></footer>
+<footer><div class="wrap">
+  <div class="foot">
+    <div class="about"><a class="logo" href="/"><img src="/assets/logo.svg" alt=""><span data-brand>VaaniFlow</span></a><p>AI receptionist for calls and WhatsApp, on your own number.</p></div>
+    <div><h5>Product</h5><a href="#features">Features</a><a href="#personal">Phone app</a><a href="#pricing">Pricing</a></div>
+    <div><h5>Resources</h5><a href="#how">How it works</a><a href="#faq">FAQ</a></div>
+    <div><h5>Account</h5><a href="/console">Log in</a><a href="/console">Start free trial</a></div>
+  </div>
+  <div class="legal"><span>© <span id="year"></span> <span id="brandFoot">VaaniFlow</span>. All rights reserved.</span><span>Hindi · Hinglish · English</span></div>
+</div></footer>
 
 <script>
   const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
   const rupees = (p) => "₹" + (p / 100).toLocaleString("en-IN", { maximumFractionDigits: 0 });
   document.getElementById("year").textContent = new Date().getFullYear();
+  const head = document.getElementById("top");
+  addEventListener("scroll", () => head.classList.toggle("scrolled", scrollY > 8), { passive: true });
+  const io = "IntersectionObserver" in window ? new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } }), { threshold: .12 }) : null;
+  document.querySelectorAll(".reveal").forEach((el) => io ? io.observe(el) : el.classList.add("in"));
   let plans = [], cycle = "monthly";
   function render() {
     const box = document.getElementById("plans");
-    if (!plans.length) { box.innerHTML = `<p style="grid-column:1/-1;color:var(--muted)">Plans are set up by your provider. <a href="/console" style="color:var(--brand)">Sign in</a> to continue.</p>`; return; }
+    if (!plans.length) { box.innerHTML = `<p style="grid-column:1/-1;color:var(--muted);text-align:center">Plans are set up by your provider. <a href="/console" style="color:var(--ink);text-decoration:underline">Log in</a> to continue.</p>`; return; }
     const hot = plans.length > 1 ? plans[Math.min(1, plans.length - 1)].id : "";
     box.innerHTML = plans.map((p) => {
       const price = cycle === "yearly" ? p.priceYearly : p.priceMonthly;
-      return `<div class="plan ${p.id === hot ? "hot" : ""}" style="text-align:left"><h3>${esc(p.name)}</h3>
+      return `<div class="plan ${p.id === hot ? "hot" : ""}"><h3>${esc(p.name)}</h3>
         <div class="price">${rupees(price)}<small>/${cycle === "yearly" ? "year" : "month"}</small></div>
-        <div style="color:var(--muted);font-size:14px">${p.minutesIncluded < 0 ? "Unlimited" : p.minutesIncluded} AI minutes/month · ${p.maxPhones} phone${p.maxPhones > 1 ? "s" : ""}${p.trialDays ? ` · ${p.trialDays}-day trial` : ""}</div>
+        <div class="meta">${p.minutesIncluded < 0 ? "Unlimited" : p.minutesIncluded} AI minutes/month · ${p.maxPhones} phone${p.maxPhones > 1 ? "s" : ""}${p.trialDays ? ` · ${p.trialDays}-day trial` : ""}</div>
         <ul>${(p.features || []).map((f) => `<li>${esc(f)}</li>`).join("")}</ul>
-        <a class="btn ${p.id === hot ? "p" : ""}" href="/console" style="justify-content:center">Get ${esc(p.name)}</a></div>`;
+        <a class="btn ${p.id === hot ? "p" : ""}" href="/console">Get ${esc(p.name)}</a></div>`;
     }).join("");
   }
   document.querySelectorAll("[data-cycle]").forEach((b) => b.onclick = () => {

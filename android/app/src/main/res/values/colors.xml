@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Brand: Vaani Indigo and Flow Teal -->
-    <color name="brand">#5B47FB</color>
+    <color name="brand">#5B3FF5</color>
     <color name="flow">#14C8B0</color>
     <color name="window">#F0F4F9</color>
-    <color name="launcher_bg">#5B47FB</color>
+    <color name="launcher_bg">#5B3FF5</color>
 </resources>
