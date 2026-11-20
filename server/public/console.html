@@ -100,14 +100,14 @@
 
   /* ---- panels / cards ---- */
   .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); margin-bottom: 20px; overflow: hidden; }
-  .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--line-2); }
+  .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 16px 20px; border-bottom: 1px solid var(--line-2); }
   .panel-head h2 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -.02em; display: flex; align-items: center; gap: 8px; }
   .panel-body { padding: 18px 20px 20px; }
   .grid { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 20px; align-items: start; }
   .grid.even { grid-template-columns: 1fr 1fr; }
   .grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .grid > div > .panel:last-child, .grid > aside > .panel:last-child { margin-bottom: 0; }
-  .grid > div, .grid > aside { display: flex; flex-direction: column; gap: 20px; }
+  .grid > div, .grid > aside { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
   .grid > div > .panel, .grid > aside > .panel { margin-bottom: 0; }
   .empty { padding: 28px 20px; text-align: center; color: var(--muted); font-size: 13.5px; }
 
@@ -282,8 +282,8 @@
   .plogo { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 13px; }
 
   /* ---- WhatsApp inbox ---- */
-  .tabs { display: inline-flex; gap: 4px; padding: 3px; background: var(--soft); border: 1px solid var(--line); border-radius: 999px; margin-bottom: 18px; }
-  .tabs button { border: 0; background: transparent; padding: 6px 14px; border-radius: 999px; font: 600 13px Geist, Inter, system-ui, sans-serif; color: var(--muted); cursor: pointer; display: inline-flex; gap: 7px; align-items: center; }
+  .tabs { display: inline-flex; max-width: 100%; overflow-x: auto; scrollbar-width: none; gap: 4px; padding: 3px; background: var(--soft); border: 1px solid var(--line); border-radius: 999px; margin-bottom: 18px; }
+  .tabs button { flex: none; border: 0; background: transparent; padding: 6px 14px; border-radius: 999px; font: 600 13px Geist, Inter, system-ui, sans-serif; color: var(--muted); cursor: pointer; display: inline-flex; gap: 7px; align-items: center; }
   .tabs button[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(10, 10, 11, .1); }
   .inbox { display: grid; grid-template-columns: 330px minmax(0, 1fr) 300px; height: calc(100vh - 64px - 56px - 140px); min-height: 520px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-sm); }
   .inbox > section, .inbox > aside { min-height: 0; min-width: 0; display: flex; flex-direction: column; }
@@ -354,7 +354,7 @@
   .auth-foot { color: var(--muted); font-size: 12.5px; margin-top: 28px; text-align: center; }
 
   /* ---- responsive ---- */
-  @media (max-width: 1180px) { .grid { grid-template-columns: 1fr; } .inbox { grid-template-columns: 300px minmax(0, 1fr); } .ib-info { display: none !important; } }
+  @media (max-width: 1180px) { .grid { grid-template-columns: minmax(0, 1fr); } .inbox { grid-template-columns: 300px minmax(0, 1fr); } .ib-info { display: none !important; } }
   @media (max-width: 960px) {
     .shell { grid-template-columns: 1fr; }
     .side { position: fixed; left: 0; top: 0; bottom: 0; width: var(--side); transform: translateX(-100%); transition: transform .2s; box-shadow: var(--shadow-lg); }
@@ -363,7 +363,7 @@
     .menu-btn { display: inline-grid; }
     .content { padding: 18px; } .topbar { padding: 0 14px; }
     .auth { grid-template-columns: 1fr; } .auth-art { display: none; }
-    .grid.even, .grid.three, .sub-row, .pair, .wa-status { grid-template-columns: 1fr; }
+    .grid.even, .grid.three, .sub-row, .pair, .wa-status { grid-template-columns: minmax(0, 1fr); }
     .inbox { grid-template-columns: 1fr; height: calc(100vh - 160px); }
     .inbox.open .ib-list { display: none; } .inbox:not(.open) .ib-conv { display: none; }
   }
