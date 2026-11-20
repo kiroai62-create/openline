@@ -7,6 +7,6 @@
         <item name="android:colorAccent">@color/brand</item>
     </style>
     <style name="Theme.VaaniFlow.InCall" parent="Theme.VaaniFlow">
-        <item name="android:windowBackground">#FF0C0B24</item>
+        <item name="android:windowBackground">#FF07060F</item>
     </style>
 </resources>

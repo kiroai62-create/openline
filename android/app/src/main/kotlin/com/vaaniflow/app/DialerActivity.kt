@@ -195,6 +195,8 @@ class DialerActivity : ComponentActivity() {
             pickTime = { minute, done -> TimePickerDialog(this, { _, h, m -> done(h * 60 + m) }, minute / 60, minute % 60, false).show() },
         ),
         saveAi = { AiSettings.save(this, it); home = home.copy(ai = it); GatewayConnectionService.start(this) },
+        openAppInfo = ::openAppInfo,
+        dialerHelp = { show -> home = home.copy(showDialerHelp = show) },
     )
 
     // ---- data -----------------------------------------------------------------------------
@@ -227,8 +229,11 @@ class DialerActivity : ComponentActivity() {
             CallAudioBridge.Status.STOPPED -> if (needsWifi && !DeviceHealth.isOnWifi(this)) Triple(false, "Connect to Wi-Fi once to start it; mobile data works after that.", "Start") else Triple(false, "Set up, but stopped.", "Start")
             CallAudioBridge.Status.SETUP_REQUIRED -> Triple(false, "One-time pairing with Wireless debugging.", "Set up")
         }
+        val isDefault = isDefaultDialer()
+        if (isDefault && dialerBlocked()) setDialerBlocked(false)
         home = home.copy(
-            isDefaultDialer = isDefaultDialer(),
+            isDefaultDialer = isDefault,
+            dialerBlocked = !isDefault && dialerBlocked(),
             setup = SetupState(
                 isDefault = isDefaultDialer(),
                 paired = config.deviceToken.isNotBlank(),
@@ -272,10 +277,36 @@ class DialerActivity : ComponentActivity() {
     @Deprecated("Deprecated in Android API")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == REQUEST_DIALER_ROLE) { refreshSetup(); loadPhoneData() }
+        if (requestCode == REQUEST_DIALER_ROLE) {
+            // Android 13+ refuses the phone-app role for APKs installed outside an app store
+            // ("App was denied access to be default Phone app") until restricted settings are allowed.
+            if (!isDefaultDialer() && isSideloaded()) {
+                setDialerBlocked(true)
+                home = home.copy(showDialerHelp = true)
+            }
+            refreshSetup(); loadPhoneData()
+        }
+    }
+
+    private val prefs by lazy { getSharedPreferences("dialer_role", MODE_PRIVATE) }
+    private fun dialerBlocked() = prefs.getBoolean("blocked", false)
+    private fun setDialerBlocked(v: Boolean) = prefs.edit().putBoolean("blocked", v).apply()
+
+    /** True when the app wasn't installed by Google Play (or another store), so restricted settings apply. */
+    private fun isSideloaded(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return false
+        val installer = runCatching { packageManager.getInstallSourceInfo(packageName).installingPackageName }.getOrNull()
+        return installer !in setOf("com.android.vending", "com.google.android.feedback")
+    }
+
+    private fun openAppInfo() {
+        runCatching { startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))) }
+            .onFailure { toast("Open Settings, then Apps, then VaaniFlow") }
+        toast("Tap ⋮ at the top right, then Allow restricted settings")
     }
 
     private fun requestDialerRole() {
+        home = home.copy(showDialerHelp = false)
         val roleManager = getSystemService(RoleManager::class.java)
         if (!roleManager.isRoleAvailable(RoleManager.ROLE_DIALER)) return toast("This phone doesn't let apps become the default phone app")
         @Suppress("DEPRECATION")
