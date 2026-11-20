@@ -27,6 +27,20 @@ If the phone is offline or unlicensed, calls just ring. If the AI doesn't pick u
 starts ringing for the owner. Only calls the server answers or places (or that the owner hands
 over) go into background audio processing; personal calls use the earpiece and microphone normally.
 
+## "App was denied access to be default Phone app"
+
+Android 13+ blocks the phone-app role for APKs installed outside an app store. The app detects
+this after the role request and shows a step-by-step sheet: App info → ⋮ → **Allow restricted
+settings** → back to VaaniFlow → **Set as default**. Installing through Google Play (including
+internal app sharing) avoids the block.
+
+## Design
+
+Inter typeface, neutral ink/white surfaces with hairline borders (dub.co style), and a night-sky
+hero, eyebrow labels, brand stripe and icon orbs (from the Rajnath app). Tokens live in
+`ui/Theme.kt` (`Vaani.tokens`), shared pieces in `ui/Components.kt`. Screenshots:
+`docs/screenshots/`.
+
 ## Build
 
 ```bash

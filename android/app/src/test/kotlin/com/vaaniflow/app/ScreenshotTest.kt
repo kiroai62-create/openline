@@ -48,8 +48,8 @@ class ScreenshotTest {
     private val state = HomeState(contacts, recents, listOf("sim1" to "SIM 1 · Jio", "sim2" to "SIM 2 · Airtel"), false, true, setup, AiSettings.Settings())
     private val actions = HomeActions({}, {}, {}, {}, {}, {}, SetupActions({}, {}, {}, {}, { _, _, _ -> }, {}, { _, _ -> }), {})
 
-    private fun shot(name: String, tab: HomeTab, dial: String? = null, dark: Boolean = false) {
-        compose.setContent { VaaniTheme(dark = dark) { HomeScreen(state, actions, tab, dial) {} } }
+    private fun shot(name: String, tab: HomeTab, dial: String? = null, dark: Boolean = false, s: HomeState = state) {
+        compose.setContent { VaaniTheme(dark = dark) { HomeScreen(s, actions, tab, dial) {} } }
         compose.onRoot().captureRoboImage("build/outputs/roborazzi/$name.png")
     }
 
@@ -59,4 +59,10 @@ class ScreenshotTest {
     @Test fun assistant() = shot("04-assistant", HomeTab.ASSISTANT)
     @Test fun recentsDark() = shot("05-recents-dark", HomeTab.RECENTS, dark = true)
     @Test fun dialpad() = shot("06-dialpad", HomeTab.RECENTS, dial = "2742")
+    @Test fun favouritesDark() = shot("07-favourites-dark", HomeTab.FAVOURITES, dark = true, s = state.copy(isDefaultDialer = false))
+    @Test fun blockedDark() = shot("08-blocked-dark", HomeTab.FAVOURITES, dark = true, s = state.copy(isDefaultDialer = false, dialerBlocked = true))
+    @Test fun dialerHelpDark() = shot("09-dialer-help-dark", HomeTab.FAVOURITES, dark = true, s = state.copy(isDefaultDialer = false, dialerBlocked = true, showDialerHelp = true))
+    @Test fun assistantDark() = shot("10-assistant-dark", HomeTab.ASSISTANT, dark = true, s = state.copy(setup = setup.copy(batteryDone = true, batteryAction = null)))
+    @Test fun contactsDark() = shot("11-contacts-dark", HomeTab.CONTACTS, dark = true)
+    @Test fun dialpadDark() = shot("12-dialpad-dark", HomeTab.RECENTS, dial = "2742", dark = true)
 }

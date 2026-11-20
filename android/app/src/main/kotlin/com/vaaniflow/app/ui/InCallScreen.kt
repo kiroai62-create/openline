@@ -8,6 +8,8 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.ui.draw.shadow
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -82,9 +84,9 @@ fun InCallScreen(calls: List<CallRegistry.Entry>, audio: CallAudioState?, onAddC
     val others = live.filter { it != primary }
 
     Box(
-        Modifier.fillMaxSize().background(Brand.Night)
-            .background(Brush.radialGradient(listOf(Brand.Indigo.copy(alpha = 0.55f), Color.Transparent), radius = 900f, center = androidx.compose.ui.geometry.Offset(150f, 200f)))
-            .background(Brush.radialGradient(listOf(Brand.Teal.copy(alpha = 0.35f), Color.Transparent), radius = 900f, center = androidx.compose.ui.geometry.Offset(1000f, 2000f))),
+        Modifier.fillMaxSize().background(Brand.heroGradient)
+            .background(Brush.radialGradient(listOf(Brand.Indigo.copy(alpha = 0.45f), Color.Transparent), radius = 1000f, center = androidx.compose.ui.geometry.Offset(150f, 160f)))
+            .background(Brush.radialGradient(listOf(Brand.Teal.copy(alpha = 0.22f), Color.Transparent), radius = 1000f, center = androidx.compose.ui.geometry.Offset(1050f, 2100f))),
     ) {
         if (primary == null) {
             Text("Call ended", color = White, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.align(Alignment.Center))
@@ -116,13 +118,20 @@ fun InCallScreen(calls: List<CallRegistry.Entry>, audio: CallAudioState?, onAddC
             others.forEach { o -> OtherCallCard(o) }
 
             Spacer(Modifier.height(if (others.isEmpty()) 36.dp else 16.dp))
-            Text(statusText(primary, state, ai, conference), color = if (ai) Brand.Teal else Dim, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Medium)
+            Row(
+                Modifier.clip(RoundedCornerShape(50)).background(White.copy(alpha = 0.07f)).border(1.dp, White.copy(alpha = 0.10f), RoundedCornerShape(50)).padding(horizontal = 14.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(Modifier.size(6.dp).clip(CircleShape).background(if (ai) Brand.Teal else if (state == Call.STATE_ACTIVE) Color(0xFF34D399) else Brand.Gold))
+                Spacer(Modifier.width(8.dp))
+                Text(statusText(primary, state, ai, conference), color = if (ai) Brand.Teal else White.copy(alpha = 0.85f), style = MaterialTheme.typography.labelLarge)
+            }
             Spacer(Modifier.height(22.dp))
             if (ai && !incoming) AiOrb() else Avatar(if (conference) "Conference" else name, number, size = 112.dp)
             Spacer(Modifier.height(20.dp))
             Text(
                 if (conference) "Conference call" else name ?: formatNumber(number).ifBlank { "Unknown caller" },
-                color = White, fontSize = 30.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                color = White, fontSize = 32.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.8).sp, textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis,
             )
             if (name != null && !conference) Text(formatNumber(number), color = Dim, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(top = 4.dp))
             if (incoming) {
@@ -141,7 +150,7 @@ fun InCallScreen(calls: List<CallRegistry.Entry>, audio: CallAudioState?, onAddC
             Spacer(Modifier.weight(1f))
 
             when {
-                incoming -> IncomingControls(primary.callId, CallRegistry.decision(primary.callId) != "never" || true)
+                incoming -> IncomingControls(primary.callId)
                 ai -> AiControls(primary.callId)
                 keypad -> {
                     Text(typed.ifEmpty { " " }, color = White, fontSize = 30.sp, maxLines = 1)
@@ -232,7 +241,7 @@ private fun OtherCallCard(entry: CallRegistry.Entry) {
 }
 
 @Composable
-private fun IncomingControls(callId: String, @Suppress("UNUSED_PARAMETER") aiAllowed: Boolean) {
+private fun IncomingControls(callId: String) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
         RoundAction(Icons.Rounded.CallEnd, "Decline", Brand.Red) { CallActions.decline(callId) }
         RoundAction(Icons.Rounded.Call, "Answer", Brand.Green, pulse = true) { CallActions.answer(callId) }
@@ -291,7 +300,8 @@ private fun ActiveControls(primary: CallRegistry.Entry, others: List<CallRegistr
 private fun Toggle(icon: ImageVector, label: String, on: Boolean, enabled: Boolean = true, onClick: () -> Unit) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(86.dp)) {
         Box(
-            Modifier.size(64.dp).clip(CircleShape).background(if (on) White else White.copy(alpha = if (enabled) 0.12f else 0.05f)).clickable(enabled = enabled, onClick = onClick),
+            Modifier.size(64.dp).clip(CircleShape).background(if (on) White else White.copy(alpha = if (enabled) 0.09f else 0.04f))
+                .border(1.dp, White.copy(alpha = if (on) 0f else 0.10f), CircleShape).clickable(enabled = enabled, onClick = onClick),
             contentAlignment = Alignment.Center,
         ) { Icon(icon, label, tint = if (on) Brand.Night else White.copy(alpha = if (enabled) 1f else 0.4f)) }
         Spacer(Modifier.height(6.dp))
@@ -317,7 +327,7 @@ private fun RoundAction(icon: ImageVector, label: String, color: Color, pulse: B
 @Composable
 private fun EndButton(onClick: () -> Unit) {
     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        Box(Modifier.size(width = 96.dp, height = 64.dp).clip(RoundedCornerShape(32.dp)).background(Brand.Red).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(width = 120.dp, height = 64.dp).shadow(14.dp, RoundedCornerShape(32.dp), ambientColor = Brand.Red, spotColor = Brand.Red).clip(RoundedCornerShape(32.dp)).background(Brush.linearGradient(listOf(Color(0xFFF2555A), Color(0xFFD93A3F)))).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
             Icon(Icons.Rounded.CallEnd, "End call", tint = White, modifier = Modifier.size(32.dp))
         }
     }

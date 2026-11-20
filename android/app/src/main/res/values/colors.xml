@@ -3,6 +3,6 @@
     <!-- Brand: Vaani Indigo and Flow Teal -->
     <color name="brand">#5B47FB</color>
     <color name="flow">#14C8B0</color>
-    <color name="window">#F7F7FC</color>
+    <color name="window">#FAFAFB</color>
     <color name="launcher_bg">#5B47FB</color>
 </resources>

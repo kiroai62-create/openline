@@ -2,6 +2,10 @@ package com.vaaniflow.app.ui
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -60,27 +64,28 @@ fun DialpadSheet(initial: String, contacts: List<PhoneData.Contact>, onCall: (St
             PhoneData.t9(c.name).split(' ').any { it.startsWith(d) } || c.numbers.any { it.number.filter(Char::isDigit).contains(d) }
         }.take(3)
     }
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheet, containerColor = MaterialTheme.colorScheme.surfaceContainerLowest) {
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheet, containerColor = Vaani.tokens.card, shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp), dragHandle = { Box(Modifier.padding(top = 10.dp, bottom = 4.dp).size(width = 36.dp, height = 4.dp).clip(CircleShape).background(Vaani.tokens.hairlineStrong)) }) {
         Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(bottom = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Column(Modifier.fillMaxWidth().height(150.dp).padding(horizontal = 12.dp), verticalArrangement = Arrangement.Bottom) {
                 matches.forEach { c ->
-                    Row(Modifier.fillMaxWidth().clip(CircleShape).clickable { onCall(c.numbers.first().number) }.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Avatar(c.name, size = 34.dp)
+                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).clickable { onCall(c.numbers.first().number) }.padding(horizontal = 12.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Avatar(c.name, c.numbers.first().number, size = 36.dp)
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
                             Text(c.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(formatNumber(c.numbers.first().number), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(formatNumber(c.numbers.first().number), style = MaterialTheme.typography.bodySmall, color = Vaani.tokens.muted)
                         }
+                        Icon(Icons.Rounded.Call, null, Modifier.size(18.dp), tint = Vaani.tokens.success)
                     }
                 }
             }
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(48.dp)) {
-                    if (number.length >= 3 && matches.isEmpty()) IconButton(onClick = { onAddContact(number) }) { Icon(Icons.Rounded.PersonAdd, "Add contact", tint = MaterialTheme.colorScheme.primary) }
+                    if (number.length >= 3 && matches.isEmpty()) IconButton(onClick = { onAddContact(number) }) { Icon(Icons.Rounded.PersonAdd, "Add contact", tint = Vaani.tokens.accent) }
                 }
                 Text(
                     formatNumber(number).ifEmpty { " " },
-                    fontSize = if (number.length > 13) 28.sp else 34.sp, fontWeight = FontWeight.Normal, letterSpacing = 1.sp,
+                    fontSize = if (number.length > 13) 28.sp else 36.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.5.sp, style = MaterialTheme.typography.displaySmall,
                     textAlign = TextAlign.Center, maxLines = 1, modifier = Modifier.weight(1f),
                 )
                 Box(Modifier.size(48.dp)) {
@@ -91,10 +96,13 @@ fun DialpadSheet(initial: String, contacts: List<PhoneData.Contact>, onCall: (St
             Keypad(Modifier.padding(horizontal = 36.dp)) { number += it }
             Spacer(Modifier.height(16.dp))
             Box(
-                Modifier.size(width = 76.dp, height = 76.dp).clip(CircleShape).background(Brand.Green)
+                Modifier.size(width = 120.dp, height = 64.dp)
+                    .shadow(if (number.isNotBlank()) 12.dp else 0.dp, RoundedCornerShape(32.dp), ambientColor = Brand.Green, spotColor = Brand.Green)
+                    .clip(RoundedCornerShape(32.dp))
+                    .background(Brush.linearGradient(listOf(Color(0xFF22C55E), Brand.Green)))
                     .clickable(enabled = number.isNotBlank()) { onCall(number) },
                 contentAlignment = Alignment.Center,
-            ) { Icon(Icons.Rounded.Call, "Call", tint = Color.White, modifier = Modifier.size(32.dp)) }
+            ) { Icon(Icons.Rounded.Call, "Call", tint = Color.White, modifier = Modifier.size(30.dp)) }
         }
     }
 }
@@ -103,7 +111,7 @@ fun DialpadSheet(initial: String, contacts: List<PhoneData.Contact>, onCall: (St
 @Composable
 private fun BackspaceButton(onTap: () -> Unit, onLong: () -> Unit) {
     Box(Modifier.size(48.dp).clip(CircleShape).combinedClickable(onClick = onTap, onLongClick = onLong), contentAlignment = Alignment.Center) {
-        Icon(Icons.AutoMirrored.Rounded.Backspace, "Delete", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Icon(Icons.AutoMirrored.Rounded.Backspace, "Delete", tint = Vaani.tokens.muted)
     }
 }
 
@@ -117,15 +125,16 @@ fun Keypad(modifier: Modifier = Modifier, dark: Boolean = false, onKey: (String)
                 row.forEach { (digit, letters) ->
                     Column(
                         Modifier.weight(1f).aspectRatio(1.45f).clip(CircleShape)
-                            .background(if (dark) Color.White.copy(alpha = 0.08f) else MaterialTheme.colorScheme.surfaceContainerHigh)
+                            .background(if (dark) Color.White.copy(alpha = 0.07f) else Vaani.tokens.cardRaised)
+                            .border(1.dp, if (dark) Color.White.copy(alpha = 0.08f) else Vaani.tokens.hairline, CircleShape)
                             .combinedClickable(
                                 onClick = { haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove); onKey(digit) },
                                 onLongClick = { if (digit == "0") onKey("+") else onKey(digit) },
                             ),
                         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
                     ) {
-                        Text(digit, fontSize = 28.sp, color = if (dark) Color.White else MaterialTheme.colorScheme.onSurface)
-                        if (letters.isNotEmpty()) Text(letters, fontSize = 10.sp, letterSpacing = 1.5.sp, color = if (dark) Color.White.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(digit, fontSize = 26.sp, fontWeight = FontWeight.Medium, style = MaterialTheme.typography.headlineMedium, color = if (dark) Color.White else MaterialTheme.colorScheme.onSurface)
+                        if (letters.isNotEmpty()) Text(letters, fontSize = 10.sp, letterSpacing = 1.5.sp, color = if (dark) Color.White.copy(alpha = 0.55f) else Vaani.tokens.subtle, fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
