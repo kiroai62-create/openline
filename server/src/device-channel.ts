@@ -24,7 +24,8 @@ export class DeviceOfflineError extends Error {
 }
 
 /** Server pings each phone this often: measures latency, keeps tunnels from idling the socket out. */
-const PING_INTERVAL_MS = 20_000;
+// 45 s stays under tunnel/NAT idle timeouts while waking the phone's radio less than half as often.
+const PING_INTERVAL_MS = 45_000;
 
 export class DeviceWebSocketHub implements DeviceCommandChannel {
   private readonly server = new WebSocketServer({ noServer: true });

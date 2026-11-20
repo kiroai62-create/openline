@@ -1,12 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.VaaniFlow" parent="android:style/Theme.Material.Light.NoActionBar">
+    <!-- DeviceDefault DayNight: system dialogs (time picker, Wi-Fi prompt) look like the phone's own. -->
+    <style name="Theme.VaaniFlow" parent="android:Theme.DeviceDefault.DayNight">
+        <item name="android:windowActionBar">false</item>
+        <item name="android:windowNoTitle">true</item>
         <item name="android:windowBackground">@color/window</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:colorAccent">@color/brand</item>
     </style>
     <style name="Theme.VaaniFlow.InCall" parent="Theme.VaaniFlow">
-        <item name="android:windowBackground">#FF07060F</item>
+        <item name="android:windowBackground">@color/window</item>
     </style>
 </resources>

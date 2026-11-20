@@ -26,7 +26,8 @@ import kotlin.math.min
 
 object GatewayRuntime {
     private const val MAX_QUEUED_EVENTS = 100
-    private const val HEALTH_INTERVAL_SECONDS = 60L
+    // Health also goes out on connect and on every network change, so a slow timer is enough.
+    private const val HEALTH_INTERVAL_SECONDS = 300L
 
     private val lock = Any()
     private val pendingEvents = ArrayDeque<String>()

@@ -42,7 +42,7 @@ class InCallActivity : ComponentActivity(), CallRegistry.Listener {
             getSystemService(PowerManager::class.java).newWakeLock(PowerManager.PROXIMITY_SCREEN_OFF_WAKE_LOCK, "vaaniflow:incall")
         }.getOrNull()
         setContent {
-            VaaniTheme(dark = true) {
+            VaaniTheme {
                 @Suppress("UNUSED_EXPRESSION") version // recompose on every call change and every second
                 InCallScreen(
                     calls = CallRegistry.snapshot(),

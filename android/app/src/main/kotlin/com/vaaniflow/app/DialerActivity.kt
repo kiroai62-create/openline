@@ -69,6 +69,18 @@ class DialerActivity : ComponentActivity() {
         private const val EXTRA_DEBUG_WS_URL = "debug_gateway_ws_url"
         private const val EXTRA_DEBUG_DEVICE_ID = "debug_gateway_device_id"
         private const val EXTRA_DEBUG_DEVICE_TOKEN = "debug_gateway_device_token"
+        /** Background / autostart screens of phone makers' own power managers (first one found is opened). */
+        private val OEM_BACKGROUND_SCREENS = listOf(
+            "com.vivo.permissionmanager" to "com.vivo.permissionmanager.activity.BgStartUpManagerActivity",
+            "com.iqoo.secure" to "com.iqoo.secure.ui.phoneoptimize.BgStartUpManager",
+            "com.iqoo.secure" to "com.iqoo.secure.ui.phoneoptimize.AddWhiteListActivity",
+            "com.miui.securitycenter" to "com.miui.permcenter.autostart.AutoStartManagementActivity",
+            "com.coloros.safecenter" to "com.coloros.safecenter.permission.startup.StartupAppListActivity",
+            "com.coloros.safecenter" to "com.coloros.safecenter.startupapp.StartupAppListActivity",
+            "com.oplus.battery" to "com.oplus.powermanager.fuelgaue.PowerUsageModelActivity",
+            "com.huawei.systemmanager" to "com.huawei.systemmanager.startupmgr.ui.StartupNormalAppListActivity",
+            "com.samsung.android.lool" to "com.samsung.android.sm.battery.ui.BatteryActivity",
+        )
         private val PHONE_PERMISSIONS = buildList {
             add(Manifest.permission.CALL_PHONE)
             add(Manifest.permission.READ_CONTACTS)
@@ -96,7 +108,7 @@ class DialerActivity : ComponentActivity() {
     private val ticker = object : Runnable {
         override fun run() {
             refreshSetup()
-            handler.postDelayed(this, 1_500)
+            handler.postDelayed(this, 3_000)
         }
     }
 
@@ -244,8 +256,8 @@ class DialerActivity : ComponentActivity() {
                 licenceValid = lic?.valid ?: true,
                 audioDone = audioDone, audioText = audioText, audioAction = audioAction,
                 batteryDone = exempt,
-                batteryText = if (exempt) "Allowed. On Vivo/Oppo/Xiaomi also allow background activity in the app's battery settings." else "Without this the phone drops offline after a few minutes.",
-                batteryAction = if (exempt) "Phone settings" else "Allow",
+                batteryText = if (exempt) "Allowed. On Vivo, Oppo or Xiaomi also turn on background running." else "Without this the phone goes offline after a few minutes.",
+                batteryAction = if (exempt) "Background" else "Allow",
                 wsUrl = config.wsUrl, deviceId = config.deviceId, deviceToken = config.deviceToken,
             ),
         )
@@ -317,13 +329,25 @@ class DialerActivity : ComponentActivity() {
 
     private fun requestBackgroundRunning() {
         val exempt = getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(packageName)
-        val intent = if (exempt) {
-            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))
-        } else {
+        if (!exempt) {
             @Suppress("BatteryLife")
-            Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName"))
+            val ask = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName"))
+            if (runCatching { startActivity(ask) }.isSuccess) return
+            // Some phones hide the direct prompt: fall back to the battery optimisation list.
+            if (runCatching { startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) }.isSuccess) {
+                return toast("Find VaaniFlow, then choose Don't optimise / Unrestricted")
+            }
         }
-        runCatching { startActivity(intent) }.onFailure { toast("Open Settings, then Apps, then VaaniFlow, then Battery") }
+        // Vivo, Oppo, Xiaomi and others also stop background apps in their own power manager.
+        for (component in OEM_BACKGROUND_SCREENS) {
+            val intent = Intent().setComponent(android.content.ComponentName(component.first, component.second)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            if (intent.resolveActivity(packageManager) != null && runCatching { startActivity(intent) }.isSuccess) {
+                return toast("Turn on VaaniFlow here so it keeps running in the background")
+            }
+        }
+        runCatching { startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))) }
+            .onSuccess { toast("Open Battery and choose Unrestricted") }
+            .onFailure { toast("Open Settings, then Apps, then VaaniFlow, then Battery") }
     }
 
     /** Opening the app also (re)starts a stopped audio server. It starts through Wireless debugging, which needs Wi-Fi. */

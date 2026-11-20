@@ -36,10 +36,18 @@ internal app sharing) avoids the block.
 
 ## Design
 
-Inter typeface, neutral ink/white surfaces with hairline borders (dub.co style), and a night-sky
-hero, eyebrow labels, brand stripe and icon orbs (from the Rajnath app). Tokens live in
-`ui/Theme.kt` (`Vaani.tokens`), shared pieces in `ui/Components.kt`. Screenshots:
-`docs/screenshots/`.
+Looks like the Google Phone app so it feels part of the system: Material You colours from the
+wallpaper (Android 12+, Google's baseline blue before that), the phone's own font, Google's search
+bar, segmented lists, keypad and call screen. The only addition is the **AI** tab on the right.
+Theme in `ui/Theme.kt`, shared pieces in `ui/Components.kt`. Screenshots: `docs/screenshots/`.
+
+## Battery
+
+The status connection is the main background cost, so it wakes the radio as little as possible:
+the server pings every 45 s, the phone's own ping is only a 120 s dead-socket check, and health
+reports go every 5 minutes plus on connect and network changes. The "Stay online in the
+background" step asks for the battery exemption and then opens the maker's own background or
+autostart screen (Vivo, iQOO, Xiaomi, Oppo/Realme, Huawei, Samsung).
 
 ## Build
 

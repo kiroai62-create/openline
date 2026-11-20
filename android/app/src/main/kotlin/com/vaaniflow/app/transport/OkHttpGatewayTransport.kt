@@ -10,8 +10,10 @@ import java.util.concurrent.TimeUnit
 
 class OkHttpGatewayTransport(
     private val config: GatewayConfig,
+    // The server already pings every 45 s; our own ping only catches a dead socket, so it can be
+    // rare. Every ping wakes the mobile radio, which is the biggest background battery cost.
     private val client: OkHttpClient = OkHttpClient.Builder()
-        .pingInterval(20, TimeUnit.SECONDS)
+        .pingInterval(120, TimeUnit.SECONDS)
         .build(),
 ) : GatewayTransport {
     @Volatile
