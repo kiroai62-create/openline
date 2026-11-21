@@ -40,7 +40,6 @@ import androidx.compose.material.icons.rounded.PhoneInTalk
 import androidx.compose.material.icons.rounded.SimCard
 import androidx.compose.material.icons.rounded.SwapCalls
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -229,15 +228,23 @@ private fun OtherCallCard(entry: CallRegistry.Entry) {
 @Composable
 private fun IncomingControls(callId: String) {
     val t = Vaani.tokens
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-        RoundAction(Icons.Rounded.CallEnd, "Decline", t.endRed) { CallActions.decline(callId) }
-        RoundAction(Icons.Rounded.Call, "Answer", t.callGreen, pulse = true) { CallActions.answer(callId) }
+    // "Let AI answer" first, so the owner can hand a call to the AI before picking the usual choice.
+    Surface(
+        onClick = { CallActions.handToAi(callId) },
+        shape = RoundedCornerShape(50),
+        color = Color.Transparent,
+        modifier = Modifier.clip(RoundedCornerShape(50)).background(Brand.gradient),
+    ) {
+        Row(Modifier.padding(horizontal = 22.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Rounded.AutoAwesome, null, Modifier.size(18.dp), tint = Color.White)
+            Spacer(Modifier.width(8.dp))
+            Text("Let VaaniFlow AI answer", color = Color.White, style = MaterialTheme.typography.labelLarge)
+        }
     }
-    Spacer(Modifier.height(24.dp))
-    FilledTonalButton(onClick = { CallActions.handToAi(callId) }) {
-        Icon(Icons.Rounded.AutoAwesome, null, Modifier.size(18.dp))
-        Spacer(Modifier.width(8.dp))
-        Text("Let AI answer")
+    Spacer(Modifier.height(28.dp))
+    Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+        RoundAction(Icons.Rounded.CallEnd, "Decline", t.endRed, size = 76.dp) { CallActions.decline(callId) }
+        RoundAction(Icons.Rounded.Call, "Answer", t.callGreen, size = 76.dp, pulse = true) { CallActions.answer(callId) }
     }
 }
 
@@ -296,16 +303,16 @@ private fun Toggle(icon: ImageVector, label: String, on: Boolean, enabled: Boole
 }
 
 @Composable
-private fun RoundAction(icon: ImageVector, label: String, color: Color, pulse: Boolean = false, onClick: () -> Unit) {
+private fun RoundAction(icon: ImageVector, label: String, color: Color, size: androidx.compose.ui.unit.Dp = 72.dp, pulse: Boolean = false, onClick: () -> Unit) {
     val scale = if (pulse) {
         val tr = rememberInfiniteTransition(label = "pulse")
         tr.animateFloat(1f, 1.06f, infiniteRepeatable(tween(800), RepeatMode.Reverse), label = "s").value
     } else 1f
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(Modifier.scale(scale).size(72.dp).clip(CircleShape).background(color).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
-            Icon(icon, label, tint = Color.White, modifier = Modifier.size(30.dp))
+        Box(Modifier.scale(scale).size(size).clip(CircleShape).background(color).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
+            Icon(icon, label, tint = Color.White, modifier = Modifier.size(32.dp))
         }
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(10.dp))
         Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
