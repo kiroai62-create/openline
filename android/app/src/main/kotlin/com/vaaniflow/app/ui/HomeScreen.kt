@@ -132,7 +132,14 @@ class HomeActions(
     val openAppInfo: () -> Unit = {},
     val dialerHelp: (Boolean) -> Unit = {},
     val allowFullScreen: () -> Unit = {},
+    val star: (PhoneData.Contact, Boolean) -> Unit = { _, _ -> },
+    val isBlocked: (String) -> Boolean = { false },
+    val setBlocked: (String, Boolean) -> Unit = { _, _ -> },
+    val blockedNumbers: () -> List<String> = { emptyList() },
 )
+
+/** Opens the in-app contact page (set by HomeScreen, read by any contact row). */
+val LocalOpenContactDetail = androidx.compose.runtime.staticCompositionLocalOf<(Long) -> Unit> { {} }
 
 @Composable
 fun HomeScreen(state: HomeState, actions: HomeActions, initialTab: HomeTab, dialNumber: String?, onDialConsumed: () -> Unit) {
@@ -141,13 +148,17 @@ fun HomeScreen(state: HomeState, actions: HomeActions, initialTab: HomeTab, dial
     var searching by rememberSaveable { mutableStateOf(false) }
     var dialpadOpen by rememberSaveable { mutableStateOf(dialNumber != null) }
     if (dialNumber != null && !dialpadOpen) dialpadOpen = true
+    var detailId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var settingsOpen by rememberSaveable { mutableStateOf(false) }
     val t = Vaani.tokens
+    val detail = state.contacts.firstOrNull { it.id == detailId }
 
+    androidx.compose.runtime.CompositionLocalProvider(LocalOpenContactDetail provides { id: Long -> detailId = id }) {
     Scaffold(
         containerColor = t.background,
         topBar = {
             if (tab == HomeTab.ASSISTANT && !searching) AssistantTopBar(state.setup)
-            else SearchBar(query, searching, { query = it }, { searching = it; if (!it) query = "" }, openRecents = { tab = HomeTab.RECENTS }, openAi = { tab = HomeTab.ASSISTANT })
+            else SearchBar(query, searching, { query = it }, { searching = it; if (!it) query = "" }, openRecents = { tab = HomeTab.RECENTS }, openAi = { tab = HomeTab.ASSISTANT }, openSettings = { settingsOpen = true })
         },
         bottomBar = {
             if (!searching) NavigationBar(containerColor = t.background, tonalElevation = 0.dp) {
@@ -188,13 +199,34 @@ fun HomeScreen(state: HomeState, actions: HomeActions, initialTab: HomeTab, dial
         )
     }
     if (state.showDialerHelp) DialerHelpSheet(actions)
+    }
+
+    // In-app contact page and settings, shown over everything.
+    if (detail != null) {
+        val history = remember(detail, state.recents) {
+            val nums = detail.numbers.map { PhoneData.digits(it.number) }.toSet()
+            state.recents.filter { PhoneData.digits(it.number) in nums }
+        }
+        ContactDetail(
+            contact = detail,
+            history = history,
+            blocked = actions.isBlocked(detail.numbers.first().number),
+            onBack = { detailId = null },
+            onCall = actions.call,
+            onMessage = actions.message,
+            onEdit = { actions.openContact(detail) },
+            onStar = { actions.star(detail, it) },
+            onBlock = { actions.setBlocked(detail.numbers.first().number, it) },
+        )
+    }
+    if (settingsOpen) SettingsScreen(state, actions) { settingsOpen = false }
 }
 
 // ---- Top bar --------------------------------------------------------------------------------
 
 /** Google Phone's rounded search bar with the overflow menu; turns into a search field. */
 @Composable
-private fun SearchBar(query: String, searching: Boolean, onQuery: (String) -> Unit, onSearching: (Boolean) -> Unit, openRecents: () -> Unit, openAi: () -> Unit) {
+private fun SearchBar(query: String, searching: Boolean, onQuery: (String) -> Unit, onSearching: (Boolean) -> Unit, openRecents: () -> Unit, openAi: () -> Unit, openSettings: () -> Unit) {
     val cs = MaterialTheme.colorScheme
     Box(Modifier.fillMaxWidth().background(Vaani.tokens.background).statusBarsPadding().padding(horizontal = 16.dp, vertical = 8.dp)) {
         Row(
@@ -222,7 +254,8 @@ private fun SearchBar(query: String, searching: Boolean, onQuery: (String) -> Un
                     IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, "More options", tint = cs.onSurfaceVariant) }
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                         DropdownMenuItem(text = { Text("Call history") }, onClick = { menu = false; openRecents() })
-                        DropdownMenuItem(text = { Text("AI settings") }, onClick = { menu = false; openAi() })
+                        DropdownMenuItem(text = { Text("VaaniFlow AI") }, onClick = { menu = false; openAi() })
+                        DropdownMenuItem(text = { Text("Settings") }, onClick = { menu = false; openSettings() })
                     }
                 }
             }
@@ -562,9 +595,10 @@ private fun ContactsList(contacts: List<PhoneData.Contact>, actions: HomeActions
 @Composable
 private fun ContactRow(c: PhoneData.Contact, actions: HomeActions, showNumber: Boolean = false) {
     val n = c.numbers.first()
+    val openDetail = LocalOpenContactDetail.current
     ListRow(
         c.name, if (showNumber) "${n.label} • ${formatNumber(n.number)}" else null,
-        Modifier.clickable { actions.openContact(c) },
+        Modifier.clickable { openDetail(c.id) },
         leading = { Avatar(c.name, n.number) },
         trailing = { if (showNumber) IconButton(onClick = { actions.call(n.number) }) { Icon(Icons.Rounded.Call, "Call", tint = MaterialTheme.colorScheme.onSurfaceVariant) } },
     )

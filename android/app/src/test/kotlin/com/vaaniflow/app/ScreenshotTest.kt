@@ -65,4 +65,27 @@ class ScreenshotTest {
     @Test fun assistantDark() = shot("10-assistant-dark", HomeTab.ASSISTANT, dark = true, s = state.copy(setup = setup.copy(batteryDone = true, batteryAction = null)))
     @Test fun contactsDark() = shot("11-contacts-dark", HomeTab.CONTACTS, dark = true)
     @Test fun dialpadDark() = shot("12-dialpad-dark", HomeTab.RECENTS, dial = "2742", dark = true)
+
+    @Test fun contactDetail() {
+        compose.setContent {
+            VaaniTheme {
+                com.vaaniflow.app.ui.ContactDetail(
+                    contact = contacts[0],
+                    history = recents.filter { PhoneData.digits(it.number) == PhoneData.digits(contacts[0].numbers.first().number) },
+                    blocked = false, onBack = {}, onCall = {}, onMessage = {}, onEdit = {}, onStar = {}, onBlock = {},
+                )
+            }
+        }
+        compose.onRoot().captureRoboImage("build/outputs/roborazzi/13-contact-detail.png")
+    }
+
+    @Test fun settingsDark() {
+        compose.setContent { VaaniTheme(dark = true) { com.vaaniflow.app.ui.SettingsScreen(state, actions.copy(blockedNumbers = { listOf("+919812345678", "+918800112233") })) {} } }
+        compose.onRoot().captureRoboImage("build/outputs/roborazzi/14-settings-dark.png")
+    }
 }
+
+private fun HomeActions.copy(blockedNumbers: () -> List<String>) = HomeActions(
+    call, message, addContact, openContact, requestPermissions, setDefaultDialer, setup, saveAi,
+    openAppInfo, dialerHelp, allowFullScreen, star, isBlocked, setBlocked, blockedNumbers,
+)

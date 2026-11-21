@@ -209,6 +209,23 @@ class DialerActivity : ComponentActivity() {
         saveAi = { AiSettings.save(this, it); home = home.copy(ai = it); GatewayConnectionService.start(this) },
         openAppInfo = ::openAppInfo,
         allowFullScreen = ::openFullScreenSettings,
+        star = { contact, starred ->
+            io.execute {
+                runCatching {
+                    val values = android.content.ContentValues().apply { put(ContactsContract.Contacts.STARRED, if (starred) 1 else 0) }
+                    contentResolver.update(ContactsContract.Contacts.CONTENT_URI, values, "${ContactsContract.Contacts._ID} = ?", arrayOf(contact.id.toString()))
+                }
+                loadPhoneData()
+            }
+        },
+        isBlocked = { number -> com.vaaniflow.app.data.Blocking.isBlocked(this, number) },
+        setBlocked = { number, blocked ->
+            io.execute {
+                if (blocked) com.vaaniflow.app.data.Blocking.block(this, number) else com.vaaniflow.app.data.Blocking.unblock(this, number)
+                runOnUiThread { toast(if (blocked) "Number blocked" else "Number unblocked") }
+            }
+        },
+        blockedNumbers = { com.vaaniflow.app.data.Blocking.list(this) },
         dialerHelp = { show -> home = home.copy(showDialerHelp = show) },
     )
 

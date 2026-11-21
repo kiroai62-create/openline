@@ -129,9 +129,35 @@ object ShellLauncher {
         return caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
     }
 
-    /** WRITE_SECURE_SETTINGS lets the app turn Wireless debugging back on after a reboot. */
+    /**
+     * Once paired, the app has adb (shell) powers, so it grants its own runtime permissions, makes
+     * itself the default phone app, allows full-screen calls and whitelists itself from battery
+     * optimisation. This is why the user only pairs once and never taps through permission popups.
+     * Each command is best-effort: a phone that refuses one still works, the app just asks for that one.
+     */
     private fun grantSelfPermissions(adb: GatewayAdbManager) {
-        shell(adb, "pm grant ${BuildConfig.APPLICATION_ID} ${Manifest.permission.WRITE_SECURE_SETTINGS}")
+        val pkg = BuildConfig.APPLICATION_ID
+        // WRITE_SECURE_SETTINGS lets the app turn Wireless debugging back on after a reboot.
+        val runtime = listOf(
+            Manifest.permission.WRITE_SECURE_SETTINGS,
+            Manifest.permission.READ_CONTACTS,
+            Manifest.permission.READ_CALL_LOG,
+            Manifest.permission.READ_PHONE_STATE,
+            Manifest.permission.CALL_PHONE,
+            Manifest.permission.POST_NOTIFICATIONS,
+            "android.permission.WRITE_CALL_LOG",
+            "android.permission.READ_PHONE_NUMBERS",
+        )
+        for (p in runtime) runCatching { shell(adb, "pm grant $pkg $p") }
+        // Become the default phone app without the "restricted settings" prompt.
+        runCatching { shell(adb, "cmd role add-role-holder android.app.role.DIALER $pkg") }
+        // Show incoming calls over the lock screen / full screen (Android 14+ gates this).
+        runCatching { shell(adb, "appops set $pkg USE_FULL_SCREEN_INTENT allow") }
+        runCatching { shell(adb, "appops set $pkg SYSTEM_ALERT_WINDOW allow") }
+        // Keep running in the background so the phone stays online for AI calls.
+        runCatching { shell(adb, "dumpsys deviceidle whitelist +$pkg") }
+        runCatching { shell(adb, "cmd appops set $pkg RUN_IN_BACKGROUND allow") }
+        runCatching { shell(adb, "cmd appops set $pkg RUN_ANY_IN_BACKGROUND allow") }
     }
 
     private fun enableWirelessDebugging(context: Context) {
